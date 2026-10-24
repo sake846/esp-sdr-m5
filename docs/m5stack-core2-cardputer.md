@@ -54,10 +54,11 @@ idf.py -B build-m5stack-cardputer-adv -p COMx flash
 ## M5StickC Plus2
 
 M5StickC Plus2 uses the ESP32 backend, its portrait 135×240 ST7789 display and
-the built-in A/B/C buttons. A controls span and tuning down, B changes STEP
-or FFT, and C controls averaging and tuning up. The firmware asserts GPIO4
-early to keep the power rail on. USB serial uses its onboard USB-UART bridge
-at 2,000,000 baud.
+the built-in A/B/C buttons. Button C (GPIO35, left side) tunes down and cycles
+SPAN when held. Button A (GPIO37, center) cycles STEP with a short press and FFT
+when held. Button B (GPIO39, right side) tunes up and cycles AVE when held. The
+firmware asserts GPIO4 early to keep the power rail on. USB serial uses its
+onboard USB-UART bridge at 2,000,000 baud.
 
 ```powershell
 idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 `

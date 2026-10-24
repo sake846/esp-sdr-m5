@@ -21,8 +21,7 @@ ESP32がI/Qサンプルの取得、FFT計算、画面描画を行います。
 ## 対応機種と実機確認状況
 
 **M5Stack BASIC、Core2、通常版Cardputer（K132、非ADV）は実機での動作を確認済みです**。
-Cardputer ADVも下記のとおり実機で動作しています。M5StickC Plus2はビルド設定がありますが、
-実機での動作は未確認です。
+Cardputer ADVも下記のとおり実機で動作しています。M5StickC Plus2も実機での動作を確認済みです。
 
 | 機種 | チップ | 画面 | ビルドプロファイル | 実機確認状況 |
 | --- | --- | --- | --- | --- |
@@ -30,7 +29,7 @@ Cardputer ADVも下記のとおり実機で動作しています。M5StickC Plus
 | M5Stack Core2 | ESP32 | 320 × 240 | `m5stack-core2` | **確認済み** |
 | Cardputer 通常版 K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **確認済み** |
 | Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | **確認済み** |
-| M5StickC Plus2 | ESP32 | 135 × 240、縦画面 | `m5stickc-plus2` | 未確認 |
+| M5StickC Plus2 | ESP32 | 135 × 240、縦画面 | `m5stickc-plus2` | **確認済み** |
 
 M5StickC向けの設定は、**M5StickC Plus2専用**です。
 初代M5StickCやM5StickC Plusとの互換性を示すものではありません。
@@ -248,7 +247,7 @@ idf.py -B build-m5stickc-plus2 -p COMx flash
 
 ## 本体での操作
 
-### BASIC・Core2・M5StickC Plus2
+### BASIC・Core2
 
 Core2では、A/B/Cに対応する画面上の3つのタッチ領域を使います。
 
@@ -257,6 +256,14 @@ Core2では、A/B/Cに対応する画面上の3つのタッチ領域を使いま
 | A | 選択中のステップ分、周波数を下げる | 表示スパンを切り替える |
 | B | チューニングステップを切り替える | FFTサイズを切り替える |
 | C | 選択中のステップ分、周波数を上げる | 平均化回数を切り替える |
+
+### M5StickC Plus2
+
+| ボタン | 短押し | 0.6秒長押し |
+| --- | --- | --- |
+| C（左側） | 選択中のステップ分、周波数を下げる | 表示スパンを切り替える |
+| A（中央） | チューニングステップを切り替える | FFTサイズを切り替える |
+| B（右側） | 選択中のステップ分、周波数を上げる | 平均化回数を切り替える |
 
 ### Cardputer・Cardputer ADV
 

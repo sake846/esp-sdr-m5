@@ -46,6 +46,13 @@ static uint8_t waterfall[WATERFALL_HEIGHT][PLOT_WIDTH];
 static unsigned waterfall_head, waterfall_count, waterfall_mhz, waterfall_span, waterfall_fft;
 static bool waterfall_tuned;
 
+static inline bool spectrum_vertical_grid(unsigned plot_x) {
+    const unsigned divisions = 8, interval = PLOT_WIDTH - 1;
+    unsigned division = (plot_x * divisions + interval / 2) / interval;
+    unsigned position = (division * interval + divisions / 2) / divisions;
+    return plot_x == position;
+}
+
 #if CONFIG_ESP_SDR_M5STACK_CORE2
 static i2c_master_dev_handle_t axp, touch;
 static bool axp2101, ili9342e;
@@ -393,8 +400,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
                 if (y >= SPECTRUM_TOP && y <= SPECTRUM_BOTTOM) {
                     if (y == SPECTRUM_BOTTOM)
                         color = 0x4208;
-                    else if ((y - SPECTRUM_TOP) % 13 == 0 || plot_x % (PLOT_WIDTH / 8) == 0 ||
-                             plot_x == PLOT_WIDTH - 1)
+                    else if ((y - SPECTRUM_TOP) % 13 == 0 || spectrum_vertical_grid(plot_x))
                         color = 0x2104;
                     if (bins && valid && y != SPECTRUM_BOTTOM) {
                         unsigned trace_y = spectrum_trace[plot_x];

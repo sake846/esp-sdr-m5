@@ -27,8 +27,7 @@ after that, the device can run on its own.
 
 **M5Stack BASIC, Core2 and the original Cardputer (K132, non-ADV) have been
 verified on real hardware in this project.** Cardputer ADV is also shown
-running below. M5StickC Plus2 has a build profile, but hardware operation is
-unverified.
+running below. M5StickC Plus2 has also been verified on real hardware.
 
 | Device | Chip | Display | Build profile | Hardware test status |
 | --- | --- | --- | --- | --- |
@@ -36,7 +35,7 @@ unverified.
 | M5Stack Core2 | ESP32 | 320 × 240 | `m5stack-core2` | **Verified** |
 | Cardputer, original K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **Verified** |
 | Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | **Verified** |
-| M5StickC Plus2 | ESP32 | 135 × 240, portrait | `m5stickc-plus2` | Unverified |
+| M5StickC Plus2 | ESP32 | 135 × 240, portrait | `m5stickc-plus2` | **Verified** |
 
 The M5StickC profile specifically targets **M5StickC Plus2**. It does not imply
 compatibility with the original M5StickC or M5StickC Plus. Other devices and
@@ -258,7 +257,7 @@ control.
 
 ## Standalone controls
 
-### BASIC, Core2 and M5StickC Plus2
+### BASIC and Core2
 
 Core2 uses three touch zones corresponding to A/B/C.
 
@@ -267,6 +266,14 @@ Core2 uses three touch zones corresponding to A/B/C.
 | A | Tune down by the selected step | Cycle span |
 | B | Cycle tuning step | Cycle FFT size |
 | C | Tune up by the selected step | Cycle averaging count |
+
+### M5StickC Plus2
+
+| Button | Short press | Hold for 0.6 seconds |
+| --- | --- | --- |
+| C (left side) | Tune down by the selected step | Cycle span |
+| A (center) | Cycle tuning step | Cycle FFT size |
+| B (right side) | Tune up by the selected step | Cycle averaging count |
 
 ### Cardputer and Cardputer ADV
 

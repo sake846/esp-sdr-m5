@@ -26,14 +26,15 @@
 #define LCD_X_OFFSET 52
 #define LCD_Y_OFFSET 40
 #define LCD_HOST SPI2_HOST
+#define LCD_CLOCK_HZ 20000000
 #define LCD_MADCTL 0x08
 #define PLOT_LEFT 4
 #define PLOT_WIDTH 127
-#define SPECTRUM_TOP 45
-#define SPECTRUM_BOTTOM 86
-#define FREQUENCY_TOP 88
-#define WATERFALL_TOP 99
-#define WATERFALL_HEIGHT 130
+#define SPECTRUM_TOP 38
+#define SPECTRUM_BOTTOM 79
+#define FREQUENCY_TOP 82
+#define WATERFALL_TOP 94
+#define WATERFALL_HEIGHT 122
 #else
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 135
@@ -46,6 +47,7 @@
 #define LCD_X_OFFSET 40
 #define LCD_Y_OFFSET 53
 #define LCD_HOST SPI3_HOST
+#define LCD_CLOCK_HZ 40000000
 #define LCD_MADCTL 0x6c
 #define PLOT_LEFT 4
 #define PLOT_WIDTH 232
@@ -184,27 +186,9 @@ static void text_row(unsigned y, unsigned left, const char *text, uint16_t color
     }
 }
 
-static uint8_t title_glyph_row(char c, unsigned y) {
-    static const uint8_t e[7] = {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f};
-    static const uint8_t s[7] = {0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e};
-    static const uint8_t p[7] = {0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10};
-    static const uint8_t d[7] = {0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e};
-    static const uint8_t r[7] = {0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11};
-    static const uint8_t m[7] = {0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11};
-    static const uint8_t five[7] = {0x1f, 0x10, 0x10, 0x1e, 0x01, 0x01, 0x1e};
-    static const uint8_t dash[7] = {0, 0, 0, 0x1f, 0, 0, 0};
-    const uint8_t *rows = c == 'E' ? e : c == 'S' ? s : c == 'P' ? p : c == 'D' ? d :
-                         c == 'R' ? r : c == 'M' ? m : c == '5' ? five : c == '-' ? dash : NULL;
-    return rows ? rows[y] : 0;
-}
-
 static void title_row(unsigned y) {
     static const char title[] = "ESP-SDR-M5";
-    if (y == 0 || y > 7) return;
-    for (unsigned letter = 0; title[letter]; letter++)
-        for (unsigned x = 0; x < 5; x++)
-            if (title_glyph_row(title[letter], y - 1) & (1u << (4 - x)))
-                row[8 + letter * 6 + x] = __builtin_bswap16(0x0000);
+    text_row(y, 6, title, 0x0000);
 }
 
 static uint16_t waterfall_color(uint8_t value) {
@@ -227,6 +211,13 @@ static uint16_t waterfall_color(uint8_t value) {
     return (uint16_t)(((red & 0xf8) << 8) | ((green & 0xfc) << 3) | (blue >> 3));
 }
 
+static inline bool spectrum_vertical_grid(unsigned plot_x) {
+    const unsigned divisions = 8, interval = PLOT_WIDTH - 1;
+    unsigned division = (plot_x * divisions + interval / 2) / interval;
+    unsigned position = (division * interval + divisions / 2) / divisions;
+    return plot_x == position;
+}
+
 static unsigned keyboard_buttons(void) {
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
     unsigned count = tca8418_read(0x03) & 0x0f;
@@ -246,9 +237,9 @@ static unsigned keyboard_buttons(void) {
     return adv_keyboard_state;
 #elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
     unsigned pressed = 0;
-    if (!gpio_get_level(GPIO_NUM_37)) pressed |= 1u; /* A */
-    if (!gpio_get_level(GPIO_NUM_39)) pressed |= 2u; /* B */
-    if (!gpio_get_level(GPIO_NUM_35)) pressed |= 4u; /* C */
+    if (!gpio_get_level(GPIO_NUM_35)) pressed |= 1u; /* C, left: tune down / span */
+    if (!gpio_get_level(GPIO_NUM_37)) pressed |= 2u; /* A, center: step / FFT */
+    if (!gpio_get_level(GPIO_NUM_39)) pressed |= 4u; /* B, right: tune up / average */
     return pressed;
 #else
     static const gpio_num_t out_pins[] = {GPIO_NUM_8, GPIO_NUM_9, GPIO_NUM_11};
@@ -415,7 +406,7 @@ void m5stack_basic_init(void) {
                                   .max_transfer_sz = sizeof(row)};
     ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &bus, SPI_DMA_CH_AUTO));
     const spi_device_interface_config_t device = {
-        .clock_speed_hz = 40000000, .mode = 0, .spics_io_num = LCD_CS, .queue_size = 1,
+        .clock_speed_hz = LCD_CLOCK_HZ, .mode = 0, .spics_io_num = LCD_CS, .queue_size = 1,
     };
     ESP_ERROR_CHECK(spi_bus_add_device(LCD_HOST, &device, &lcd));
     lcd_command(0x01, NULL, 0);
@@ -521,8 +512,8 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
                 unsigned plot_x = x - PLOT_LEFT;
                 if (y >= SPECTRUM_TOP && y <= SPECTRUM_BOTTOM) {
                     if (y == SPECTRUM_BOTTOM) color = 0x4208;
-                    else if ((y - SPECTRUM_TOP) % 6 == 0 || plot_x % (PLOT_WIDTH / 8) == 0 ||
-                             plot_x == PLOT_WIDTH - 1) color = 0x2104;
+                    else if ((y - SPECTRUM_TOP) % 6 == 0 || spectrum_vertical_grid(plot_x))
+                        color = 0x2104;
                     if (bins && valid && y != SPECTRUM_BOTTOM) {
                         unsigned current = trace[plot_x], previous = plot_x ? trace[plot_x - 1] : current;
                         if (y >= (current < previous ? current : previous) &&
@@ -536,28 +527,35 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
                     }
                 }
             }
-            if (y < 10 && x >= 4 && x < 72) color = COLOR_SRDECK_YELLOW_GREEN;
+            if (y < 12 && x >= 4 && x < 78) color = COLOR_SRDECK_YELLOW_GREEN;
             row[x] = __builtin_bswap16(color);
         }
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-        if (y < 10) title_row(y);
-        if (y >= 12 && y < 22) {
-            unsigned cpu_left = SCREEN_WIDTH - (unsigned)strlen(cpu) * 7 - 3;
-            unsigned status_left = cpu_left - (unsigned)strlen(status) * 7 - 7;
-            text_row(y, status_left, status, pc_control ? 0xffe0 : 0xffff);
-            text_row(y, cpu_left, cpu, 0xffff);
+        if (y >= 1 && y < 11) {
+            title_row(y - 1);
+            unsigned status_left = SCREEN_WIDTH - (unsigned)strlen(status) * 7 - 3;
+            text_row(y - 1, status_left, status, pc_control ? 0xffe0 : 0xffff);
         }
-        if (y >= 23 && y < 33) text_row(y - 23, 4, settings, 0xffff);
-        if (y >= 34 && y < 44) text_row(y - 34, 4, details, 0xffff);
+        if (y >= 14 && y < 24) text_row(y - 14, 4, settings, 0xffff);
+        if (y >= 26 && y < 36) text_row(y - 26, 4, details, 0xffff);
         if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 10) {
             text_row(y - FREQUENCY_TOP, PLOT_LEFT, edges[0], 0xffff);
             text_row(y - FREQUENCY_TOP, SCREEN_WIDTH / 2 - (unsigned)strlen(edges[1]) * 7 / 2, edges[1], 0xffff);
             text_row(y - FREQUENCY_TOP, SCREEN_WIDTH - (unsigned)strlen(edges[2]) * 7 - 3, edges[2], 0xffff);
         }
-        if (y >= 230 && y < 240) text_row(y - 230, 39, "SPAN FFT AVE", COLOR_SRDECK_YELLOW_GREEN);
+        if (y >= 218 && y < 228) {
+            text_row(y - 218, 4, "TUNE-", COLOR_SRDECK_YELLOW_GREEN);
+            text_row(y - 218, 53, "STEP", COLOR_SRDECK_YELLOW_GREEN);
+            text_row(y - 218, 96, "TUNE+", COLOR_SRDECK_YELLOW_GREEN);
+        }
+        if (y >= 230 && y < 240) {
+            text_row(y - 230, 4, "SPAN", COLOR_SRDECK_YELLOW_GREEN);
+            text_row(y - 230, 57, "FFT", COLOR_SRDECK_YELLOW_GREEN);
+            text_row(y - 230, 110, "AVE", COLOR_SRDECK_YELLOW_GREEN);
+        }
 #else
+        if (y >= 1 && y < 11) title_row(y - 1);
         if (y < 10) {
-            title_row(y);
             unsigned cpu_left = SCREEN_WIDTH - (unsigned)strlen(cpu) * 7 - 3;
             unsigned status_left = cpu_left - (unsigned)strlen(status) * 7 - 7;
             text_row(y, status_left, status, pc_control ? 0xffe0 : 0xffff);
