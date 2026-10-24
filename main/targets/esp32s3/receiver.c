@@ -5,6 +5,7 @@
 #include <string.h>
 #include "driver/usb_serial_jtag.h"
 #include "esp_cpu.h"
+#include "esp_err.h"
 #include "esp_event.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
@@ -33,6 +34,8 @@
 #define M5_LOCAL_FFT_MAX 4096u
 #define M5_LOCAL_AVERAGE_MAX 16u
 static bool local_capture;
+static uint8_t *local_bins;
+static uint16_t *local_average_power_q6;
 #endif
 
 /* Vendor S3 adctrig uses the 64 KiB aperture at 0x3fcd0000 (MAC_DUMP_USAGE=4).
@@ -451,6 +454,10 @@ static bool ring_command(const char *line) {
         reply(h);
     } else
         return false;
+    if (!ring_capture_init()) {
+        reply("ERR ring_memory\n");
+        return true;
+    }
     ring_result_t r;
     prepare_rx();
     rx_filter_apply();
@@ -526,6 +533,10 @@ static void handle_command(char *line) {
 void app_main(void) {
     esp_log_level_set("*", ESP_LOG_NONE);
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    local_bins = heap_caps_calloc(M5_LOCAL_FFT_MAX, sizeof(*local_bins) + sizeof(*local_average_power_q6),
+                                  MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    ESP_ERROR_CHECK(local_bins ? ESP_OK : ESP_ERR_NO_MEM);
+    local_average_power_q6 = (uint16_t *)(local_bins + M5_LOCAL_FFT_MAX);
     m5stack_basic_init();
 #endif
     esp_err_t e = nvs_flash_init();
@@ -546,12 +557,17 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));
     ESP_ERROR_CHECK(esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE));
     prepare_rx();
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    (void)spectrum_fft_init_n(m5stack_basic_fft_points()); /* Reserve only the selected FFT size. */
+#endif
     esp_log_level_set("*", ESP_LOG_NONE);
     /* USB may be unplugged when the host uses the UART bridge. */
     (void)usb_serial_jtag_wait_tx_done(pdMS_TO_TICKS(100));
     ESP_ERROR_CHECK(usb_serial_jtag_driver_uninstall());
     burst_serial_init();
-    ring_capture_init();
+#if !CONFIG_ESP_SDR_M5STACK_CARDPUTER && !CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    (void)ring_capture_init();
+#endif
     burst_serial_serve(handle_command);
 }
 
@@ -566,8 +582,8 @@ void burst_serial_idle(bool leased) {
     static bool showing_pc;
     static unsigned pc_mhz, snapshot_mhz, snapshot_rate, snapshot_fft, snapshot_average_target;
     static unsigned cpu_percent, average_count, average_slot;
-    static uint8_t bins[M5_LOCAL_FFT_MAX];
-    static uint16_t average_power_q6[M5_LOCAL_FFT_MAX];
+    uint8_t *bins = local_bins;
+    uint16_t *average_power_q6 = local_average_power_q6;
     static const uint16_t log_add_q6[] = {
         385, 354, 325, 298, 272, 248, 226, 205, 186, 169, 153, 138, 125, 112, 101, 91, 82, 73, 66, 59,
         53, 47, 42, 38, 34, 30, 27, 24, 22, 19, 17, 15, 14, 12, 11, 10, 9, 8, 7, 6,

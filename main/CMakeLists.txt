@@ -62,16 +62,13 @@ if(IDF_TARGET STREQUAL "esp32c61" OR IDF_TARGET STREQUAL "esp32s31")
     list(APPEND sources "common/burst_gain_table.c")
 endif()
 
-# IDF discovers requirements before loading Kconfig; use the chip here.
-if(IDF_TARGET STREQUAL "esp32")
-    list(APPEND dependencies esp_driver_spi)
+# IDF discovers requirements before loading Kconfig; declare board buses by chip.
+if(IDF_TARGET STREQUAL "esp32" OR IDF_TARGET STREQUAL "esp32s3")
+    list(APPEND dependencies esp_driver_spi esp_driver_i2c)
 endif()
 if(CONFIG_ESP_SDR_M5STACK_BASIC OR CONFIG_ESP_SDR_M5STACK_CORE2)
     list(APPEND sources "boards/m5stack_basic.c")
     list(APPEND target_includes "boards")
-    if(CONFIG_ESP_SDR_M5STACK_CORE2)
-        list(APPEND dependencies esp_driver_i2c)
-    endif()
 elseif(CONFIG_ESP_SDR_M5STACK_CARDPUTER OR CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV OR
        CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2)
     list(APPEND sources "boards/m5stack_cardputer.c")
@@ -79,12 +76,6 @@ elseif(CONFIG_ESP_SDR_M5STACK_CARDPUTER OR CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV 
         list(APPEND sources "common/spectrum.c")
     endif()
     list(APPEND target_includes "boards")
-    if(NOT IDF_TARGET STREQUAL "esp32")
-        list(APPEND dependencies esp_driver_spi)
-    endif()
-    if(CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV)
-        list(APPEND dependencies esp_driver_i2c)
-    endif()
 endif()
 
 idf_component_register(SRCS "${receiver}" ${sources}

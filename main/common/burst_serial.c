@@ -145,8 +145,8 @@ int burst_serial_poll_line(char *line, size_t capacity) {
             char ch;
             if (read_port(port, &ch, 1) != 1) break;
             input[port].last_byte = now;
-            if (ch == '\r') continue;
-            if (ch != '\n') {
+            /* Serial terminals differ: Enter may send CR, LF, or CRLF. */
+            if (ch != '\r' && ch != '\n') {
                 if (input[port].used < COMMAND_SIZE - 1)
                     input[port].line[input[port].used++] = ch;
                 else

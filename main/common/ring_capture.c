@@ -266,12 +266,20 @@ RING_SWITCH static uint32_t find_end(unsigned b, unsigned origin, unsigned write
 #else
 #define TXQ_SIZE 16384u /* 7 frames of 2048 bins, 56 of 256 */
 #endif
+#if CONFIG_IDF_TARGET_ESP32S3
+static uint8_t *txq;
+#else
 static uint8_t txq[TXQ_SIZE];
+#endif
 static uint32_t txq_head, txq_tail; /* free-running byte counters */
 _Static_assert((TXQ_SIZE & (TXQ_SIZE - 1u)) == 0, "queue size");
 
 RING_HOT static bool txq_push(const void *data, size_t n) {
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (!txq || TXQ_SIZE - (txq_head - txq_tail) < n) return false;
+#else
     if (TXQ_SIZE - (txq_head - txq_tail) < n) return false;
+#endif
     const uint8_t *s = data;
     uint32_t off = txq_head & (TXQ_SIZE - 1u), first = TXQ_SIZE - off;
     if (first > n) first = n;
@@ -285,6 +293,9 @@ RING_HOT static bool txq_push(const void *data, size_t n) {
 RING_HOT static void txq_pump(void) {
     uint32_t used = *(volatile uint32_t *)&txq_head - txq_tail; /* core 1 pushes too */
     if (!used) return;
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (!txq) return;
+#endif
     uint32_t off = txq_tail % TXQ_SIZE, n = TXQ_SIZE - off;
     if (n > used) n = used;
     if (n > 64) n = 64;
@@ -345,20 +356,22 @@ static void log_tables_init(void);
 static void c1_start(void);
 #endif
 static bool dsp_ready;
-void ring_capture_init(void) {
-    if (dsp_ready) return;
+bool ring_capture_init(void) {
+    if (dsp_ready) return true;
 #if !CONFIG_IDF_TARGET_ESP32S3
     dsp_ready = spectrum_fft_init();
     log_tables_init();
 #else
-    /* twiddles from the heap: BSS must end below the RF ring (sram_guard.ld) */
+    /* Keep large work buffers off BSS, which must end below the RF ring. */
+    if (!txq) txq = heap_caps_malloc(TXQ_SIZE, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (!ring_twiddles)
         ring_twiddles = heap_caps_aligned_alloc(16, RING_SPEC_NFFT_MAX * sizeof(int16_t),
                                                 MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    dsp_ready = ring_twiddles && dsps_fft2r_init_sc16(ring_twiddles, RING_SPEC_NFFT_MAX) == ESP_OK;
+    dsp_ready = txq && ring_twiddles && dsps_fft2r_init_sc16(ring_twiddles, RING_SPEC_NFFT_MAX) == ESP_OK;
     log_tables_init();
     if (dsp_ready) c1_start();
 #endif
+    return dsp_ready;
 }
 
 bool ring_capture_valid_nfft(unsigned n) {
@@ -1118,7 +1131,7 @@ void ring_capture_set_dual(bool on) {
 
 IRAM_ATTR static bool c1_txq_push(const uint8_t *d, uint32_t n) {
     uint32_t head = txq_head, tail = *(volatile uint32_t *)&txq_tail;
-    if (TXQ_SIZE - (head - tail) < n) return false;
+    if (!txq || TXQ_SIZE - (head - tail) < n) return false;
     for (uint32_t i = 0; i < n; i++) txq[(head + i) & (TXQ_SIZE - 1u)] = d[i];
     MEMW();
     *(volatile uint32_t *)&txq_head = head + n;

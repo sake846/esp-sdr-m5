@@ -45,8 +45,9 @@ typedef union {
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
 /* Keep the S3's RF-ring-limited BSS below its reserved SRAM aperture. */
 static int16_t *fft_data, *window, *twiddles;
-static uint8_t *frame, *storage;
+static uint8_t *frame;
 static spectrum_power_storage_t *power_storage;
+static unsigned fft_capacity, window_capacity, twiddle_capacity, twiddle_n;
 #define powers (*power_storage)
 #else
 static int16_t fft_data[2 * MAX_FFT] __attribute__((aligned(16))) SPEC_STORAGE;
@@ -70,27 +71,30 @@ static int16_t twiddles[MAX_FFT] __attribute__((aligned(16))) SPEC_STORAGE;
 #endif
 
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
-static bool allocate_workspace(void) {
-    if (storage) return true;
-    size_t fft_bytes = 2 * MAX_FFT * sizeof(int16_t);
-    size_t window_bytes = MAX_FFT * sizeof(int16_t);
-    size_t power_bytes = sizeof(spectrum_power_storage_t);
-    size_t frame_bytes = HEADER_BYTES + MAX_SPEC_FFT + 4;
-    size_t twiddle_bytes = MAX_FFT * sizeof(int16_t);
-    size_t total = fft_bytes + window_bytes + power_bytes + frame_bytes + twiddle_bytes + 64;
-    storage = heap_caps_aligned_alloc(16, total, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (!storage) return false;
-    size_t offset = 0;
-    fft_data = (int16_t *)(storage + offset);
-    offset += (fft_bytes + 15) & ~(size_t)15;
-    window = (int16_t *)(storage + offset);
-    offset += (window_bytes + 15) & ~(size_t)15;
-    power_storage = (spectrum_power_storage_t *)(storage + offset);
-    offset += (power_bytes + 15) & ~(size_t)15;
-    frame = storage + offset;
-    offset += (frame_bytes + 15) & ~(size_t)15;
-    twiddles = (int16_t *)(storage + offset);
+static bool grow_fft_buffer(int16_t **buffer, unsigned *capacity, unsigned n, unsigned channels) {
+    if (*capacity >= n) return true;
+    int16_t *next = heap_caps_realloc(*buffer, (size_t)n * channels * sizeof(*next),
+                                     MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!next) return false;
+    *buffer = next;
+    *capacity = n;
     return true;
+}
+
+static bool allocate_fft_workspace(unsigned n) {
+    /* Local display only needs buffers for its selected FFT size. Growing
+     * from 256 avoids reserving the Cardputer's full 4096-point workspace. */
+    return grow_fft_buffer(&fft_data, &fft_capacity, n, 2) &&
+           grow_fft_buffer(&window, &window_capacity, n, 1) &&
+           grow_fft_buffer(&twiddles, &twiddle_capacity, n, 1);
+}
+
+static bool allocate_workspace(void) {
+    if (!allocate_fft_workspace(MAX_FFT)) return false;
+    if (!power_storage)
+        power_storage = heap_caps_malloc(sizeof(*power_storage), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!frame) frame = heap_caps_malloc(HEADER_BYTES + MAX_SPEC_FFT + 4, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    return power_storage && frame;
 }
 #endif
 
@@ -105,9 +109,36 @@ spectrum_workspace_t spectrum_workspace(void) {
 bool spectrum_fft_init(void) {
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
     if (!allocate_workspace()) return false;
-#endif
+    /* Keep a private table: ESP-DSP's shared table is also used by the ring FFT. */
+    if (twiddle_n != MAX_FFT) {
+        if (dsps_gen_w_r2_sc16(twiddles, MAX_FFT) != ESP_OK ||
+            dsps_bit_rev_sc16_ansi(twiddles, MAX_FFT >> 1) != ESP_OK)
+            return false;
+        twiddle_n = MAX_FFT;
+    }
+    ready = true;
+#else
     if (!ready) ready = dsps_fft2r_init_sc16(twiddles, MAX_FFT) == ESP_OK;
+#endif
     return ready;
+}
+
+bool spectrum_fft_init_n(unsigned n) {
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    if (n < 256 || n > MAX_FFT || (n & (n - 1)) || !allocate_fft_workspace(n)) return false;
+    if (twiddle_n != n) {
+        /* Private tables let the local FFT use its current size independently
+         * of the continuous ring FFT's ESP-DSP table. */
+        if (dsps_gen_w_r2_sc16(twiddles, n) != ESP_OK || dsps_bit_rev_sc16_ansi(twiddles, n >> 1) != ESP_OK)
+            return false;
+        twiddle_n = n;
+    }
+    ready = n == MAX_FFT;
+    return true;
+#else
+    (void)n;
+    return spectrum_fft_init();
+#endif
 }
 
 static const unsigned rates[] = {
@@ -197,7 +228,7 @@ void spectrum_snapshot_reset_dc(void) {
 }
 
 bool spectrum_snapshot(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins) {
-    if (!rate_hz(rate) || n < 256 || n > MAX_FFT || (n & (n - 1)) || !spectrum_fft_init()) return false;
+    if (!rate_hz(rate) || n < 256 || n > MAX_FFT || (n & (n - 1)) || !spectrum_fft_init_n(n)) return false;
     const uint32_t *words;
     unsigned elapsed;
     if (!acquire(n, rate, &words, &elapsed)) return false;

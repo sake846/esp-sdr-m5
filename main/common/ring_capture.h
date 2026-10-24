@@ -82,7 +82,7 @@ typedef struct {
     ring_unit_t cap[RING_BANKS];
 } ring_result_t;
 
-void ring_capture_init(void);
+bool ring_capture_init(void);
 /* Caller has prepared the receiver (tuning, gain, filter). Interrupts are
  * disabled throughout bank rotation. */
 void ring_capture_run(const ring_config_t *config, ring_result_t *result);
