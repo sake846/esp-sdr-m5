@@ -10,11 +10,11 @@ typedef struct {
     bool b_long;
 } m5stack_controls_t;
 
-static const unsigned m5stack_steps[] = {1, 5, 20};
-static const unsigned m5stack_rates[] = {6, 1, 0};
-static const unsigned m5stack_spans[] = {16, 40, 80};
+static const unsigned m5stack_steps[] = {1, 5, 20, 100};
+static const unsigned m5stack_rates[] = {6, 6, 6, 6, 1, 0};
+static const unsigned m5stack_spans[] = {2, 4, 8, 16, 40, 80};
 static const unsigned m5stack_fft_sizes[] = {256, 512, 1024, 2048, 4096, 8192};
-static const unsigned m5stack_average_counts[] = {1, 2, 4, 8, 10, 16};
+static const unsigned m5stack_average_counts[] = {1, 2, 4, 8, 16};
 
 /* GPIO37-39 have external pull-ups; debounce without blocking the serial loop. */
 static inline unsigned m5stack_controls_update(m5stack_controls_t *s, unsigned mhz, unsigned pressed,
@@ -41,7 +41,7 @@ static inline unsigned m5stack_controls_update(m5stack_controls_t *s, unsigned m
                 s->b_pressed = now;
                 s->b_long = false;
             } else if (!s->b_long) {
-                s->step = (s->step + 1) % 3;
+                s->step = (s->step + 1) % (sizeof(m5stack_steps) / sizeof(m5stack_steps[0]));
             }
         } else if (s->stable & bit) {
             s->pressed_at[j] = now;
@@ -59,7 +59,7 @@ static inline unsigned m5stack_controls_update(m5stack_controls_t *s, unsigned m
         s->b_long = true;
     }
     if ((s->stable & 1) && !s->suppress_release[0] && (uint32_t)(now - s->pressed_at[0]) >= 600) {
-        s->rate = (s->rate + 1) % 3;
+        s->rate = (s->rate + 1) % (sizeof(m5stack_spans) / sizeof(m5stack_spans[0]));
         s->suppress_release[0] = true;
     }
     if ((s->stable & 4) && !s->suppress_release[2] && (uint32_t)(now - s->pressed_at[2]) >= 600) {

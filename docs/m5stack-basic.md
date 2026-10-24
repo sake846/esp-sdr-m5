@@ -42,11 +42,11 @@ during a nominal 100 ms interval; LCD drawing adds a little to refresh time.
 | Button | Action |
 | --- | --- |
 | A, short press | Decrease the center frequency by the selected step |
-| A, hold for 0.6 seconds | Cycle span: 16, 40, 80 MHz |
-| B, short press | Cycle the step: 1, 5, 20 MHz |
-| B, hold for 0.6 seconds | Cycle FFT size: 256, 512, 1024, 2048, 4096, 8192 |
+| A, hold for 0.6 seconds | Cycle span: 2, 4, 8, 16, 40, 80 MHz |
+| B, short press | Cycle the step: 1, 5, 20, 100 MHz |
+| B, hold for 0.6 seconds | Cycle FFT size: 256, 512, 1024, 2048, 4096, 8192, then 256 |
 | C | Increase the center frequency by the selected step |
-| C, hold for 0.6 seconds | Cycle averaging count: 1, 2, 4, 8, 10, 16 (default 10) |
+| C, hold for 0.6 seconds | Cycle averaging count: 1, 2, 4, 8, 16 (default 8) |
 
 Short A/C presses tune only after the button is released. Holding A cycles the
 span instead of tuning; holding B cycles the FFT size, and holding C cycles
@@ -61,8 +61,10 @@ shows the step, span, FFT size and selected average count. The selected number
 of snapshots is scheduled at evenly spaced positions within each 100 ms
 interval and averaged in the power domain. If a capture runs late, missed
 positions are skipped rather than bunched together, so the actual number may be
-lower than selected. Averaging smooths the displayed level without changing
-the FFT frequency resolution. `LIVE` means at least one local capture and FFT
+lower than selected. Spans of 2, 4 and 8 MHz keep the receiver at 16 MS/s and
+zoom the display into the center of its 16 MHz capture; 16, 40 and 80 MHz spans
+use their matching sample rates. Averaging smooths the displayed level without
+changing the FFT frequency resolution. `LIVE` means at least one local capture and FFT
 succeeded in the current interval; it does not mean a transmitter was detected. `WAIT`
 means the latest local capture failed, and `PC` means a serial client owns the
 receiver. At FFT sizes above 256, the strongest

@@ -25,6 +25,7 @@
 #define WATERFALL_TOP 97
 #define WATERFALL_HEIGHT 120
 #define BUTTON_HINT_TOP 223
+#define COLOR_SRDECK_YELLOW_GREEN 0xb726 /* RGB565 equivalent of SRdeck #B4E632. */
 static spi_device_handle_t lcd;
 static m5stack_controls_t controls;
 /* A single scanline avoids a 150 KiB framebuffer on the non-PSRAM Basic. */
@@ -46,7 +47,8 @@ static void lcd_command(uint8_t command, const uint8_t *data, size_t size) {
 }
 
 void m5stack_basic_init(void) {
-    controls.average = 4; /* Default to ten spectra per 100 ms interval. */
+    controls.rate = 3; /* Preserve the original 16 MHz default span. */
+    controls.average = 3; /* Default to eight spectra per 100 ms interval. */
     const gpio_config_t outputs = {
         .pin_bit_mask = PIN(4) | PIN(25) | PIN(LCD_DC) | PIN(LCD_RST) | PIN(LCD_BL),
         .mode = GPIO_MODE_OUTPUT,
@@ -183,6 +185,7 @@ static uint16_t waterfall_color(uint8_t value) {
 
 void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, bool pc_control,
                         bool valid, unsigned cpu_percent) {
+    static const char title[] = "ESP-SDR M5 BASIC";
     char settings[40], edges[3][12];
     uint8_t display_bins[PLOT_WIDTH] = {0};
     uint8_t spectrum_trace[PLOT_WIDTH];
@@ -194,19 +197,22 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         waterfall_head = waterfall_count = 0;
         waterfall_tuned = true;
     }
-    snprintf(settings, sizeof(settings), "STEP %uM SPAN %uM FFT %u AVE %u", m5stack_steps[controls.step],
+    snprintf(settings, sizeof(settings), "STEP %uM SPAN %uM FFT%u AVE%u", m5stack_steps[controls.step],
              span, fft_points, m5stack_basic_average_count());
     snprintf(edges[0], sizeof(edges[0]), "%u", mhz - span / 2);
     snprintf(edges[1], sizeof(edges[1]), "%u", mhz);
     snprintf(edges[2], sizeof(edges[2]), "%u", mhz + span / 2);
     if (bins && valid) {
+        unsigned capture_span = span < 16 ? 16 : span;
+        unsigned visible_points = fft_points * span / capture_span;
+        unsigned first_point = (fft_points - visible_points) / 2;
         for (unsigned plot_x = 0; plot_x < PLOT_WIDTH; plot_x++) {
-            unsigned first = plot_x * fft_points / PLOT_WIDTH;
-            unsigned limit = (plot_x + 1) * fft_points / PLOT_WIDTH;
+            unsigned first = plot_x * visible_points / PLOT_WIDTH;
+            unsigned limit = (plot_x + 1) * visible_points / PLOT_WIDTH;
             if (limit <= first) limit = first + 1;
-            if (limit > fft_points) limit = fft_points;
+            if (limit > visible_points) limit = visible_points;
             for (unsigned shifted = first; shifted < limit; shifted++) {
-                unsigned bin = (shifted + fft_points / 2) % fft_points;
+                unsigned bin = (first_point + shifted + fft_points / 2) % fft_points;
                 if (bins[bin] > display_bins[plot_x]) display_bins[plot_x] = bins[bin];
             }
             unsigned height = (display_bins[plot_x] * (SPECTRUM_BOTTOM - SPECTRUM_TOP)) / 255;
@@ -246,19 +252,22 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             }
             row[x] = __builtin_bswap16(color);
         }
-        text_row(y, 4, 3, "ESP-SDR M5 BASIC", 2, 0x07ff);
+        if (y >= 3 && y < 13)
+            for (unsigned x = 4; x < 4 + (sizeof(title) - 1) * 8; x++)
+                row[x] = __builtin_bswap16(COLOR_SRDECK_YELLOW_GREEN);
+        text_row(y, 4, 3, title, 2, 0x0000);
         char cpu[12];
         snprintf(cpu, sizeof(cpu), "CPU %u%%", cpu_percent);
-        text_row(y, 318 - (unsigned)strlen(cpu) * 8, 3, cpu, 2, 0x07ff);
+        text_row(y, 318 - (unsigned)strlen(cpu) * 8, 3, cpu, 2, 0xffff);
         text_row(y, 4, 21, settings, 2, 0xffff);
         text_row(y, 270, 23, pc_control ? "PC" : valid ? "LIVE" : "WAIT", 1,
                  pc_control ? 0xffe0 : 0xffff);
         text_row(y, 4, FREQUENCY_TOP, edges[0], 2, 0xffff);
         text_row(y, 144, FREQUENCY_TOP, edges[1], 2, 0xffff);
         text_row(y, 284, FREQUENCY_TOP, edges[2], 2, 0xffff);
-        text_row(y, 29, BUTTON_HINT_TOP, "TUNE-/SPAN+", 2, 0x07ff);
-        text_row(y, 120, BUTTON_HINT_TOP, "STEP/FFT+", 2, 0x07ff);
-        text_row(y, 231, BUTTON_HINT_TOP, "TUNE+/AVE+", 2, 0x07ff);
+        text_row(y, 29, BUTTON_HINT_TOP, "TUNE-/SPAN+", 2, COLOR_SRDECK_YELLOW_GREEN);
+        text_row(y, 120, BUTTON_HINT_TOP, "STEP/FFT+", 2, COLOR_SRDECK_YELLOW_GREEN);
+        text_row(y, 231, BUTTON_HINT_TOP, "TUNE+/AVE+", 2, COLOR_SRDECK_YELLOW_GREEN);
         lcd_command(0x2a, (const uint8_t[]){0, 0, 1, 0x3f}, 4);
         const uint8_t address[] = {0, y, 0, y};
         lcd_command(0x2b, address, 4);
