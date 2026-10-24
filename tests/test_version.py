@@ -19,6 +19,8 @@ class FirmwareVersion(unittest.TestCase):
         def image(value):
             return b'prefixESP-SDR-VERSION:'+json.dumps(value).encode()+b'\0suffix'
         self.assertEqual(exporter.firmware_version(image(RECORD)), RECORD)
+        basic = dict(RECORD, profile='m5stack-basic')
+        self.assertEqual(exporter.firmware_version(image(basic)), basic)
         self.assertIsNone(exporter.firmware_version(b'old firmware'))
         for patch in [dict(build_date='2026-10-05'), dict(build_timestamp='2026-02-30T00:00:00Z'),
                       dict(build_timestamp='2026-10-06T22:12:34'), dict(revision='invalid'), dict(profile='../bad')]:

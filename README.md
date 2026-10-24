@@ -128,6 +128,13 @@ builds a release image the same way CI does. Host-side tests run with
 
 Chip-specific notes: [ESP32-C2](docs/esp32c2.md), [ESP32-H2](docs/esp32h2.md).
 
+## M5Stack Basic
+
+The `m5stack-basic` profile adds a standalone 256-bin spectrum and color
+waterfall display with A/B/C button controls on the original ESP32 M5Stack
+Basic, plus the existing USB-UART protocol. See
+[build, flash and operating instructions](docs/m5stack-basic.md).
+
 ## Source layout
 
 - `main/targets/<chip>/`: per-chip receiver, tuning and capture memory guard.

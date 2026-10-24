@@ -62,6 +62,15 @@ if(IDF_TARGET STREQUAL "esp32c61" OR IDF_TARGET STREQUAL "esp32s31")
     list(APPEND sources "common/burst_gain_table.c")
 endif()
 
+# IDF discovers requirements before loading Kconfig; use the chip here.
+if(IDF_TARGET STREQUAL "esp32")
+    list(APPEND dependencies esp_driver_spi)
+endif()
+if(CONFIG_ESP_SDR_M5STACK_BASIC)
+    list(APPEND sources "boards/m5stack_basic.c")
+    list(APPEND target_includes "boards")
+endif()
+
 idf_component_register(SRCS "${receiver}" ${sources}
     LDFRAGMENTS ${fragments}
     PRIV_INCLUDE_DIRS "common" ${target_includes} "diagnostics"
@@ -71,9 +80,13 @@ idf_component_register(SRCS "${receiver}" ${sources}
 # is also the artifact exporter's source of revision and UTC build time.
 idf_build_get_property(version_python PYTHON)
 set(version_header "${CMAKE_CURRENT_BINARY_DIR}/generated/build_version.h")
+set(version_profile "${IDF_TARGET}")
+if(CONFIG_ESP_SDR_M5STACK_BASIC)
+    set(version_profile "m5stack-basic")
+endif()
 add_custom_target(esp_sdr_build_version
     COMMAND "${version_python}" "${PROJECT_DIR}/tools/generate_version.py"
-        --root "${PROJECT_DIR}" --profile "${IDF_TARGET}" --output "${version_header}"
+        --root "${PROJECT_DIR}" --profile "${version_profile}" --output "${version_header}"
     BYPRODUCTS "${version_header}"
     VERBATIM)
 add_dependencies(${COMPONENT_LIB} esp_sdr_build_version)

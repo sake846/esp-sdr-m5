@@ -1,3 +1,24 @@
+menu "ESP-SDR board"
+
+    config ESP_SDR_M5STACK_BASIC
+        bool "M5Stack Basic standalone spectrum display"
+        depends on IDF_TARGET_ESP32
+        default n
+        help
+            Enable the Basic LCD and A/B/C buttons, mute its speaker and
+            exclude onboard peripheral pins from the serial GPIO service.
+            PC commands take priority over standalone controls.
+
+    config ESP_SDR_M5STACK_LCD_ILI9341
+        bool "Early Basic with ILI9341 LCD"
+        depends on ESP_SDR_M5STACK_BASIC
+        default n
+        help
+            Select the ILI9341 panel on early Basic boards. Leave disabled
+            for the ILI9342C panel used by newer Basic revisions.
+
+endmenu
+
 menu "ESP-SDR transport"
 
     config ESP_SDR_UART_ENABLED

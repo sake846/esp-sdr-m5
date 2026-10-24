@@ -79,7 +79,7 @@ def collect(source, output, catalog=None):
     for extra, relative in metadata:
         text = extra.read_text()
         if extra.name == 'flash_command.txt':
-            text = text.replace('@flash_args', '@' + str(relative.parent / 'flash_args'))
+            text = text.replace('@flash_args', '@' + (relative.parent / 'flash_args').as_posix())
         (output / relative).write_text(text)
     (output / 'manifest.json').write_text(json.dumps(combined, indent=2) + '\n')
     return combined

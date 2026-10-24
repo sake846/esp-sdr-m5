@@ -28,6 +28,10 @@
 #include "soc/dport_reg.h"
 #include "soc/dport_access.h"
 #include "heap_memory_layout.h"
+#if CONFIG_ESP_SDR_M5STACK_BASIC
+#include "m5stack_basic.h"
+static bool local_capture;
+#endif
 
 /* Reserve both SRAM banks, including their instruction aliases. Mode 2 only
  * exposes 32 KiB to MAC; mode 3 exposes the entire 64 KiB capture aperture. */
@@ -67,6 +71,9 @@ extern void rom_pbus_xpd_tx_off(void);
 extern void rom_set_rxclk_en(int);
 
 static void reply(const char *fmt, ...) {
+#if CONFIG_ESP_SDR_M5STACK_BASIC
+    if (local_capture) return; /* Local capture failures must not enter the UART protocol. */
+#endif
     char text[256];
     va_list ap;
     va_start(ap, fmt);
@@ -249,6 +256,9 @@ static void command(char *line) {
 
 void app_main(void) {
     esp_log_level_set("*", ESP_LOG_NONE);
+#if CONFIG_ESP_SDR_M5STACK_BASIC
+    m5stack_basic_init();
+#endif
     esp_err_t e = nvs_flash_init();
     if (e == ESP_ERR_NVS_NO_FREE_PAGES || e == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -271,3 +281,42 @@ void app_main(void) {
     burst_serial_init();
     burst_serial_serve(command);
 }
+
+#if CONFIG_ESP_SDR_M5STACK_BASIC
+void burst_serial_idle(bool leased) {
+    static int64_t next_poll, next_frame;
+    static bool showing_pc;
+    static unsigned pc_mhz;
+    static unsigned snapshot_mhz, snapshot_rate;
+    static uint8_t bins[256];
+    int64_t now = esp_timer_get_time();
+    if (now < next_poll) return;
+    next_poll = now + 10000;
+    unsigned mhz = m5stack_basic_poll(frequency_mhz, leased);
+    if (mhz != frequency_mhz) {
+        frequency_mhz = mhz;
+        rx_ready = false;
+        prepare_rx();
+    }
+    if (now < next_frame) return;
+    next_frame = now + 100000;
+    if (leased) {
+        if (!showing_pc || pc_mhz != frequency_mhz)
+            m5stack_basic_draw(frequency_mhz, bins, true, true);
+        showing_pc = true;
+        pc_mhz = frequency_mhz;
+        return;
+    }
+    showing_pc = false;
+    unsigned rate = m5stack_basic_rate();
+    if (snapshot_mhz != frequency_mhz || snapshot_rate != rate) {
+        spectrum_snapshot_reset_dc();
+        snapshot_mhz = frequency_mhz;
+        snapshot_rate = rate;
+    }
+    local_capture = true;
+    bool valid = spectrum_snapshot(rate, spectrum_acquire, bins);
+    local_capture = false;
+    m5stack_basic_draw(frequency_mhz, bins, false, valid);
+}
+#endif

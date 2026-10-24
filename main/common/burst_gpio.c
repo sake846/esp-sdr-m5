@@ -42,6 +42,11 @@ static uint64_t excluded_pins(void) {
 #else
 #error Define memory pin exclusions for this target before enabling GPIO control
 #endif
+#if CONFIG_ESP_SDR_M5STACK_BASIC
+    /* LCD, SD, speaker, buttons and the IP5306 power-management I2C bus. */
+    mask |= PIN(4) | PIN(14) | PINS(18, 19) | PINS(21, 23) | PIN(25) | PIN(27) |
+            PINS(32, 33) | PINS(37, 39);
+#endif
 #if SOC_USB_SERIAL_JTAG_SUPPORTED
     mask |= PIN(USB_INT_PHY0_DM_GPIO_NUM) | PIN(USB_INT_PHY0_DP_GPIO_NUM);
 #elif CONFIG_IDF_TARGET_ESP32S2

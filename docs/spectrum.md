@@ -114,11 +114,16 @@ before interrupts are masked; they are not live allocator measurements.
 
 All targets advertise `DCT`: `DC?` queries the on-chip DC correction;
 `DC 1` selects the default slow tracker (1/64 update per FFT), and `DC 0`
-removes each FFT's instantaneous DC estimate. Both correct the Hann window's
-adjacent bins. The tracker resets at each capture and can also suppress a
-stationary signal exactly at the LO. The viewer's offset-LO setting moves the
-frequency of interest away from this correction; “fill DC bins” only changes
-the display. Raw I/Q captures retain their original behavior.
+uses each FFT block's instantaneous I/Q mean. Snapshot FFTs estimate that mean
+from the time-domain waveform and subtract it before windowing. The local M5
+display keeps the slow estimate across captures, resetting it on tune, rate or
+mode changes; each serial `SPEC` command starts a fresh estimate. Ring-based
+and S31 FFT paths correct the DC bin after the FFT and compensate its Hann
+window leakage into adjacent bins. Either method can suppress a stationary
+signal exactly at the LO, which cannot be distinguished from a DC offset. The
+viewer's offset-LO setting moves the frequency of interest away from this
+correction; “fill DC bins” only changes the display. Raw I/Q captures retain
+their original behavior.
 
 ## How each chip computes spectra
 

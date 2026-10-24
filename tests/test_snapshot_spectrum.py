@@ -6,10 +6,11 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+COMPILER = shutil.which('cc') or shutil.which('cl')
 
 
 class SnapshotSpectrum(unittest.TestCase):
-    @unittest.skipUnless(shutil.which('cc'), 'Host C compiler unavailable')
+    @unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
     def test_mean_max_bin_order_and_frame_counts(self):
         source = (ROOT / 'main/common/spectrum.c').read_text()
         sdk_headers = ['esp_cpu.h', 'dsps_fft2r.h', 'esp_rom_crc.h', 'esp_timer.h',
@@ -26,6 +27,7 @@ class SnapshotSpectrum(unittest.TestCase):
 #define ESP_OK 0
 unsigned spectrum_dc_mode;
 static unsigned transforms,frames,wanted_units,wanted_n,wanted_detector,full_scale,stop_after, release_at;
+static bool pass_through;
 static unsigned batch_start;
 static char replies[4096];
 static uint32_t words[2048];
@@ -35,7 +37,11 @@ static int64_t esp_timer_get_time(void){static int64_t t;return t+=1000;}
 static void vTaskDelay(unsigned ticks){}
 static unsigned dsps_fft2r_init_sc16(int16_t *table,unsigned n){return ESP_OK;}
 static void dsps_fft2r_sc16_ansi(int16_t *x,unsigned n){
-    for(unsigned j=0;j<n;j++){x[2*j]=full_scale?INT16_MIN:(j%97+1)*(transforms+1);x[2*j+1]=full_scale?INT16_MIN:0;}
+    if(!pass_through)for(unsigned j=0;j<n;j++){
+     int value=full_scale?INT16_MIN:(j%97+1)*(transforms+1);
+     if(j==0&&!full_scale)value=(transforms+1)*1000;
+     x[2*j]=value;x[2*j+1]=full_scale?INT16_MIN:0;
+    }
     transforms++;
 }
 static void spectrum_fft_poll(int16_t *x,unsigned n,const int16_t *w,void (*poll)(void*),void *context){
@@ -51,6 +57,7 @@ void spectrum_stats_emit(spectrum_stats_t *s,unsigned n,unsigned fs,uint32_t fft
         check = r'''
 static unsigned test_reverse(unsigned x,unsigned bits){unsigned r=0;while(bits--){r=r*2+(x&1);x>>=1;}return r;}
 static bool acquire(unsigned n,unsigned rate,const uint32_t **p,unsigned *us){*p=words;*us=1;return true;}
+static bool fail_acquire(unsigned n,unsigned rate,const uint32_t **p,unsigned *us){return false;}
 bool burst_serial_send(const void *data,size_t size){
  const uint8_t *b=data;
  if(size<4||memcmp(b,"SPC1",4)){
@@ -64,7 +71,6 @@ bool burst_serial_send(const void *data,size_t size){
  unsigned pairs=b[16]|b[17]<<8|b[18]<<16|b[19]<<24;
  assert(pairs==wanted_n*wanted_units);
  for(unsigned j=1;j<wanted_n;j++){
-  if(j==wanted_n/2||j==wanted_n-1)continue; /* DC correction neighbors */
   double p=0;
   for(unsigned u=1;u<=wanted_units;u++){
    double v=(j%97+1)*(u+batch_start);v=full_scale?2147483648.0:v*v;
@@ -81,6 +87,39 @@ size_t burst_serial_try_send(const void *data,size_t size){
  assert(burst_serial_send(data,size));return size;
 }
 int main(void){
+ uint8_t local[256];
+ assert(!spectrum_snapshot(99,acquire,local));
+ assert(!spectrum_snapshot(0,fail_acquire,local));
+ assert(spectrum_snapshot(0,acquire,local));
+ assert(!replies[0] && transforms==1 && frames==0);
+ for(unsigned j=1;j<256;j++){
+  unsigned v=j%97+1;
+  assert(local[test_reverse(j,8)]==spectrum_power_code(v*v));
+ }
+ pass_through=true;
+ spectrum_dc_mode=0;
+ for(unsigned j=0;j<256;j++)words[j]=j&1;
+ assert(spectrum_snapshot(0,acquire,local));
+ assert(fft_data[2*64]==-16); /* Fractional block mean is removed before windowing. */
+ for(unsigned j=0;j<256;j++)words[j]=100;
+ assert(spectrum_snapshot(0,acquire,local));
+ for(unsigned j=0;j<256;j++)assert(local[j]==0); /* Per-capture time-domain mean removal. */
+ spectrum_dc_mode=1;
+ spectrum_snapshot_reset_dc();
+ assert(spectrum_snapshot(0,acquire,local));
+ for(unsigned j=0;j<256;j++)assert(local[j]==0);
+ for(unsigned j=0;j<256;j++)words[j]=200;
+ assert(spectrum_snapshot(0,acquire,local));
+ unsigned residual_bins=0;
+ for(unsigned j=0;j<256;j++)residual_bins+=local[j]!=0;
+ assert(residual_bins>0); /* Slow time-domain DC estimate persists across snapshots. */
+ spectrum_snapshot_reset_dc();
+ assert(spectrum_snapshot(0,acquire,local));
+ for(unsigned j=0;j<256;j++)assert(local[j]==0); /* Reset starts a fresh estimate. */
+ pass_through=false;
+ spectrum_dc_mode=0;
+ spectrum_snapshot_reset_dc();
+ memset(words,0,sizeof(words));
  assert(spectrum_command("SPECINFO?",2412,acquire));
  assert(strstr(replies,"[80000000,0,2048,1,1,0]"));
 #if CONFIG_IDF_TARGET_ESP32C61
@@ -108,11 +147,31 @@ int main(void){
 '''
         with tempfile.TemporaryDirectory() as tmp:
             src = Path(tmp) / 'snapshot.c'
-            src.write_text('#include <stdlib.h>\n' + stub + source + check)
-            exe = Path(tmp) / 'snapshot'
+            msvc = Path(COMPILER).name.lower() == 'cl.exe'
+            compatibility = r'''
+#ifdef _MSC_VER
+#define _USE_MATH_DEFINES
+#define __attribute__(x)
+#include <intrin.h>
+static unsigned count_leading_zeros(unsigned value) {
+    unsigned long bit;
+    _BitScanReverse(&bit, value);
+    return 31u - bit;
+}
+#define __builtin_clz count_leading_zeros
+#endif
+'''
+            src.write_text(compatibility + '#include <stdlib.h>\n' + stub + source + check)
+            exe = Path(tmp) / ('snapshot.exe' if msvc else 'snapshot')
             for target in ['ESP32C3', 'ESP32C61']:
                 with self.subTest(target=target):
-                    subprocess.run(['cc', '-std=gnu11', '-O2', '-fsanitize=undefined',
-                                    f'-DCONFIG_IDF_TARGET_{target}=1',
-                                    '-I' + str(ROOT / 'main/common'), str(src), '-lm', '-o', str(exe)], check=True)
+                    if msvc:
+                        command = [COMPILER, '/nologo', '/std:c11', '/O2',
+                                   f'/DCONFIG_IDF_TARGET_{target}=1',
+                                   '/I' + str(ROOT / 'main/common'), str(src), '/Fe:' + str(exe)]
+                    else:
+                        command = [COMPILER, '-std=gnu11', '-O2', '-fsanitize=undefined',
+                                   f'-DCONFIG_IDF_TARGET_{target}=1',
+                                   '-I' + str(ROOT / 'main/common'), str(src), '-lm', '-o', str(exe)]
+                    subprocess.run(command, cwd=tmp, check=True)
                     subprocess.run([str(exe)], check=True)

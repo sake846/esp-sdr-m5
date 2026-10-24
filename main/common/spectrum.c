@@ -34,9 +34,16 @@ static union {
     float mean[MAX_FFT];
     uint32_t maximum[MAX_FFT];
 } powers SPEC_STORAGE;
+typedef struct {
+    int32_t re, im; /* Time-domain DC estimate with 8 fractional bits. */
+    bool ready;
+} spectrum_time_dc_t;
 static uint8_t frame[HEADER_BYTES + MAX_FFT + 4] SPEC_STORAGE;
 static unsigned setup_n;
 static bool ready;
+static spectrum_time_dc_t snapshot_dc;
+static unsigned snapshot_dc_rate, snapshot_dc_mode;
+static bool snapshot_dc_ready;
 spectrum_workspace_t spectrum_workspace(void) {
     setup_n = 0;
     return (spectrum_workspace_t){fft_data, window, powers.mean, frame};
@@ -81,6 +88,83 @@ static void put64(unsigned at, uint64_t v) {
 }
 static int16_t clamp16(int32_t v) {
     return v > 32767 ? 32767 : v < -32768 ? -32768 : v;
+}
+
+static void setup_window(unsigned n) {
+    if (setup_n == n) return;
+    for (unsigned j = 0; j < n; j++) window[j] = (int16_t)lrintf(16383.5f * (1 - cosf(2 * M_PI * j / n)));
+    setup_n = n;
+}
+
+static void transform(const uint32_t *words, unsigned n, spectrum_time_dc_t *dc,
+                      void (*poll)(void *), void *context) {
+    int32_t sum_i = 0, sum_q = 0;
+    for (unsigned j = 0; j < n; j++) {
+        int32_t i = ((int32_t)(words[j] << 22) >> 22), q = ((int32_t)(words[j] << 12) >> 22);
+        fft_data[2 * j] = (int16_t)i;
+        fft_data[2 * j + 1] = (int16_t)q;
+        sum_i += i;
+        sum_q += q;
+    }
+    int32_t estimate_i = (sum_i * 256) / (int32_t)n;
+    int32_t estimate_q = (sum_q * 256) / (int32_t)n;
+    if (spectrum_dc_mode) {
+        if (!dc->ready) {
+            dc->re = estimate_i;
+            dc->im = estimate_q;
+            dc->ready = true;
+        } else {
+            dc->re += (estimate_i - dc->re) >> 6;
+            dc->im += (estimate_q - dc->im) >> 6;
+        }
+        estimate_i = dc->re;
+        estimate_q = dc->im;
+    }
+    int32_t offset_i = estimate_i / 256, fraction_i = estimate_i % 256;
+    int32_t offset_q = estimate_q / 256, fraction_q = estimate_q % 256;
+    for (unsigned j = 0; j < n; j++) {
+        int32_t wi = window[j];
+        int32_t re = (fft_data[2 * j] - offset_i) * wi - (fraction_i * wi) / 256;
+        int32_t im = (fft_data[2 * j + 1] - offset_q) * wi - (fraction_q * wi) / 256;
+        fft_data[2 * j] = clamp16(re >> 9);
+        fft_data[2 * j + 1] = clamp16(im >> 9);
+    }
+    spectrum_fft_poll(fft_data, n, dsps_fft_w_table_sc16, poll, context);
+}
+
+static void local_fft_poll(void *context) {
+    (void)context;
+}
+
+void spectrum_snapshot_reset_dc(void) {
+    snapshot_dc = (spectrum_time_dc_t){0};
+    snapshot_dc_ready = false;
+}
+
+bool spectrum_snapshot(unsigned rate, spectrum_acquire_fn acquire, uint8_t bins[256]) {
+    if (!rate_hz(rate) || !spectrum_fft_init()) return false;
+    const unsigned n = 256;
+    const uint32_t *words;
+    unsigned elapsed;
+    if (!acquire(n, rate, &words, &elapsed)) return false;
+    setup_window(n);
+    if (!snapshot_dc_ready || snapshot_dc_rate != rate || snapshot_dc_mode != spectrum_dc_mode) {
+        snapshot_dc = (spectrum_time_dc_t){0};
+        snapshot_dc_rate = rate;
+        snapshot_dc_mode = spectrum_dc_mode;
+        snapshot_dc_ready = true;
+    }
+    transform(words, n, &snapshot_dc, local_fft_poll, NULL);
+    for (unsigned j = 0, bin = 0; j < n; j++) {
+        bins[bin] = spectrum_power_code(spectrum_complex_power(fft_data[2 * j], fft_data[2 * j + 1]));
+        unsigned bit = n >> 1;
+        while (bin & bit) {
+            bin ^= bit;
+            bit >>= 1;
+        }
+        bin ^= bit;
+    }
+    return true;
 }
 
 static void capabilities(void) {
@@ -190,10 +274,7 @@ bool spectrum_command(const char *line, unsigned frequency_mhz, spectrum_acquire
         send_text("ERR spectrum_memory\n");
         return true;
     }
-    if (setup_n != n) {
-        for (unsigned j = 0; j < n; j++) window[j] = (int16_t)lrintf(16383.5f * (1 - cosf(2 * M_PI * j / n)));
-        setup_n = n;
-    }
+    setup_window(n);
     unsigned log2n = 0;
     while ((1u << log2n) < n) log2n++;
     char text[192];
@@ -203,7 +284,7 @@ bool spectrum_command(const char *line, unsigned frequency_mhz, spectrum_acquire
     uint32_t frames = 0, ffts = 0, status = 0;
     uint64_t pairs = 0;
     bool stopped = false;
-    spectrum_dc_t dc = {0};
+    spectrum_time_dc_t dc = {0};
     spectrum_stats_t telemetry;
     spectrum_stats_init(&telemetry);
     unsigned merged = 0;
@@ -225,13 +306,7 @@ bool spectrum_command(const char *line, unsigned frequency_mhz, spectrum_acquire
             break;
         }
         if (!merged) gain = words[0] >> 20;
-        for (unsigned j = 0; j < n; j++) {
-            int32_t i = ((int32_t)(words[j] << 22) >> 22), q = ((int32_t)(words[j] << 12) >> 22);
-            fft_data[2 * j] = clamp16((i * window[j]) >> 9);
-            fft_data[2 * j + 1] = clamp16((q * window[j]) >> 9);
-        }
-        spectrum_fft_poll(fft_data, n, dsps_fft_w_table_sc16, pump_spectrum, &out);
-        spectrum_dc_apply(&dc, fft_data, n);
+        transform(words, n, &dc, pump_spectrum, &out);
         for (unsigned j = 0; j < n; j++) {
             uint32_t p = spectrum_complex_power(fft_data[2 * j], fft_data[2 * j + 1]);
             if (det) {

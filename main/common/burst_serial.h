@@ -24,3 +24,6 @@ bool burst_serial_stop_requested(void);
  * owns the receiver: the other gets "ERR busy" until the owner sends RELEASE
  * or stays silent for five seconds. RELEASE itself is answered here. */
 void burst_serial_serve(void (*handle)(char *line));
+/* Optional board hook, on the receiver task between commands. A live serial
+ * lease forbids local captures, retunes and changes to the shared FFT workspace. */
+void burst_serial_idle(bool leased);

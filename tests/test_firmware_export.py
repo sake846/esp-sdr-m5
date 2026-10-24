@@ -74,6 +74,21 @@ class FirmwareExport(unittest.TestCase):
             self.export()
         self.assertFalse((self.root / 'output').exists())
 
+    def test_basic_profile_export_keeps_board_identity(self):
+        (self.build / 'config/sdkconfig.json').write_text(json.dumps({'IDF_TARGET': 'esp32'}))
+        self.args['extra_esptool_args']['chip'] = 'esp32'
+        self.args['flash_settings']['flash_size'] = '4MB'
+        self.save_args()
+        record = dict(revision='a'*40, build_date='2026-10-24',
+                      build_timestamp='2026-10-24T00:00:00Z', profile='m5stack-basic')
+        (self.build / 'app.bin').write_bytes(b'ESP-SDR-VERSION:'+json.dumps(record).encode()+b'\0')
+        path = exporter.export(self.build, self.root / 'output', 'm5stack-basic',
+                               'M5Stack Basic', 'test', True)
+        variant = json.loads(path.read_text())['variants']['m5stack-basic']
+        self.assertEqual(variant['target'], 'esp32')
+        self.assertEqual(variant['flash_size'], '4MB')
+        self.assertEqual(variant['flash_size_policy'], 'minimum')
+
     def test_probe_firmware_rejected(self):
         for flag in ['RING_PROBE','SAMPLE_RATE_PROBE','FILTER_REGISTER_PROBE','S2_RF_PROBE','S3_RF_PROBE','C5_TUNE_PROBE']:
             with self.subTest(flag=flag):
