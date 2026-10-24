@@ -25,14 +25,14 @@ after that, the device can run on its own.
 
 ## Devices and hardware test status
 
-**Only M5Stack BASIC and the original Cardputer (K132, non-ADV) have been
-verified on real hardware in this project.** Core2, Cardputer ADV and
-M5StickC Plus2 have build profiles, but their hardware operation is unverified.
+**M5Stack BASIC, Core2 and the original Cardputer (K132, non-ADV) have been
+verified on real hardware in this project.** Cardputer ADV and M5StickC Plus2
+have build profiles, but their hardware operation is unverified.
 
 | Device | Chip | Display | Build profile | Hardware test status |
 | --- | --- | --- | --- | --- |
 | M5Stack BASIC | ESP32 | 320 × 240 | `m5stack-basic` | **Verified** |
-| M5Stack Core2 | ESP32 | 320 × 240 | `m5stack-core2` | Unverified |
+| M5Stack Core2 | ESP32 | 320 × 240 | `m5stack-core2` | **Verified** |
 | Cardputer, original K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **Verified** |
 | Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | Unverified |
 | M5StickC Plus2 | ESP32 | 135 × 240, portrait | `m5stickc-plus2` | Unverified |
