@@ -9,6 +9,38 @@ menu "ESP-SDR board"
             exclude onboard peripheral pins from the serial GPIO service.
             PC commands take priority over standalone controls.
 
+    config ESP_SDR_M5STACK_CORE2
+        bool "M5Stack Core2 standalone spectrum display"
+        depends on IDF_TARGET_ESP32
+        default n
+        help
+            Enable the Core2 LCD, AXP192/AXP2101 power management and touch
+            controls. PC commands take priority over standalone controls.
+
+    config ESP_SDR_M5STACK_CARDPUTER
+        bool "M5Stack Cardputer standalone spectrum display"
+        depends on IDF_TARGET_ESP32S3
+        default n
+        help
+            Enable the Cardputer ST7789 display and keyboard controls. The
+            Standalone FFT sizes up to 4096 points use internal RAM.
+
+    config ESP_SDR_M5STACK_CARDPUTER_ADV
+        bool "M5Stack Cardputer ADV standalone spectrum display"
+        depends on IDF_TARGET_ESP32S3
+        default n
+        help
+            Enable the Cardputer ADV ST7789 display and TCA8418 keyboard.
+            Standalone FFT sizes up to 4096 points use internal RAM.
+
+    config ESP_SDR_M5STACK_STICKC_PLUS2
+        bool "M5StickC Plus2 standalone spectrum display"
+        depends on IDF_TARGET_ESP32
+        default n
+        help
+            Enable the 135x240 ST7789 display and A/B/C buttons on the
+            M5StickC Plus2. Hold GPIO4 high to keep the power rail enabled.
+
     config ESP_SDR_M5STACK_LCD_ILI9341
         bool "Early Basic with ILI9341 LCD"
         depends on ESP_SDR_M5STACK_BASIC

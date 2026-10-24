@@ -35,12 +35,12 @@
 
 #include "dsps_fft2r.h"
 /* esp-dsp aes3 FFT with the sum-branch bias corrected (s3_fft_rnd.S). */
-extern int16_t *dsps_fft_w_table_sc16;
 int s3_fft2r_sc16_rnd(int16_t *data, int N, int16_t *w);
 int s3_fft2r_sc16_rnd_stage(int16_t *data, int N, int16_t *w, unsigned stage);
 #if CONFIG_IDF_TARGET_ESP32S3
-#define S3_FFT(buf, n)              s3_fft2r_sc16_rnd((buf), (int)(n), dsps_fft_w_table_sc16)
-#define S3_FFT_STAGE(buf, n, stage) s3_fft2r_sc16_rnd_stage((buf), (int)(n), dsps_fft_w_table_sc16, (stage))
+static int16_t *ring_twiddles;
+#define S3_FFT(buf, n)              s3_fft2r_sc16_rnd((buf), (int)(n), ring_twiddles)
+#define S3_FFT_STAGE(buf, n, stage) s3_fft2r_sc16_rnd_stage((buf), (int)(n), ring_twiddles, (stage))
 #else
 #define S3_FFT_STAGE(buf, n, stage) ((void)0) /* Unused: other cores use scalar_work. */
 #endif
@@ -352,11 +352,10 @@ void ring_capture_init(void) {
     log_tables_init();
 #else
     /* twiddles from the heap: BSS must end below the RF ring (sram_guard.ld) */
-    static int16_t *twiddles;
-    if (!twiddles)
-        twiddles = heap_caps_aligned_alloc(16, RING_SPEC_NFFT_MAX * sizeof(int16_t),
-                                           MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    dsp_ready = twiddles && dsps_fft2r_init_sc16(twiddles, RING_SPEC_NFFT_MAX) == ESP_OK;
+    if (!ring_twiddles)
+        ring_twiddles = heap_caps_aligned_alloc(16, RING_SPEC_NFFT_MAX * sizeof(int16_t),
+                                                MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    dsp_ready = ring_twiddles && dsps_fft2r_init_sc16(ring_twiddles, RING_SPEC_NFFT_MAX) == ESP_OK;
     log_tables_init();
     if (dsp_ready) c1_start();
 #endif

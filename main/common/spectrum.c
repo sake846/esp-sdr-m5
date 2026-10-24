@@ -7,6 +7,9 @@
 #include "spectrum_fft.h"
 #include "spectrum_stats.h"
 #include "esp_cpu.h"
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#include "esp_heap_caps.h"
+#endif
 #include "burst_serial.h"
 #include "dsps_fft2r.h"
 #include "esp_rom_crc.h"
@@ -19,8 +22,10 @@
 #include <string.h>
 
 #define MAX_SPEC_FFT 2048u
-#if CONFIG_ESP_SDR_M5STACK_BASIC
+#if CONFIG_ESP_SDR_M5STACK_BASIC || CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
 #define MAX_FFT 8192u
+#elif CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#define MAX_FFT 4096u
 #else
 #define MAX_FFT MAX_SPEC_FFT
 #endif
@@ -31,31 +36,76 @@
 #else
 #define SPEC_STORAGE
 #endif
-static int16_t fft_data[2 * MAX_FFT] __attribute__((aligned(16))) SPEC_STORAGE;
-static int16_t window[MAX_FFT] SPEC_STORAGE;
 /* Same workspace size for both detectors. Max-hold never needs floats;
  * USB spectra remain capped at MAX_SPEC_FFT on M5Stack. */
-static union {
+typedef union {
     float mean[MAX_SPEC_FFT];
     uint32_t maximum[MAX_SPEC_FFT];
-} powers SPEC_STORAGE;
+} spectrum_power_storage_t;
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+/* Keep the S3's RF-ring-limited BSS below its reserved SRAM aperture. */
+static int16_t *fft_data, *window, *twiddles;
+static uint8_t *frame, *storage;
+static spectrum_power_storage_t *power_storage;
+#define powers (*power_storage)
+#else
+static int16_t fft_data[2 * MAX_FFT] __attribute__((aligned(16))) SPEC_STORAGE;
+static int16_t window[MAX_FFT] SPEC_STORAGE;
+static spectrum_power_storage_t powers SPEC_STORAGE;
+#endif
 typedef struct {
     int32_t re, im; /* Time-domain DC estimate with 8 fractional bits. */
     bool ready;
 } spectrum_time_dc_t;
+#if !CONFIG_ESP_SDR_M5STACK_CARDPUTER && !CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
 static uint8_t frame[HEADER_BYTES + MAX_SPEC_FFT + 4] SPEC_STORAGE;
+#endif
 static unsigned setup_n;
 static bool ready;
 static spectrum_time_dc_t snapshot_dc;
 static unsigned snapshot_dc_rate, snapshot_dc_mode, snapshot_dc_n;
 static bool snapshot_dc_ready;
+#if !CONFIG_ESP_SDR_M5STACK_CARDPUTER && !CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+static int16_t twiddles[MAX_FFT] __attribute__((aligned(16))) SPEC_STORAGE;
+#endif
+
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+static bool allocate_workspace(void) {
+    if (storage) return true;
+    size_t fft_bytes = 2 * MAX_FFT * sizeof(int16_t);
+    size_t window_bytes = MAX_FFT * sizeof(int16_t);
+    size_t power_bytes = sizeof(spectrum_power_storage_t);
+    size_t frame_bytes = HEADER_BYTES + MAX_SPEC_FFT + 4;
+    size_t twiddle_bytes = MAX_FFT * sizeof(int16_t);
+    size_t total = fft_bytes + window_bytes + power_bytes + frame_bytes + twiddle_bytes + 64;
+    storage = heap_caps_aligned_alloc(16, total, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!storage) return false;
+    size_t offset = 0;
+    fft_data = (int16_t *)(storage + offset);
+    offset += (fft_bytes + 15) & ~(size_t)15;
+    window = (int16_t *)(storage + offset);
+    offset += (window_bytes + 15) & ~(size_t)15;
+    power_storage = (spectrum_power_storage_t *)(storage + offset);
+    offset += (power_bytes + 15) & ~(size_t)15;
+    frame = storage + offset;
+    offset += (frame_bytes + 15) & ~(size_t)15;
+    twiddles = (int16_t *)(storage + offset);
+    return true;
+}
+#endif
+
 spectrum_workspace_t spectrum_workspace(void) {
     setup_n = 0;
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    if (!allocate_workspace()) return (spectrum_workspace_t){0};
+#endif
     return (spectrum_workspace_t){fft_data, window, powers.mean, frame};
 }
 
-static int16_t twiddles[MAX_FFT] __attribute__((aligned(16))) SPEC_STORAGE;
 bool spectrum_fft_init(void) {
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    if (!allocate_workspace()) return false;
+#endif
     if (!ready) ready = dsps_fft2r_init_sc16(twiddles, MAX_FFT) == ESP_OK;
     return ready;
 }
@@ -64,7 +114,7 @@ static const unsigned rates[] = {
 #if CONFIG_IDF_TARGET_ESP32H2
     0,        0,        0,        0,      0, 0,
     16000000, 32000000, 10666667, 6400000
-#elif CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C2 ||                   \
+#elif CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C2 || \
     CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
     80000000, 40000000, 0,       0,
     0,        0,        16000000
@@ -134,7 +184,7 @@ static void transform(const uint32_t *words, unsigned n, spectrum_time_dc_t *dc,
         fft_data[2 * j] = clamp16(re >> 9);
         fft_data[2 * j + 1] = clamp16(im >> 9);
     }
-    spectrum_fft_poll(fft_data, n, dsps_fft_w_table_sc16, poll, context);
+    spectrum_fft_poll(fft_data, n, twiddles, poll, context);
 }
 
 static void local_fft_poll(void *context) {

@@ -5,6 +5,9 @@
 #include "m5stack_basic.h"
 #include "m5stack_basic_controls.h"
 #include "driver/gpio.h"
+#if CONFIG_ESP_SDR_M5STACK_CORE2
+#include "driver/i2c_master.h"
+#endif
 #include "driver/spi_master.h"
 #include "esp_check.h"
 #include "esp_timer.h"
@@ -13,9 +16,17 @@
 #include <stdio.h>
 #include <string.h>
 
-#define LCD_DC  27
+#if CONFIG_ESP_SDR_M5STACK_CORE2
+#define LCD_DC 15
+#define LCD_CS 5
+#define LCD_HOST SPI2_HOST
+#else
+#define LCD_DC 27
 #define LCD_RST 33
-#define LCD_BL  32
+#define LCD_BL 32
+#define LCD_CS 14
+#define LCD_HOST SPI3_HOST
+#endif
 #define PIN(n)  (UINT64_C(1) << (n))
 #define PLOT_LEFT 4
 #define PLOT_WIDTH 312
@@ -35,6 +46,93 @@ static uint8_t waterfall[WATERFALL_HEIGHT][PLOT_WIDTH];
 static unsigned waterfall_head, waterfall_count, waterfall_mhz, waterfall_span, waterfall_fft;
 static bool waterfall_tuned;
 
+#if CONFIG_ESP_SDR_M5STACK_CORE2
+static i2c_master_dev_handle_t axp, touch;
+static bool axp2101, ili9342e;
+
+static uint8_t pmu_read(uint8_t reg) {
+    uint8_t value = 0;
+    ESP_ERROR_CHECK(i2c_master_transmit_receive(axp, &reg, 1, &value, 1, 100));
+    return value;
+}
+
+static void pmu_write(uint8_t reg, uint8_t value) {
+    const uint8_t data[] = {reg, value};
+    ESP_ERROR_CHECK(i2c_master_transmit(axp, data, sizeof(data), 100));
+}
+
+static void pmu_bit(uint8_t reg, uint8_t bit, bool enabled) {
+    uint8_t value = pmu_read(reg);
+    pmu_write(reg, enabled ? value | bit : value & ~bit);
+}
+
+static void core2_power_init(void) {
+    const i2c_master_bus_config_t bus_config = {
+        .i2c_port = I2C_NUM_1, .sda_io_num = 21, .scl_io_num = 22,
+        .clk_source = I2C_CLK_SRC_DEFAULT, .glitch_ignore_cnt = 7,
+    };
+    i2c_master_bus_handle_t bus;
+    ESP_ERROR_CHECK(i2c_new_master_bus(&bus_config, &bus));
+    const i2c_device_config_t device = {.dev_addr_length = I2C_ADDR_BIT_LEN_7,
+                                        .device_address = 0x34, .scl_speed_hz = 400000};
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &device, &axp));
+    uint8_t id = pmu_read(0x03);
+    axp2101 = id == 0x4a;
+    ESP_ERROR_CHECK(id == 0x03 || axp2101 ? ESP_OK : ESP_ERR_NOT_FOUND);
+
+    if (axp2101) {
+        pmu_write(0x23, pmu_read(0x23) & 0xe0);
+        pmu_write(0x90, (pmu_read(0x90) & 0x7b) | 0x08); /* ALDO4 powers the LCD and touch. */
+        pmu_write(0x80, 0x05);
+        pmu_write(0x82, 0x12);
+        pmu_write(0x84, 0x6a);
+        vTaskDelay(pdMS_TO_TICKS(5));
+        pmu_bit(0x90, 0x02, true); /* ALDO2 releases the shared LCD/touch reset. */
+        pmu_write(0x96, 28);
+        pmu_bit(0x90, 0x10, true); /* BLDO1 backlight. */
+    } else {
+        pmu_write(0x95, (pmu_read(0x95) & 0x72) | 0x84); /* AXP192 GPIO4 output. */
+        pmu_write(0x28, (pmu_read(0x28) & 0x0f) | 0xf0); /* LCD/touch 3.3 V. */
+        pmu_bit(0x12, 0x04, true); /* LDO2. */
+        pmu_write(0x96, pmu_read(0x96) & ~0x02);
+        vTaskDelay(pdMS_TO_TICKS(5));
+        pmu_bit(0x96, 0x02, true); /* GPIO4 releases the shared reset. */
+        pmu_write(0x27, (pmu_read(0x27) & 0x80) | 103);
+        pmu_bit(0x12, 0x02, true); /* DC3 backlight. */
+    }
+
+    const i2c_device_config_t touch_config = {.dev_addr_length = I2C_ADDR_BIT_LEN_7,
+                                              .device_address = 0x38, .scl_speed_hz = 400000};
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &touch_config, &touch));
+    for (unsigned retry = 0; retry < 5; retry++) {
+        const uint8_t work_mode[] = {0x00, 0x00};
+        uint8_t reg = 0xa6, firmware = 0, vendor = 0;
+        if (i2c_master_transmit(touch, work_mode, sizeof(work_mode), 10) == ESP_OK &&
+            i2c_master_transmit_receive(touch, &reg, 1, &firmware, 1, 10) == ESP_OK) {
+            reg = 0xa8;
+            if (i2c_master_transmit_receive(touch, &reg, 1, &vendor, 1, 10) == ESP_OK &&
+                vendor == 0x11 && (firmware == 0x10 || firmware == 0x12)) {
+                ili9342e = firmware == 0x12;
+                break;
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+}
+
+static unsigned core2_touch_buttons(void) {
+    uint8_t reg = 0x02, count = 0;
+    if (i2c_master_transmit_receive(touch, &reg, 1, &count, 1, 10) != ESP_OK || !count) return 0;
+    reg = 0x03;
+    uint8_t point[4];
+    if (i2c_master_transmit_receive(touch, &reg, 1, point, sizeof(point), 10) != ESP_OK) return 0;
+    unsigned x = ((point[0] & 0x0f) << 8) | point[1];
+    unsigned y = ((point[2] & 0x0f) << 8) | point[3];
+    if (y < 208) return 0;
+    return 1u << (x < 107 ? 0 : x < 213 ? 1 : 2);
+}
+#endif
+
 static void lcd_write(bool data, const void *bytes, size_t size) {
     ESP_ERROR_CHECK(gpio_set_level(LCD_DC, data));
     spi_transaction_t transaction = {.length = size * 8, .tx_buffer = bytes};
@@ -49,6 +147,13 @@ static void lcd_command(uint8_t command, const uint8_t *data, size_t size) {
 void m5stack_basic_init(void) {
     controls.rate = 3; /* Preserve the original 16 MHz default span. */
     controls.average = 3; /* Default to eight spectra per 100 ms interval. */
+#if CONFIG_ESP_SDR_M5STACK_CORE2
+    core2_power_init();
+    const gpio_config_t outputs = {.pin_bit_mask = PIN(4) | PIN(LCD_DC), .mode = GPIO_MODE_OUTPUT};
+    ESP_ERROR_CHECK(gpio_set_level(4, 1)); /* Deselect the SD card on the shared SPI bus. */
+    ESP_ERROR_CHECK(gpio_config(&outputs));
+    bool invert = true;
+#else
     const gpio_config_t outputs = {
         .pin_bit_mask = PIN(4) | PIN(25) | PIN(LCD_DC) | PIN(LCD_RST) | PIN(LCD_BL),
         .mode = GPIO_MODE_OUTPUT,
@@ -73,6 +178,7 @@ void m5stack_basic_init(void) {
     ESP_ERROR_CHECK(gpio_set_level(LCD_RST, 1));
     ESP_ERROR_CHECK(gpio_set_direction(LCD_RST, GPIO_MODE_OUTPUT));
     vTaskDelay(pdMS_TO_TICKS(120));
+#endif
 
     const spi_bus_config_t bus = {
         .mosi_io_num = 23,
@@ -82,14 +188,14 @@ void m5stack_basic_init(void) {
         .quadhd_io_num = -1,
         .max_transfer_sz = sizeof(row),
     };
-    ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &bus, SPI_DMA_CH_AUTO));
+    ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &bus, SPI_DMA_CH_AUTO));
     const spi_device_interface_config_t device = {
         .clock_speed_hz = 40000000,
         .mode = 0,
-        .spics_io_num = 14,
+        .spics_io_num = LCD_CS,
         .queue_size = 1,
     };
-    ESP_ERROR_CHECK(spi_bus_add_device(SPI3_HOST, &device, &lcd));
+    ESP_ERROR_CHECK(spi_bus_add_device(LCD_HOST, &device, &lcd));
     /* ILI9342C is native landscape; early ILI9341 Basics need exchanged axes. */
 #if CONFIG_ESP_SDR_M5STACK_LCD_ILI9341
     lcd_command(0xc0, (const uint8_t[]){0x23}, 1);
@@ -110,13 +216,42 @@ void m5stack_basic_init(void) {
     lcd_command(invert ? 0x21 : 0x20, NULL, 0);
     lcd_command(0x11, NULL, 0);
     vTaskDelay(pdMS_TO_TICKS(120));
+#if CONFIG_ESP_SDR_M5STACK_CORE2
+    if (ili9342e) {
+        lcd_command(0xdd, (const uint8_t[]){0x01}, 1);
+        lcd_command(0x3a, (const uint8_t[]){0x55}, 1);
+        lcd_command(0x21, NULL, 0);
+        lcd_command(0x36, (const uint8_t[]){0x08}, 1);
+        lcd_command(0xd5, (const uint8_t[]){0x00}, 1);
+        lcd_command(0xb1, (const uint8_t[]){0x22}, 1);
+        lcd_command(0xc8, (const uint8_t[]){0x38}, 1);
+        lcd_command(0xcb, (const uint8_t[]){0x1c}, 1);
+        lcd_command(0xc9, (const uint8_t[]){0x1a}, 1);
+        lcd_command(0xca, (const uint8_t[]){0x1a}, 1);
+        lcd_command(0xb7, (const uint8_t[]){0x5a, 0x41, 0x11, 0x19}, 4);
+        lcd_command(0xe4, (const uint8_t[]){0x04, 0x08, 0x11, 0x06, 0x12, 0x07, 0x3a, 0x76,
+                                             0x47, 0x07, 0x0f, 0x0a, 0x11, 0x19, 0x05}, 15);
+        lcd_command(0xe5, (const uint8_t[]){0x02, 0x03, 0x07, 0x06, 0x12, 0x07, 0x36, 0x5f,
+                                             0x48, 0x06, 0x10, 0x0c, 0x16, 0x14, 0x09}, 15);
+        lcd_command(0x11, NULL, 0);
+        vTaskDelay(pdMS_TO_TICKS(120));
+        lcd_command(0x29, NULL, 0);
+        vTaskDelay(pdMS_TO_TICKS(120));
+    }
+#endif
     m5stack_basic_draw(2412, NULL, 256, false, false, 0);
     lcd_command(0x29, NULL, 0);
+#if !CONFIG_ESP_SDR_M5STACK_CORE2
     ESP_ERROR_CHECK(gpio_set_level(LCD_BL, 1));
+#endif
 }
 
 unsigned m5stack_basic_poll(unsigned mhz, bool pc_control) {
+#if CONFIG_ESP_SDR_M5STACK_CORE2
+    unsigned pressed = pc_control ? 0 : core2_touch_buttons();
+#else
     unsigned pressed = (!gpio_get_level(39)) | ((!gpio_get_level(38)) << 1) | ((!gpio_get_level(37)) << 2);
+#endif
     return m5stack_controls_update(&controls, mhz, pressed, (uint32_t)(esp_timer_get_time() / 1000),
                                    pc_control);
 }
@@ -185,7 +320,11 @@ static uint16_t waterfall_color(uint8_t value) {
 
 void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, bool pc_control,
                         bool valid, unsigned cpu_percent) {
+#if CONFIG_ESP_SDR_M5STACK_CORE2
+    static const char title[] = "ESP-SDR CORE2";
+#else
     static const char title[] = "ESP-SDR M5 BASIC";
+#endif
     char settings[40], edges[3][12];
     uint8_t display_bins[PLOT_WIDTH] = {0};
     uint8_t spectrum_trace[PLOT_WIDTH];

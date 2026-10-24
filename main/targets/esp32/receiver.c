@@ -28,7 +28,7 @@
 #include "soc/dport_reg.h"
 #include "soc/dport_access.h"
 #include "heap_memory_layout.h"
-#if CONFIG_ESP_SDR_M5STACK_BASIC
+#if CONFIG_ESP_SDR_M5STACK_BASIC || CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
 #include "m5stack_basic.h"
 #define M5_LOCAL_FFT_MAX 8192u
 #define M5_LOCAL_AVERAGE_MAX 16u
@@ -73,7 +73,7 @@ extern void rom_pbus_xpd_tx_off(void);
 extern void rom_set_rxclk_en(int);
 
 static void reply(const char *fmt, ...) {
-#if CONFIG_ESP_SDR_M5STACK_BASIC
+#if CONFIG_ESP_SDR_M5STACK_BASIC || CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
     if (local_capture) return; /* Local capture failures must not enter the UART protocol. */
 #endif
     char text[256];
@@ -258,7 +258,7 @@ static void command(char *line) {
 
 void app_main(void) {
     esp_log_level_set("*", ESP_LOG_NONE);
-#if CONFIG_ESP_SDR_M5STACK_BASIC
+#if CONFIG_ESP_SDR_M5STACK_BASIC || CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
     m5stack_basic_init();
 #endif
     esp_err_t e = nvs_flash_init();
@@ -284,7 +284,7 @@ void app_main(void) {
     burst_serial_serve(command);
 }
 
-#if CONFIG_ESP_SDR_M5STACK_BASIC
+#if CONFIG_ESP_SDR_M5STACK_BASIC || CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
 void burst_serial_idle(bool leased) {
     static int64_t next_poll, next_frame;
     static int64_t average_start;

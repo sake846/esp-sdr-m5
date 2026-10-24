@@ -2,7 +2,8 @@
 
 M5Stack Basic (the original ESP32 model) runs a standalone spectrum display
 and the existing USB-to-UART ESP-SDR protocol. No external RF module or PSRAM
-is required. Core2 and CoreS3 use different board wiring and are not this profile.
+is required. For the related Core2, Cardputer ADV and M5StickC Plus2 builds,
+see [M5Stack display builds](m5stack-core2-cardputer.md).
 
 ## Build and flash
 

@@ -19,6 +19,15 @@
       "sdkconfig": "sdkconfig.defaults.m5stack-basic"
     },
     {
+      "id": "m5stack-core2",
+      "target": "esp32",
+      "label": "M5Stack Core2 (16 MB, LCD/touch, USB-UART)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.m5stack-core2"
+    },
+    {
       "id": "esp32c2",
       "target": "esp32c2",
       "label": "ESP32-C2 (26 MHz crystal, 2 MB or larger, UART)",
@@ -57,6 +66,33 @@
       "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
       "allow_larger_flash": true,
       "preview": false
+    },
+    {
+      "id": "m5stack-cardputer",
+      "target": "esp32s3",
+      "label": "M5Stack Cardputer K132 (8 MB, LCD/keyboard, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.m5stack-cardputer"
+    },
+    {
+      "id": "m5stack-cardputer-adv",
+      "target": "esp32s3",
+      "label": "M5Stack Cardputer ADV (8 MB, LCD/keyboard, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.m5stack-cardputer-adv"
+    },
+    {
+      "id": "m5stickc-plus2",
+      "target": "esp32",
+      "label": "M5StickC Plus2 (8 MB, LCD/buttons, UART)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.m5stickc-plus2"
     },
     {
       "id": "esp32s31",

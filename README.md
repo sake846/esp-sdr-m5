@@ -59,6 +59,14 @@ spectra, including every spectrum over UART, come from separate snapshots
 with gaps in between; the viewer then says "Reception has gaps between
 snapshots".
 
+## M5Stack standalone displays
+
+M5Stack Basic and Core2 run the 320×240 standalone spectrum and waterfall on
+the ESP32 backend. Cardputer K132 and ADV run the compact 240×135 version on
+the ESP32-S3, with a 4096-point local FFT limit. M5StickC Plus2 runs a portrait
+135×240 version on the ESP32 backend. See
+[build and control instructions](docs/m5stack-core2-cardputer.md).
+
 All chips accept tuning from 100 to 6000 MHz, but the PLL only locks in a
 limited range around 2.4 GHz (and 5 GHz on the C5). ESP32, C2, C3, S2 and S3
 reach down to about 1.85 GHz using a 5/6 LO divider, the C6 to about 1.95 GHz;
@@ -73,8 +81,9 @@ S2), so there are gaps between them. Gain is not calibrated in dB.
 rates above. This is what the browser viewer uses.
 
 **On-chip spectra** (USB/UART protocol): the firmware computes 256–2048-bin
-FFTs and sends compact spectra instead of raw samples. The M5Stack Basic's
-standalone LCD also supports 4096- and 8192-point FFTs. On the C6, C61, S3 and S31 over
+FFTs and sends compact spectra instead of raw samples. Standalone LCD profiles
+support up to 4096 points on Cardputer and 8192 points on Basic, Core2 and
+StickC Plus2. On the C6, C61, S3 and S31 over
 native USB, the receiver keeps recording between FFTs (continuous capture¹),
 but only part of the signal is analyzed. See [spectrum.md](docs/spectrum.md). The original S3 Turbo
 Mode was developed by Zoltan Doczi from [Z2Labs](https://www.z2labs.io/).
@@ -135,6 +144,10 @@ The `m5stack-basic` profile adds a standalone 256–8192 point spectrum and
 color waterfall display with A/B/C button controls on the original ESP32
 M5Stack Basic, plus the existing USB-UART protocol. See
 [build, flash and operating instructions](docs/m5stack-basic.md).
+
+Standalone profiles are also available for Core2, Cardputer K132, Cardputer
+ADV and M5StickC Plus2. Their build profiles and button maps are listed in
+[the M5Stack display guide](docs/m5stack-core2-cardputer.md).
 
 ## Source layout
 

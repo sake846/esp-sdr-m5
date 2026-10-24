@@ -46,6 +46,16 @@ static uint64_t excluded_pins(void) {
     /* LCD, SD, speaker, buttons and the IP5306 power-management I2C bus. */
     mask |= PIN(4) | PIN(14) | PINS(18, 19) | PINS(21, 23) | PIN(25) | PIN(27) |
             PINS(32, 33) | PINS(37, 39);
+#elif CONFIG_ESP_SDR_M5STACK_CORE2
+    /* Core2 LCD/SD, touch, power bus, microphone and speaker. */
+    mask |= PINS(0, 5) | PIN(12) | PIN(15) | PIN(18) | PINS(21, 23) | PIN(34) | PINS(38, 39);
+#elif CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    /* Cardputer boot key, keyboard, display/LED, SD, speaker, mic and IR. */
+    mask |= PIN(0) | PINS(3, 15) | PIN(38) | PINS(39, 44) | PIN(46);
+#elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+    /* LCD/backlight, power hold, buttons, buzzer, mic, IR, IMU/RTC and battery ADC. */
+    mask |= PIN(0) | PIN(2) | PIN(4) | PIN(5) | PINS(12, 15) | PIN(19) | PINS(21, 22) |
+            PIN(27) | PIN(34) | PIN(35) | PIN(37) | PIN(38) | PIN(39);
 #endif
 #if SOC_USB_SERIAL_JTAG_SUPPORTED
     mask |= PIN(USB_INT_PHY0_DM_GPIO_NUM) | PIN(USB_INT_PHY0_DP_GPIO_NUM);
