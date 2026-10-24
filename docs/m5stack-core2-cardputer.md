@@ -15,7 +15,7 @@ uses the onboard USB-UART bridge at 2,000,000 baud.
 ```powershell
 idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 `
   -DSDKCONFIG=build-m5stack-core2/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2 build
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2' build
 idf.py -B build-m5stack-core2 -p COMx flash
 ```
 
@@ -33,7 +33,7 @@ connection uses native USB Serial/JTAG.
 ```powershell
 idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 `
   -DSDKCONFIG=build-m5stack-cardputer/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer build
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer' build
 idf.py -B build-m5stack-cardputer -p COMx flash
 ```
 
@@ -47,7 +47,7 @@ uses the same keyboard controls as K132. Its local FFT menu also goes up to
 ```powershell
 idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 `
   -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv build
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv' build
 idf.py -B build-m5stack-cardputer-adv -p COMx flash
 ```
 
@@ -62,7 +62,7 @@ at 2,000,000 baud.
 ```powershell
 idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 `
   -DSDKCONFIG=build-m5stickc-plus2/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2 build
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2' build
 idf.py -B build-m5stickc-plus2 -p COMx flash
 ```
 

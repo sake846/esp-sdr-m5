@@ -168,7 +168,7 @@ idf.py -B build-m5stack-basic -p PORT flash
 ```powershell
 idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 `
   -DSDKCONFIG=build-m5stack-basic/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic build
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic' build
 idf.py -B build-m5stack-basic -p PORT flash
 ```
 
@@ -193,7 +193,7 @@ idf.py -B build-m5stack-core2 -p PORT flash
 ```powershell
 idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 `
   -DSDKCONFIG=build-m5stack-core2/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2 build
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2' build
 idf.py -B build-m5stack-core2 -p PORT flash
 ```
 
@@ -216,7 +216,7 @@ idf.py -B build-m5stack-cardputer -p PORT flash
 ```powershell
 idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 `
   -DSDKCONFIG=build-m5stack-cardputer/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer build
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer' build
 idf.py -B build-m5stack-cardputer -p PORT flash
 ```
 
@@ -239,7 +239,7 @@ idf.py -B build-m5stack-cardputer-adv -p PORT flash
 ```powershell
 idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 `
   -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv build
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv' build
 idf.py -B build-m5stack-cardputer-adv -p PORT flash
 ```
 
@@ -262,7 +262,7 @@ idf.py -B build-m5stickc-plus2 -p PORT flash
 ```powershell
 idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 `
   -DSDKCONFIG=build-m5stickc-plus2/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2 build
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2' build
 idf.py -B build-m5stickc-plus2 -p PORT flash
 ```
 

@@ -204,7 +204,7 @@ static void title_row(unsigned y) {
     for (unsigned letter = 0; title[letter]; letter++)
         for (unsigned x = 0; x < 5; x++)
             if (title_glyph_row(title[letter], y - 1) & (1u << (4 - x)))
-                row[4 + letter * 6 + x] = __builtin_bswap16(0x0000);
+                row[8 + letter * 6 + x] = __builtin_bswap16(0x0000);
 }
 
 static uint16_t waterfall_color(uint8_t value) {
@@ -536,7 +536,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
                     }
                 }
             }
-            if (y < 10 && x >= 4 && x < 68) color = COLOR_SRDECK_YELLOW_GREEN;
+            if (y < 10 && x >= 4 && x < 72) color = COLOR_SRDECK_YELLOW_GREEN;
             row[x] = __builtin_bswap16(color);
         }
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2

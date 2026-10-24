@@ -19,7 +19,7 @@
 #if CONFIG_ESP_SDR_M5STACK_CORE2
 #define LCD_DC 15
 #define LCD_CS 5
-#define LCD_HOST SPI2_HOST
+#define LCD_HOST SPI3_HOST /* Core2 LCD uses VSPI pins GPIO18/23/5. */
 #else
 #define LCD_DC 27
 #define LCD_RST 33
@@ -298,7 +298,6 @@ static void text_row(unsigned y, unsigned left, unsigned top, const char *text, 
     }
 }
 
-#if !CONFIG_ESP_SDR_M5STACK_CORE2
 static uint8_t title_glyph_row(char c, unsigned y) {
     static const uint8_t e[7] = {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f};
     static const uint8_t s[7] = {0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e};
@@ -321,10 +320,9 @@ static void title_row(unsigned y) {
             unsigned glyph_x = (x * 2 + 1) * 5 / 16;
             unsigned glyph_y = ((y - 1) * 2 + 1) * 7 / 20;
             if (title_glyph_row(title[letter], glyph_y) & (1u << (4 - glyph_x)))
-                row[4 + letter * 9 + x] = __builtin_bswap16(0x0000);
+                row[8 + letter * 9 + x] = __builtin_bswap16(0x0000);
         }
 }
-#endif
 
 static uint16_t waterfall_color(uint8_t value) {
     unsigned red, green, blue;
@@ -348,11 +346,7 @@ static uint16_t waterfall_color(uint8_t value) {
 
 void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, bool pc_control,
                         bool valid, unsigned cpu_percent) {
-#if CONFIG_ESP_SDR_M5STACK_CORE2
-    static const char title[] = "ESP-SDR CORE2";
-#else
     static const char title[] = "ESP-SDR-M5";
-#endif
     char settings[40], edges[3][12];
     uint8_t display_bins[PLOT_WIDTH] = {0};
     uint8_t spectrum_trace[PLOT_WIDTH];
@@ -364,7 +358,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         waterfall_head = waterfall_count = 0;
         waterfall_tuned = true;
     }
-    snprintf(settings, sizeof(settings), "STEP %uM SPAN %uM FFT%u AVE%u", m5stack_steps[controls.step],
+    snprintf(settings, sizeof(settings), "STEP %uM SPAN %uM FFT %u AVE %u", m5stack_steps[controls.step],
              span, fft_points, m5stack_basic_average_count());
     snprintf(edges[0], sizeof(edges[0]), "%u", mhz - span / 2);
     snprintf(edges[1], sizeof(edges[1]), "%u", mhz);
@@ -419,20 +413,8 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             }
             row[x] = __builtin_bswap16(color);
         }
-#if CONFIG_ESP_SDR_M5STACK_CORE2
-        if (y >= 3 && y < 13)
-            for (unsigned x = 4; x < 4 + (sizeof(title) - 1) * 8; x++)
-                row[x] = __builtin_bswap16(COLOR_SRDECK_YELLOW_GREEN);
-        text_row(y, 4, 3, title, 2, 0x0000);
-        char cpu[12];
-        snprintf(cpu, sizeof(cpu), "CPU %u%%", cpu_percent);
-        text_row(y, 318 - (unsigned)strlen(cpu) * 8, 3, cpu, 2, 0xffff);
-        text_row(y, 4, 21, settings, 2, 0xffff);
-        text_row(y, 270, 23, pc_control ? "PC" : valid ? "LIVE" : "WAIT", 1,
-                 pc_control ? 0xffe0 : 0xffff);
-#else
         if (y < 12)
-            for (unsigned x = 4; x < 4 + (sizeof(title) - 1) * 9; x++)
+            for (unsigned x = 4; x < 12 + (sizeof(title) - 1) * 9; x++)
                 row[x] = __builtin_bswap16(COLOR_SRDECK_YELLOW_GREEN);
         title_row(y);
         char cpu[12];
@@ -443,7 +425,6 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         text_row(y, cpu_left, 3, cpu, 2, 0xffff);
         text_row(y, status_left, 3, status, 2, pc_control ? 0xffe0 : 0xffff);
         text_row(y, 4, 21, settings, 2, 0xffff);
-#endif
         text_row(y, 4, FREQUENCY_TOP, edges[0], 2, 0xffff);
         text_row(y, 144, FREQUENCY_TOP, edges[1], 2, 0xffff);
         text_row(y, 284, FREQUENCY_TOP, edges[2], 2, 0xffff);
