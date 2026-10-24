@@ -47,9 +47,7 @@ M5StickC向けの設定は、**M5StickC Plus2専用**です。
 
 ### M5StickC Plus2
 
-*写真は後日追加予定です。*
-
-<!-- ![M5StickC Plus2のスペクトラム・ウォーターフォール表示](docs/m5stickc-plus2-screen.png) -->
+![M5StickC Plus2のスペクトラム・ウォーターフォール表示](docs/m5stickc-plus2-screen.png)
 
 ## ビルド環境の準備
 

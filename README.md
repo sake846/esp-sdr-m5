@@ -54,9 +54,7 @@ fork.
 
 ### M5StickC Plus2
 
-*Photo pending; hardware operation is not yet verified.*
-
-<!-- ![M5StickC Plus2 running the standalone spectrum and waterfall display](docs/m5stickc-plus2-screen.png) -->
+![M5StickC Plus2 running the standalone spectrum and waterfall display](docs/m5stickc-plus2-screen.png)
 
 ## Build environment
 
