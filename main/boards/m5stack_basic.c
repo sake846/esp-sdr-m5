@@ -11,6 +11,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <stdio.h>
+#include <string.h>
 
 #define LCD_DC  27
 #define LCD_RST 33
@@ -18,7 +19,6 @@
 #define PIN(n)  (UINT64_C(1) << (n))
 #define PLOT_LEFT 4
 #define PLOT_WIDTH 312
-#define FFT_BINS 256
 #define SPECTRUM_TOP 32
 #define SPECTRUM_BOTTOM 83
 #define FREQUENCY_TOP 85
@@ -30,8 +30,8 @@ static m5stack_controls_t controls;
 /* A single scanline avoids a 150 KiB framebuffer on the non-PSRAM Basic. */
 static uint16_t row[320] __attribute__((aligned(4)));
 /* Keep about 12 seconds of 10 Hz history using the byte-sized power codes. */
-static uint8_t waterfall[WATERFALL_HEIGHT][FFT_BINS];
-static unsigned waterfall_head, waterfall_count, waterfall_mhz, waterfall_span;
+static uint8_t waterfall[WATERFALL_HEIGHT][PLOT_WIDTH];
+static unsigned waterfall_head, waterfall_count, waterfall_mhz, waterfall_span, waterfall_fft;
 static bool waterfall_tuned;
 
 static void lcd_write(bool data, const void *bytes, size_t size) {
@@ -107,7 +107,7 @@ void m5stack_basic_init(void) {
     lcd_command(invert ? 0x21 : 0x20, NULL, 0);
     lcd_command(0x11, NULL, 0);
     vTaskDelay(pdMS_TO_TICKS(120));
-    m5stack_basic_draw(2412, NULL, false, false);
+    m5stack_basic_draw(2412, NULL, 256, false, false, 0);
     lcd_command(0x29, NULL, 0);
     ESP_ERROR_CHECK(gpio_set_level(LCD_BL, 1));
 }
@@ -122,6 +122,10 @@ unsigned m5stack_basic_rate(void) {
     return m5stack_rates[controls.rate];
 }
 
+unsigned m5stack_basic_fft_points(void) {
+    return m5stack_fft_sizes[controls.fft];
+}
+
 /* Original 3x5 glyphs, each row encoded in three bits, top row first. */
 static uint16_t glyph(char c) {
     static const uint16_t digits[] = {
@@ -134,8 +138,10 @@ static uint16_t glyph(char c) {
     };
     if (c >= '0' && c <= '9') return digits[c - '0'];
     if (c >= 'A' && c <= 'Z') return letters[c - 'A'];
+    if (c == '%') return 0x52a5;
     if (c == '-') return 0x01c0;
     if (c == '+') return 0x05d0;
+    if (c == '/') return 0x12a4;
     return 0;
 }
 
@@ -170,39 +176,48 @@ static uint16_t waterfall_color(uint8_t value) {
     return (uint16_t)(((red & 0xf8) << 8) | ((green & 0xfc) << 3) | (blue >> 3));
 }
 
-void m5stack_basic_draw(unsigned mhz, const uint8_t bins[256], bool pc_control, bool valid) {
+void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, bool pc_control,
+                        bool valid, unsigned cpu_percent) {
     char settings[40], edges[3][12];
+    uint8_t display_bins[PLOT_WIDTH] = {0};
     uint8_t spectrum_trace[PLOT_WIDTH];
     unsigned span = m5stack_spans[controls.rate];
-    if (!waterfall_tuned || waterfall_mhz != mhz || waterfall_span != span) {
+    if (!waterfall_tuned || waterfall_mhz != mhz || waterfall_span != span || waterfall_fft != fft_points) {
         waterfall_mhz = mhz;
         waterfall_span = span;
+        waterfall_fft = fft_points;
         waterfall_head = waterfall_count = 0;
         waterfall_tuned = true;
     }
-    if (bins && valid && !pc_control) {
-        waterfall_head = (waterfall_head + 1) % WATERFALL_HEIGHT;
-        for (unsigned bin = 0; bin < FFT_BINS; bin++)
-            waterfall[waterfall_head][bin] = bins[bin];
-        if (waterfall_count < WATERFALL_HEIGHT) waterfall_count++;
-    }
-    snprintf(settings, sizeof(settings), "STEP %u MHZ   SPAN %u MHZ", m5stack_steps[controls.step], span);
+    snprintf(settings, sizeof(settings), "STEP %u SPAN %u FFT %u", m5stack_steps[controls.step], span,
+             fft_points);
     snprintf(edges[0], sizeof(edges[0]), "%u", mhz - span / 2);
     snprintf(edges[1], sizeof(edges[1]), "%u", mhz);
     snprintf(edges[2], sizeof(edges[2]), "%u", mhz + span / 2);
     if (bins && valid) {
         for (unsigned plot_x = 0; plot_x < PLOT_WIDTH; plot_x++) {
-            unsigned bin = ((plot_x * FFT_BINS) / PLOT_WIDTH + 128) & 255;
-            unsigned height = (bins[bin] * (SPECTRUM_BOTTOM - SPECTRUM_TOP)) / 255;
+            unsigned first = plot_x * fft_points / PLOT_WIDTH;
+            unsigned limit = (plot_x + 1) * fft_points / PLOT_WIDTH;
+            if (limit <= first) limit = first + 1;
+            if (limit > fft_points) limit = fft_points;
+            for (unsigned shifted = first; shifted < limit; shifted++) {
+                unsigned bin = (shifted + fft_points / 2) % fft_points;
+                if (bins[bin] > display_bins[plot_x]) display_bins[plot_x] = bins[bin];
+            }
+            unsigned height = (display_bins[plot_x] * (SPECTRUM_BOTTOM - SPECTRUM_TOP)) / 255;
             spectrum_trace[plot_x] = SPECTRUM_BOTTOM - height;
         }
+    }
+    if (bins && valid && !pc_control) {
+        waterfall_head = (waterfall_head + 1) % WATERFALL_HEIGHT;
+        memcpy(waterfall[waterfall_head], display_bins, sizeof(display_bins));
+        if (waterfall_count < WATERFALL_HEIGHT) waterfall_count++;
     }
     for (unsigned y = 0; y < 240; y++) {
         for (unsigned x = 0; x < 320; x++) {
             uint16_t color = 0x0000;
             if (x >= PLOT_LEFT && x < PLOT_LEFT + PLOT_WIDTH) {
                 unsigned plot_x = x - PLOT_LEFT;
-                unsigned bin = ((plot_x * FFT_BINS) / PLOT_WIDTH + 128) & 255;
                 if (y >= SPECTRUM_TOP && y <= SPECTRUM_BOTTOM) {
                     if (y == SPECTRUM_BOTTOM)
                         color = 0x4208;
@@ -220,7 +235,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t bins[256], bool pc_control, 
                     unsigned age = y - WATERFALL_TOP;
                     if (age < waterfall_count) {
                         unsigned index = (waterfall_head + WATERFALL_HEIGHT - age) % WATERFALL_HEIGHT;
-                        color = waterfall_color(waterfall[index][bin]);
+                        color = waterfall_color(waterfall[index][plot_x]);
                     }
                 }
             }
@@ -228,14 +243,17 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t bins[256], bool pc_control, 
         }
         text_row(y, 4, 3, "ESP-SDR M5 BASIC", 2, 0x07ff);
         text_row(y, 4, 21, settings, 2, 0xffff);
+        char cpu[12];
+        snprintf(cpu, sizeof(cpu), "CPU %u%%", cpu_percent);
+        text_row(y, 208, 23, cpu, 1, 0x07ff);
         text_row(y, 270, 23, pc_control ? "PC" : valid ? "LIVE" : "WAIT", 1,
                  pc_control ? 0xffe0 : 0xffff);
         text_row(y, 4, FREQUENCY_TOP, edges[0], 2, 0xffff);
         text_row(y, 144, FREQUENCY_TOP, edges[1], 2, 0xffff);
         text_row(y, 284, FREQUENCY_TOP, edges[2], 2, 0xffff);
         text_row(y, 29, BUTTON_HINT_TOP, "TUNE-", 2, 0x07ff);
-        text_row(y, 120, BUTTON_HINT_TOP, "STEP/HOLD", 2, 0x07ff);
-        text_row(y, 243, BUTTON_HINT_TOP, "TUNE+", 2, 0x07ff);
+        text_row(y, 120, BUTTON_HINT_TOP, "STEP/SPAN", 2, 0x07ff);
+        text_row(y, 231, BUTTON_HINT_TOP, "TUNE+/FFT+", 2, 0x07ff);
         lcd_command(0x2a, (const uint8_t[]){0, 0, 1, 0x3f}, 4);
         const uint8_t address[] = {0, y, 0, y};
         lcd_command(0x2b, address, 4);

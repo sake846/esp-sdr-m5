@@ -18,7 +18,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#define MAX_FFT      2048u
+#define MAX_SPEC_FFT 2048u
+#if CONFIG_ESP_SDR_M5STACK_BASIC
+#define MAX_FFT 8192u
+#else
+#define MAX_FFT MAX_SPEC_FFT
+#endif
 #define HEADER_BYTES 28u
 #if CONFIG_IDF_TARGET_ESP32C2
 /* Quiescent during RF capture; keep heap/stacks in the other SRAM banks. */
@@ -29,20 +34,20 @@
 static int16_t fft_data[2 * MAX_FFT] __attribute__((aligned(16))) SPEC_STORAGE;
 static int16_t window[MAX_FFT] SPEC_STORAGE;
 /* Same workspace size for both detectors. Max-hold never needs floats;
- * mean accumulation retains fractional precision without extra SRAM. */
+ * USB spectra remain capped at MAX_SPEC_FFT on M5Stack. */
 static union {
-    float mean[MAX_FFT];
-    uint32_t maximum[MAX_FFT];
+    float mean[MAX_SPEC_FFT];
+    uint32_t maximum[MAX_SPEC_FFT];
 } powers SPEC_STORAGE;
 typedef struct {
     int32_t re, im; /* Time-domain DC estimate with 8 fractional bits. */
     bool ready;
 } spectrum_time_dc_t;
-static uint8_t frame[HEADER_BYTES + MAX_FFT + 4] SPEC_STORAGE;
+static uint8_t frame[HEADER_BYTES + MAX_SPEC_FFT + 4] SPEC_STORAGE;
 static unsigned setup_n;
 static bool ready;
 static spectrum_time_dc_t snapshot_dc;
-static unsigned snapshot_dc_rate, snapshot_dc_mode;
+static unsigned snapshot_dc_rate, snapshot_dc_mode, snapshot_dc_n;
 static bool snapshot_dc_ready;
 spectrum_workspace_t spectrum_workspace(void) {
     setup_n = 0;
@@ -141,17 +146,18 @@ void spectrum_snapshot_reset_dc(void) {
     snapshot_dc_ready = false;
 }
 
-bool spectrum_snapshot(unsigned rate, spectrum_acquire_fn acquire, uint8_t bins[256]) {
-    if (!rate_hz(rate) || !spectrum_fft_init()) return false;
-    const unsigned n = 256;
+bool spectrum_snapshot(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins) {
+    if (!rate_hz(rate) || n < 256 || n > MAX_FFT || (n & (n - 1)) || !spectrum_fft_init()) return false;
     const uint32_t *words;
     unsigned elapsed;
     if (!acquire(n, rate, &words, &elapsed)) return false;
     setup_window(n);
-    if (!snapshot_dc_ready || snapshot_dc_rate != rate || snapshot_dc_mode != spectrum_dc_mode) {
+    if (!snapshot_dc_ready || snapshot_dc_rate != rate || snapshot_dc_mode != spectrum_dc_mode ||
+        snapshot_dc_n != n) {
         snapshot_dc = (spectrum_time_dc_t){0};
         snapshot_dc_rate = rate;
         snapshot_dc_mode = spectrum_dc_mode;
+        snapshot_dc_n = n;
         snapshot_dc_ready = true;
     }
     transform(words, n, &snapshot_dc, local_fft_poll, NULL);
@@ -178,7 +184,7 @@ static void capabilities(void) {
     bool first = true;
     for (unsigned r = 0; r < sizeof(rates) / sizeof(rates[0]); r++)
         if (rates[r]) {
-            for (unsigned n = 256; n <= MAX_FFT; n *= 2) {
+            for (unsigned n = 256; n <= MAX_SPEC_FFT; n *= 2) {
                 char text[96];
                 snprintf(text, sizeof(text), "%s[%u,%u,%u,1,1,%u]", first ? "" : ",", rates[r], r, n,
 #if CONFIG_IDF_TARGET_ESP32C61 || CONFIG_IDF_TARGET_ESP32C6
@@ -265,7 +271,7 @@ bool spectrum_command(const char *line, unsigned frequency_mhz, spectrum_acquire
     int fields =
         sscanf(line, "SPEC %u %u %u %u %u %u %u %c", &ms, &stride, &units, &det, &rate, &n, &stats, &extra);
     if ((fields != 6 && fields != 7) || stats > 1 || ms > 86400000u || stride != 1 || !units || units > 8 ||
-        det > 1 || !rate_hz(rate) || n < 256 || n > MAX_FFT || (n & (n - 1))) {
+        det > 1 || !rate_hz(rate) || n < 256 || n > MAX_SPEC_FFT || (n & (n - 1))) {
         send_text("ERR spec_args\n");
         return true;
     }

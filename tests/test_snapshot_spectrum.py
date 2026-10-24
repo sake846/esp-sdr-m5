@@ -88,9 +88,9 @@ size_t burst_serial_try_send(const void *data,size_t size){
 }
 int main(void){
  uint8_t local[256];
- assert(!spectrum_snapshot(99,acquire,local));
- assert(!spectrum_snapshot(0,fail_acquire,local));
- assert(spectrum_snapshot(0,acquire,local));
+ assert(!spectrum_snapshot(99,256,acquire,local));
+ assert(!spectrum_snapshot(0,256,fail_acquire,local));
+ assert(spectrum_snapshot(0,256,acquire,local));
  assert(!replies[0] && transforms==1 && frames==0);
  for(unsigned j=1;j<256;j++){
   unsigned v=j%97+1;
@@ -99,22 +99,22 @@ int main(void){
  pass_through=true;
  spectrum_dc_mode=0;
  for(unsigned j=0;j<256;j++)words[j]=j&1;
- assert(spectrum_snapshot(0,acquire,local));
+ assert(spectrum_snapshot(0,256,acquire,local));
  assert(fft_data[2*64]==-16); /* Fractional block mean is removed before windowing. */
  for(unsigned j=0;j<256;j++)words[j]=100;
- assert(spectrum_snapshot(0,acquire,local));
+ assert(spectrum_snapshot(0,256,acquire,local));
  for(unsigned j=0;j<256;j++)assert(local[j]==0); /* Per-capture time-domain mean removal. */
  spectrum_dc_mode=1;
  spectrum_snapshot_reset_dc();
- assert(spectrum_snapshot(0,acquire,local));
+ assert(spectrum_snapshot(0,256,acquire,local));
  for(unsigned j=0;j<256;j++)assert(local[j]==0);
  for(unsigned j=0;j<256;j++)words[j]=200;
- assert(spectrum_snapshot(0,acquire,local));
+ assert(spectrum_snapshot(0,256,acquire,local));
  unsigned residual_bins=0;
  for(unsigned j=0;j<256;j++)residual_bins+=local[j]!=0;
  assert(residual_bins>0); /* Slow time-domain DC estimate persists across snapshots. */
  spectrum_snapshot_reset_dc();
- assert(spectrum_snapshot(0,acquire,local));
+ assert(spectrum_snapshot(0,256,acquire,local));
  for(unsigned j=0;j<256;j++)assert(local[j]==0); /* Reset starts a fresh estimate. */
  pass_through=false;
  spectrum_dc_mode=0;

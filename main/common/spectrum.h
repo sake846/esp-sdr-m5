@@ -7,9 +7,9 @@ typedef bool (*spectrum_acquire_fn)(unsigned n, unsigned rate, const uint32_t **
 bool spectrum_command(const char *line, unsigned frequency_mhz, spectrum_acquire_fn acquire);
 
 bool spectrum_fft_init(void);
-/* One 256-bin local snapshot in natural FFT order, without serial output.
+/* One n-point local snapshot in natural FFT order, without serial output.
  * Call only between serial leases; it shares the protocol FFT workspace. */
-bool spectrum_snapshot(unsigned rate, spectrum_acquire_fn acquire, uint8_t bins[256]);
+bool spectrum_snapshot(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins);
 /* Reset the local snapshot DC tracker after retuning or other RF-path changes. */
 void spectrum_snapshot_reset_dc(void);
 

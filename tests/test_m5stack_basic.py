@@ -147,7 +147,7 @@ int main(void) {
     assert(rows == 240 && m5stack_basic_rate() == 6);
     assert(m5stack_basic_poll(2412, false) == 2412);
     bins[128] = 255; bins[0] = 0; bins[1] = 128; bins[255] = 64;
-    m5stack_basic_draw(2412, bins, false, true);
+    m5stack_basic_draw(2412, bins, 256, false, true, 0);
     assert(rows == 480);
     assert(pixels[32 * 320 + 4] == 0x05ff); /* Thin trace starts at the left edge. */
     assert(pixels[50 * 320 + 6] == 0x05ff); /* The steep peak is connected to its neighbor. */
@@ -165,14 +165,14 @@ int main(void) {
     assert(pixels[97 * 320 + 4] == 0xffff); /* Newest waterfall row. */
     assert(pixels[97 * 320 + 160] == waterfall_color(0));
     memset(bins, 0, sizeof(bins));
-    m5stack_basic_draw(2412, bins, false, true);
+    m5stack_basic_draw(2412, bins, 256, false, true, 0);
     assert(rows == 720);
     assert(pixels[97 * 320 + 4] == 0x0000); /* Newest row is quiet. */
     assert(pixels[98 * 320 + 4] == 0xffff); /* Previous capture moved down. */
-    m5stack_basic_draw(2412, bins, true, false);
+    m5stack_basic_draw(2412, bins, 256, true, false, 0);
     assert(rows == 960 && pixels[97 * 320 + 4] == 0x0000);
     assert(pixels[98 * 320 + 4] == 0xffff); /* PC lease freezes local history. */
-    m5stack_basic_draw(2413, bins, false, true);
+    m5stack_basic_draw(2413, bins, 256, false, true, 0);
     assert(rows == 1200 && pixels[98 * 320 + 4] == 0x0000); /* Retune clears stale history. */
     for (unsigned frame = 0; frame < WATERFALL_HEIGHT; frame++) {
         unsigned peak = (64 + frame * 4) & 255;
@@ -181,7 +181,7 @@ int main(void) {
             if (distance > 128) distance = 256 - distance;
             bins[k] = distance < 28 ? (uint8_t)(255 - distance * 7) : 24;
         }
-        m5stack_basic_draw(2413, bins, false, true);
+        m5stack_basic_draw(2413, bins, 256, false, true, 0);
     }
     unsigned latest_peak = (64 + (WATERFALL_HEIGHT - 1) * 4) & 255;
     unsigned latest_x = PLOT_LEFT + ((((latest_peak + 128) & 255) * PLOT_WIDTH + 255) / 256);

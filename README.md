@@ -72,8 +72,9 @@ S2), so there are gaps between them. Gain is not calibrated in dB.
 **Burst I/Q captures** (all chips): signed 8-bit or packed 10-bit I/Q at the
 rates above. This is what the browser viewer uses.
 
-**On-chip spectra** (all chips): the firmware computes 256–2048-bin FFTs and
-sends compact spectra instead of raw samples. On the C6, C61, S3 and S31 over
+**On-chip spectra** (USB/UART protocol): the firmware computes 256–2048-bin
+FFTs and sends compact spectra instead of raw samples. The M5Stack Basic's
+standalone LCD also supports 4096- and 8192-point FFTs. On the C6, C61, S3 and S31 over
 native USB, the receiver keeps recording between FFTs (continuous capture¹),
 but only part of the signal is analyzed. See [spectrum.md](docs/spectrum.md). The original S3 Turbo
 Mode was developed by Zoltan Doczi from [Z2Labs](https://www.z2labs.io/).
@@ -130,9 +131,9 @@ Chip-specific notes: [ESP32-C2](docs/esp32c2.md), [ESP32-H2](docs/esp32h2.md).
 
 ## M5Stack Basic
 
-The `m5stack-basic` profile adds a standalone 256-bin spectrum and color
-waterfall display with A/B/C button controls on the original ESP32 M5Stack
-Basic, plus the existing USB-UART protocol. See
+The `m5stack-basic` profile adds a standalone 256–8192 point spectrum and
+color waterfall display with A/B/C button controls on the original ESP32
+M5Stack Basic, plus the existing USB-UART protocol. See
 [build, flash and operating instructions](docs/m5stack-basic.md).
 
 ## Source layout

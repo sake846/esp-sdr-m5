@@ -4,14 +4,16 @@
 #include "rx_tuning.h"
 
 typedef struct {
-    unsigned raw, stable, step, rate;
-    uint32_t changed[3], b_pressed;
+    unsigned raw, stable, step, rate, fft;
+    uint32_t changed[3], pressed_at[3], b_pressed;
+    bool suppress_release[3];
     bool b_long;
 } m5stack_controls_t;
 
 static const unsigned m5stack_steps[] = {1, 5, 20};
 static const unsigned m5stack_rates[] = {6, 1, 0};
 static const unsigned m5stack_spans[] = {16, 40, 80};
+static const unsigned m5stack_fft_sizes[] = {256, 512, 1024, 2048, 4096, 8192};
 
 /* GPIO37-39 have external pull-ups; debounce without blocking the serial loop. */
 static inline unsigned m5stack_controls_update(m5stack_controls_t *s, unsigned mhz, unsigned pressed,
@@ -19,7 +21,10 @@ static inline unsigned m5stack_controls_update(m5stack_controls_t *s, unsigned m
     if (pc_control) {
         s->raw = s->stable = pressed;
         s->b_long = true;
-        for (unsigned j = 0; j < 3; j++) s->changed[j] = now;
+        for (unsigned j = 0; j < 3; j++) {
+            s->changed[j] = s->pressed_at[j] = now;
+            s->suppress_release[j] = true;
+        }
         return mhz;
     }
     for (unsigned j = 0; j < 3; j++) {
@@ -38,6 +43,9 @@ static inline unsigned m5stack_controls_update(m5stack_controls_t *s, unsigned m
                 s->step = (s->step + 1) % 3;
             }
         } else if (s->stable & bit) {
+            s->pressed_at[j] = now;
+            s->suppress_release[j] = false;
+        } else if (!s->suppress_release[j]) {
             unsigned step = m5stack_steps[s->step];
             if (j == 0)
                 mhz = mhz - RX_FREQ_MIN < step ? RX_FREQ_MIN : mhz - step;
@@ -48,6 +56,10 @@ static inline unsigned m5stack_controls_update(m5stack_controls_t *s, unsigned m
     if ((s->stable & 2) && !s->b_long && (uint32_t)(now - s->b_pressed) >= 600) {
         s->rate = (s->rate + 1) % 3;
         s->b_long = true;
+    }
+    if ((s->stable & 4) && !s->suppress_release[2] && (uint32_t)(now - s->pressed_at[2]) >= 600) {
+        s->fft = (s->fft + 1) % (sizeof(m5stack_fft_sizes) / sizeof(m5stack_fft_sizes[0]));
+        s->suppress_release[2] = true;
     }
     return mhz;
 }

@@ -35,7 +35,7 @@ python tools/build_firmware.py --profile m5stack-basic --version YOUR_VERSION
 
 ## Standalone operation
 
-Power on to start at 2412 MHz, with a 16 MHz span, 256 FFT bins and hardware
+Power on to start at 2412 MHz, with a 16 MHz span, a 256-point FFT and hardware
 automatic gain control. The LCD refreshes approximately ten times per second.
 
 | Button | Action |
@@ -44,9 +44,18 @@ automatic gain control. The LCD refreshes approximately ten times per second.
 | B, short press | Cycle the step: 1, 5, 20 MHz |
 | B, hold for 0.6 seconds | Cycle the span: 16, 40, 80 MHz |
 | C | Increase the center frequency by the selected step |
+| C, hold for 0.6 seconds | Cycle FFT size: 256, 512, 1024, 2048, 4096, 8192, then 256 |
 
-The center frequency, span and step appear above the plots; frequencies below
-them are in MHz. Both plots use nearly the full LCD width. The upper plot is a
+Short A/C presses tune only after the button is released. Holding A still
+decreases the frequency when released; holding C cycles the FFT size. The CPU
+percentage estimates the capture, FFT and LCD update time against the nominal
+100 ms refresh period; it is a local display workload estimate, not a system
+wide idle-task measurement.
+
+The center frequency, span, step, FFT size and CPU estimate appear above the
+plots; frequencies below them are in MHz. At FFT sizes above 256, the strongest
+bin in each displayed frequency group is shown so narrow peaks remain visible.
+Both plots use nearly the full LCD width. The upper plot is a
 thin blue trace over a dark grid, with negative frequency offsets on the left.
 Its vertical grid divides the selected span into eight intervals (2 MHz each
 at a 16 MHz span). Frequency marks sit between the plots. The lower waterfall

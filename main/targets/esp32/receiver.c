@@ -287,8 +287,8 @@ void burst_serial_idle(bool leased) {
     static int64_t next_poll, next_frame;
     static bool showing_pc;
     static unsigned pc_mhz;
-    static unsigned snapshot_mhz, snapshot_rate;
-    static uint8_t bins[256];
+    static unsigned snapshot_mhz, snapshot_rate, cpu_percent;
+    static uint8_t bins[8192];
     int64_t now = esp_timer_get_time();
     if (now < next_poll) return;
     next_poll = now + 10000;
@@ -302,21 +302,26 @@ void burst_serial_idle(bool leased) {
     next_frame = now + 100000;
     if (leased) {
         if (!showing_pc || pc_mhz != frequency_mhz)
-            m5stack_basic_draw(frequency_mhz, bins, true, true);
+            m5stack_basic_draw(frequency_mhz, bins, m5stack_basic_fft_points(), true, true, cpu_percent);
         showing_pc = true;
         pc_mhz = frequency_mhz;
         return;
     }
     showing_pc = false;
     unsigned rate = m5stack_basic_rate();
+    unsigned fft_points = m5stack_basic_fft_points();
     if (snapshot_mhz != frequency_mhz || snapshot_rate != rate) {
         spectrum_snapshot_reset_dc();
         snapshot_mhz = frequency_mhz;
         snapshot_rate = rate;
     }
+    int64_t work_start = esp_timer_get_time();
     local_capture = true;
-    bool valid = spectrum_snapshot(rate, spectrum_acquire, bins);
+    bool valid = spectrum_snapshot(rate, fft_points, spectrum_acquire, bins);
     local_capture = false;
-    m5stack_basic_draw(frequency_mhz, bins, false, valid);
+    m5stack_basic_draw(frequency_mhz, bins, fft_points, false, valid, cpu_percent);
+    int64_t work_us = esp_timer_get_time() - work_start;
+    unsigned frame_load = work_us >= 100000 ? 100 : (unsigned)(work_us * 100 / 100000);
+    cpu_percent = (cpu_percent * 3 + frame_load + 2) / 4;
 }
 #endif
