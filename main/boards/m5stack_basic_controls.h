@@ -4,7 +4,7 @@
 #include "rx_tuning.h"
 
 typedef struct {
-    unsigned raw, stable, step, rate, fft;
+    unsigned raw, stable, step, rate, fft, average;
     uint32_t changed[3], pressed_at[3], b_pressed;
     bool suppress_release[3];
     bool b_long;
@@ -14,6 +14,7 @@ static const unsigned m5stack_steps[] = {1, 5, 20};
 static const unsigned m5stack_rates[] = {6, 1, 0};
 static const unsigned m5stack_spans[] = {16, 40, 80};
 static const unsigned m5stack_fft_sizes[] = {256, 512, 1024, 2048, 4096, 8192};
+static const unsigned m5stack_average_counts[] = {1, 2, 4, 8, 10, 16};
 
 /* GPIO37-39 have external pull-ups; debounce without blocking the serial loop. */
 static inline unsigned m5stack_controls_update(m5stack_controls_t *s, unsigned mhz, unsigned pressed,
@@ -54,11 +55,15 @@ static inline unsigned m5stack_controls_update(m5stack_controls_t *s, unsigned m
         }
     }
     if ((s->stable & 2) && !s->b_long && (uint32_t)(now - s->b_pressed) >= 600) {
-        s->rate = (s->rate + 1) % 3;
+        s->fft = (s->fft + 1) % (sizeof(m5stack_fft_sizes) / sizeof(m5stack_fft_sizes[0]));
         s->b_long = true;
     }
+    if ((s->stable & 1) && !s->suppress_release[0] && (uint32_t)(now - s->pressed_at[0]) >= 600) {
+        s->rate = (s->rate + 1) % 3;
+        s->suppress_release[0] = true;
+    }
     if ((s->stable & 4) && !s->suppress_release[2] && (uint32_t)(now - s->pressed_at[2]) >= 600) {
-        s->fft = (s->fft + 1) % (sizeof(m5stack_fft_sizes) / sizeof(m5stack_fft_sizes[0]));
+        s->average = (s->average + 1) % (sizeof(m5stack_average_counts) / sizeof(m5stack_average_counts[0]));
         s->suppress_release[2] = true;
     }
     return mhz;

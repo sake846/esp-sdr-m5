@@ -36,31 +36,44 @@ python tools/build_firmware.py --profile m5stack-basic --version YOUR_VERSION
 ## Standalone operation
 
 Power on to start at 2412 MHz, with a 16 MHz span, a 256-point FFT and hardware
-automatic gain control. The LCD refreshes approximately ten times per second.
+automatic gain control. Each display update averages FFT results captured
+during a nominal 100 ms interval; LCD drawing adds a little to refresh time.
 
 | Button | Action |
 | --- | --- |
-| A | Decrease the center frequency by the selected step |
+| A, short press | Decrease the center frequency by the selected step |
+| A, hold for 0.6 seconds | Cycle span: 16, 40, 80 MHz |
 | B, short press | Cycle the step: 1, 5, 20 MHz |
-| B, hold for 0.6 seconds | Cycle the span: 16, 40, 80 MHz |
+| B, hold for 0.6 seconds | Cycle FFT size: 256, 512, 1024, 2048, 4096, 8192 |
 | C | Increase the center frequency by the selected step |
-| C, hold for 0.6 seconds | Cycle FFT size: 256, 512, 1024, 2048, 4096, 8192, then 256 |
+| C, hold for 0.6 seconds | Cycle averaging count: 1, 2, 4, 8, 10, 16 (default 10) |
 
-Short A/C presses tune only after the button is released. Holding A still
-decreases the frequency when released; holding C cycles the FFT size. The CPU
-percentage estimates the capture, FFT and LCD update time against the nominal
-100 ms refresh period; it is a local display workload estimate, not a system
-wide idle-task measurement.
+Short A/C presses tune only after the button is released. Holding A cycles the
+span instead of tuning; holding B cycles the FFT size, and holding C cycles
+the averaging count. The CPU
+percentage estimates time spent capturing, calculating FFTs and drawing the
+LCD during each integration/update interval; it is a local display workload
+estimate, not a system-wide idle-task measurement.
 
-The center frequency, span, step, FFT size and CPU estimate appear above the
-plots; frequencies below them are in MHz. At FFT sizes above 256, the strongest
+The center frequency and plot span appear above the plots; frequencies below
+them are in MHz. The CPU estimate is at the upper right, and the settings line
+shows the step, span, FFT size and selected average count. The selected number
+of snapshots is scheduled at evenly spaced positions within each 100 ms
+interval and averaged in the power domain. If a capture runs late, missed
+positions are skipped rather than bunched together, so the actual number may be
+lower than selected. Averaging smooths the displayed level without changing
+the FFT frequency resolution. `LIVE` means at least one local capture and FFT
+succeeded in the current interval; it does not mean a transmitter was detected. `WAIT`
+means the latest local capture failed, and `PC` means a serial client owns the
+receiver. At FFT sizes above 256, the strongest
 bin in each displayed frequency group is shown so narrow peaks remain visible.
 Both plots use nearly the full LCD width. The upper plot is a
 thin blue trace over a dark grid, with negative frequency offsets on the left.
 Its vertical grid divides the selected span into eight intervals (2 MHz each
 at a 16 MHz span). Frequency marks sit between the plots. The lower waterfall
-puts each new capture at the top and scrolls older captures down, showing about
-twelve seconds of history. Its colors show relative power: blue is quieter,
+puts each averaged spectrum at the top and scrolls older spectra down, showing
+about twelve seconds of history at the nominal 100 ms interval, plus LCD drawing
+time. Its colors show relative power: blue is quieter,
 cyan/yellow/white is stronger. Neither plot is calibrated in dBm. Captures are
 snapshots with gaps, as on the original ESP32 backend. DC correction estimates
 the I/Q mean over each captured waveform before windowing and FFT. A stationary

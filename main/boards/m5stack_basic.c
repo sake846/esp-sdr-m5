@@ -46,6 +46,7 @@ static void lcd_command(uint8_t command, const uint8_t *data, size_t size) {
 }
 
 void m5stack_basic_init(void) {
+    controls.average = 4; /* Default to ten spectra per 100 ms interval. */
     const gpio_config_t outputs = {
         .pin_bit_mask = PIN(4) | PIN(25) | PIN(LCD_DC) | PIN(LCD_RST) | PIN(LCD_BL),
         .mode = GPIO_MODE_OUTPUT,
@@ -126,6 +127,10 @@ unsigned m5stack_basic_fft_points(void) {
     return m5stack_fft_sizes[controls.fft];
 }
 
+unsigned m5stack_basic_average_count(void) {
+    return m5stack_average_counts[controls.average];
+}
+
 /* Original 3x5 glyphs, each row encoded in three bits, top row first. */
 static uint16_t glyph(char c) {
     static const uint16_t digits[] = {
@@ -189,8 +194,8 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         waterfall_head = waterfall_count = 0;
         waterfall_tuned = true;
     }
-    snprintf(settings, sizeof(settings), "STEP %u SPAN %u FFT %u", m5stack_steps[controls.step], span,
-             fft_points);
+    snprintf(settings, sizeof(settings), "STEP %uM SPAN %uM FFT %u AVE %u", m5stack_steps[controls.step],
+             span, fft_points, m5stack_basic_average_count());
     snprintf(edges[0], sizeof(edges[0]), "%u", mhz - span / 2);
     snprintf(edges[1], sizeof(edges[1]), "%u", mhz);
     snprintf(edges[2], sizeof(edges[2]), "%u", mhz + span / 2);
@@ -242,18 +247,18 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             row[x] = __builtin_bswap16(color);
         }
         text_row(y, 4, 3, "ESP-SDR M5 BASIC", 2, 0x07ff);
-        text_row(y, 4, 21, settings, 2, 0xffff);
         char cpu[12];
         snprintf(cpu, sizeof(cpu), "CPU %u%%", cpu_percent);
-        text_row(y, 208, 23, cpu, 1, 0x07ff);
+        text_row(y, 318 - (unsigned)strlen(cpu) * 8, 3, cpu, 2, 0x07ff);
+        text_row(y, 4, 21, settings, 2, 0xffff);
         text_row(y, 270, 23, pc_control ? "PC" : valid ? "LIVE" : "WAIT", 1,
                  pc_control ? 0xffe0 : 0xffff);
         text_row(y, 4, FREQUENCY_TOP, edges[0], 2, 0xffff);
         text_row(y, 144, FREQUENCY_TOP, edges[1], 2, 0xffff);
         text_row(y, 284, FREQUENCY_TOP, edges[2], 2, 0xffff);
-        text_row(y, 29, BUTTON_HINT_TOP, "TUNE-", 2, 0x07ff);
-        text_row(y, 120, BUTTON_HINT_TOP, "STEP/SPAN", 2, 0x07ff);
-        text_row(y, 231, BUTTON_HINT_TOP, "TUNE+/FFT+", 2, 0x07ff);
+        text_row(y, 29, BUTTON_HINT_TOP, "TUNE-/SPAN+", 2, 0x07ff);
+        text_row(y, 120, BUTTON_HINT_TOP, "STEP/FFT+", 2, 0x07ff);
+        text_row(y, 231, BUTTON_HINT_TOP, "TUNE+/AVE+", 2, 0x07ff);
         lcd_command(0x2a, (const uint8_t[]){0, 0, 1, 0x3f}, 4);
         const uint8_t address[] = {0, y, 0, y};
         lcd_command(0x2b, address, 4);

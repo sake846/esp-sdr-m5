@@ -30,6 +30,8 @@
 #include "heap_memory_layout.h"
 #if CONFIG_ESP_SDR_M5STACK_BASIC
 #include "m5stack_basic.h"
+#define M5_LOCAL_FFT_MAX 8192u
+#define M5_LOCAL_AVERAGE_MAX 16u
 static bool local_capture;
 #endif
 
@@ -285,43 +287,144 @@ void app_main(void) {
 #if CONFIG_ESP_SDR_M5STACK_BASIC
 void burst_serial_idle(bool leased) {
     static int64_t next_poll, next_frame;
+    static int64_t average_start;
+    static uint64_t frame_work_us;
     static bool showing_pc;
     static unsigned pc_mhz;
-    static unsigned snapshot_mhz, snapshot_rate, cpu_percent;
-    static uint8_t bins[8192];
+    static unsigned snapshot_mhz, snapshot_rate, snapshot_fft, snapshot_average_target;
+    static unsigned cpu_percent, average_count, average_slot;
+    static uint8_t bins[M5_LOCAL_FFT_MAX];
+    /* Log-power sums in Q6 represent linear-power averaging with 16 KiB of RAM. */
+    static uint16_t average_power_q6[M5_LOCAL_FFT_MAX];
+    /* Q6 correction: 20*log10(1 + 10^(-difference/20)). */
+    static const uint16_t log_add_q6[] = {
+        385, 354, 325, 298, 272, 248, 226, 205, 186, 169, 153, 138, 125, 112, 101, 91, 82, 73, 66, 59,
+        53,  47,  42,  38,  34,  30,  27,  24,  22,  19,  17,  15,  14,  12,  11,  10,  9,  8,  7,  6,
+        6,   5,   4,   4,   3,   3,   3,   2,   2,   2,   2,   2,   1,   1,   1,   1,   1,   1,   1,   1,
+        1,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+        0,
+    };
+    static const uint16_t log_count_q6[M5_LOCAL_AVERAGE_MAX + 1] = {
+        0, 0, 385, 611, 771, 895, 996, 1082, 1156, 1221, 1280, 1333, 1381, 1426, 1467, 1505, 1541,
+    };
     int64_t now = esp_timer_get_time();
     if (now < next_poll) return;
-    next_poll = now + 10000;
+    next_poll = now + 2000;
     unsigned mhz = m5stack_basic_poll(frequency_mhz, leased);
     if (mhz != frequency_mhz) {
         frequency_mhz = mhz;
         rx_ready = false;
         prepare_rx();
     }
-    if (now < next_frame) return;
-    next_frame = now + 100000;
     if (leased) {
+        if (!showing_pc) {
+            spectrum_snapshot_reset_dc();
+            average_count = 0;
+            average_slot = 0;
+            frame_work_us = 0;
+            average_start = 0;
+        }
         if (!showing_pc || pc_mhz != frequency_mhz)
             m5stack_basic_draw(frequency_mhz, bins, m5stack_basic_fft_points(), true, true, cpu_percent);
         showing_pc = true;
         pc_mhz = frequency_mhz;
         return;
     }
-    showing_pc = false;
+    if (showing_pc) {
+        showing_pc = false;
+        spectrum_snapshot_reset_dc();
+        average_count = 0;
+        average_slot = 0;
+        frame_work_us = 0;
+        average_start = 0;
+    }
     unsigned rate = m5stack_basic_rate();
     unsigned fft_points = m5stack_basic_fft_points();
-    if (snapshot_mhz != frequency_mhz || snapshot_rate != rate) {
+    unsigned average_target = m5stack_basic_average_count();
+    if (snapshot_mhz != frequency_mhz || snapshot_rate != rate || snapshot_fft != fft_points ||
+        snapshot_average_target != average_target) {
         spectrum_snapshot_reset_dc();
         snapshot_mhz = frequency_mhz;
         snapshot_rate = rate;
+        snapshot_fft = fft_points;
+        snapshot_average_target = average_target;
+        average_count = 0;
+        average_slot = 0;
+        frame_work_us = 0;
+        average_start = 0;
     }
-    int64_t work_start = esp_timer_get_time();
-    local_capture = true;
-    bool valid = spectrum_snapshot(rate, fft_points, spectrum_acquire, bins);
-    local_capture = false;
+    now = esp_timer_get_time();
+    if (!average_start) {
+        average_start = now;
+        next_frame = now + 100000;
+    }
+
+    now = esp_timer_get_time();
+    if (now < next_frame && average_slot < average_target) {
+        /* Trigger near the midpoint of each equal interval across the 100 ms window. */
+        uint64_t due_slots = (uint64_t)(now - average_start) * average_target * 2 / 100000;
+        if (due_slots) {
+            unsigned due_slot = (unsigned)((due_slots - 1) / 2);
+            if (due_slot >= average_target) due_slot = average_target - 1;
+            if (due_slot >= average_slot) {
+                average_slot = due_slot + 1; /* Skip missed slots rather than bunching captures. */
+                int64_t work_start = esp_timer_get_time();
+                local_capture = true;
+                bool captured = spectrum_snapshot(rate, fft_points, spectrum_acquire, bins);
+                local_capture = false;
+                int64_t work_end = esp_timer_get_time();
+                frame_work_us += (uint64_t)(work_end - work_start);
+                if (captured) {
+                    if (!average_count) {
+                        for (unsigned j = 0; j < fft_points; j++)
+                            average_power_q6[j] = bins[j] ? (uint16_t)(bins[j] << 6) : 0;
+                    } else {
+                        for (unsigned j = 0; j < fft_points; j++) {
+                            unsigned sample = bins[j];
+                            if (!sample) continue;
+                            unsigned sum = average_power_q6[j], value = sample << 6;
+                            if (!sum) {
+                                average_power_q6[j] = (uint16_t)value;
+                                continue;
+                            }
+                            unsigned high = sum > value ? sum : value;
+                            unsigned low = sum > value ? value : sum;
+                            unsigned difference = (high - low + 32) >> 6;
+                            unsigned correction = difference < sizeof(log_add_q6) / sizeof(log_add_q6[0])
+                                                      ? log_add_q6[difference]
+                                                      : 0;
+                            average_power_q6[j] = (uint16_t)(high + correction);
+                        }
+                    }
+                    average_count++;
+                }
+            }
+        }
+    }
+
+    now = esp_timer_get_time();
+    if (now < next_frame) return;
+    bool valid = average_count != 0;
+    if (valid) {
+        unsigned normalize = log_count_q6[average_count];
+        for (unsigned j = 0; j < fft_points; j++) {
+            unsigned sum = average_power_q6[j];
+            unsigned mean = sum > normalize ? (sum - normalize + 32) >> 6 : 0;
+            bins[j] = mean > 255 ? 255 : (uint8_t)mean;
+        }
+    }
+    int64_t draw_start = esp_timer_get_time();
     m5stack_basic_draw(frequency_mhz, bins, fft_points, false, valid, cpu_percent);
-    int64_t work_us = esp_timer_get_time() - work_start;
-    unsigned frame_load = work_us >= 100000 ? 100 : (unsigned)(work_us * 100 / 100000);
+    int64_t draw_end = esp_timer_get_time();
+    frame_work_us += (uint64_t)(draw_end - draw_start);
+    uint64_t elapsed_us = (uint64_t)(draw_end - average_start);
+    unsigned frame_load = elapsed_us ? (unsigned)(frame_work_us * 100 / elapsed_us) : 100;
+    if (frame_load > 100) frame_load = 100;
     cpu_percent = (cpu_percent * 3 + frame_load + 2) / 4;
+    average_count = 0;
+    average_slot = 0;
+    frame_work_us = 0;
+    average_start = draw_end;
+    next_frame = draw_end + 100000;
 }
 #endif
