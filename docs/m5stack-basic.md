@@ -13,7 +13,7 @@ Activate the ESP-IDF commit pinned by the `m5stack-basic` profile in
 ```sh
 idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 \
   -DSDKCONFIG=build-m5stack-basic/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic build
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic' build
 idf.py -B build-m5stack-basic -p PORT flash
 ```
 

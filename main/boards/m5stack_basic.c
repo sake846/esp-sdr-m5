@@ -298,6 +298,34 @@ static void text_row(unsigned y, unsigned left, unsigned top, const char *text, 
     }
 }
 
+#if !CONFIG_ESP_SDR_M5STACK_CORE2
+static uint8_t title_glyph_row(char c, unsigned y) {
+    static const uint8_t e[7] = {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f};
+    static const uint8_t s[7] = {0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e};
+    static const uint8_t p[7] = {0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10};
+    static const uint8_t d[7] = {0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e};
+    static const uint8_t r[7] = {0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11};
+    static const uint8_t m[7] = {0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11};
+    static const uint8_t five[7] = {0x1f, 0x10, 0x10, 0x1e, 0x01, 0x01, 0x1e};
+    static const uint8_t dash[7] = {0, 0, 0, 0x1f, 0, 0, 0};
+    const uint8_t *rows = c == 'E' ? e : c == 'S' ? s : c == 'P' ? p : c == 'D' ? d :
+                         c == 'R' ? r : c == 'M' ? m : c == '5' ? five : c == '-' ? dash : NULL;
+    return rows ? rows[y] : 0;
+}
+
+static void title_row(unsigned y) {
+    static const char title[] = "ESP-SDR-M5";
+    if (y == 0 || y > 10) return;
+    for (unsigned letter = 0; title[letter]; letter++)
+        for (unsigned x = 0; x < 8; x++) {
+            unsigned glyph_x = (x * 2 + 1) * 5 / 16;
+            unsigned glyph_y = ((y - 1) * 2 + 1) * 7 / 20;
+            if (title_glyph_row(title[letter], glyph_y) & (1u << (4 - glyph_x)))
+                row[4 + letter * 9 + x] = __builtin_bswap16(0x0000);
+        }
+}
+#endif
+
 static uint16_t waterfall_color(uint8_t value) {
     unsigned red, green, blue;
     if (value < 64) {
@@ -323,7 +351,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
 #if CONFIG_ESP_SDR_M5STACK_CORE2
     static const char title[] = "ESP-SDR CORE2";
 #else
-    static const char title[] = "ESP-SDR M5 BASIC";
+    static const char title[] = "ESP-SDR-M5";
 #endif
     char settings[40], edges[3][12];
     uint8_t display_bins[PLOT_WIDTH] = {0};
@@ -391,6 +419,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             }
             row[x] = __builtin_bswap16(color);
         }
+#if CONFIG_ESP_SDR_M5STACK_CORE2
         if (y >= 3 && y < 13)
             for (unsigned x = 4; x < 4 + (sizeof(title) - 1) * 8; x++)
                 row[x] = __builtin_bswap16(COLOR_SRDECK_YELLOW_GREEN);
@@ -401,12 +430,26 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         text_row(y, 4, 21, settings, 2, 0xffff);
         text_row(y, 270, 23, pc_control ? "PC" : valid ? "LIVE" : "WAIT", 1,
                  pc_control ? 0xffe0 : 0xffff);
+#else
+        if (y < 12)
+            for (unsigned x = 4; x < 4 + (sizeof(title) - 1) * 9; x++)
+                row[x] = __builtin_bswap16(COLOR_SRDECK_YELLOW_GREEN);
+        title_row(y);
+        char cpu[12];
+        snprintf(cpu, sizeof(cpu), "CPU %u%%", cpu_percent);
+        unsigned cpu_left = 318 - (unsigned)strlen(cpu) * 8;
+        const char *status = pc_control ? "PC" : valid ? "LIVE" : "WAIT";
+        unsigned status_left = cpu_left - (unsigned)strlen(status) * 8 - 8;
+        text_row(y, cpu_left, 3, cpu, 2, 0xffff);
+        text_row(y, status_left, 3, status, 2, pc_control ? 0xffe0 : 0xffff);
+        text_row(y, 4, 21, settings, 2, 0xffff);
+#endif
         text_row(y, 4, FREQUENCY_TOP, edges[0], 2, 0xffff);
         text_row(y, 144, FREQUENCY_TOP, edges[1], 2, 0xffff);
         text_row(y, 284, FREQUENCY_TOP, edges[2], 2, 0xffff);
-        text_row(y, 29, BUTTON_HINT_TOP, "TUNE-/SPAN+", 2, COLOR_SRDECK_YELLOW_GREEN);
-        text_row(y, 120, BUTTON_HINT_TOP, "STEP/FFT+", 2, COLOR_SRDECK_YELLOW_GREEN);
-        text_row(y, 231, BUTTON_HINT_TOP, "TUNE+/AVE+", 2, COLOR_SRDECK_YELLOW_GREEN);
+        text_row(y, 13, BUTTON_HINT_TOP, "TUNE-/SPAN", 2, COLOR_SRDECK_YELLOW_GREEN);
+        text_row(y, 128, BUTTON_HINT_TOP, "STEP/FFT", 2, COLOR_SRDECK_YELLOW_GREEN);
+        text_row(y, 231, BUTTON_HINT_TOP, "TUNE+/AVE", 2, COLOR_SRDECK_YELLOW_GREEN);
         lcd_command(0x2a, (const uint8_t[]){0, 0, 1, 0x3f}, 4);
         const uint8_t address[] = {0, y, 0, y};
         lcd_command(0x2b, address, 4);
