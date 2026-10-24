@@ -26,8 +26,9 @@ after that, the device can run on its own.
 ## Devices and hardware test status
 
 **M5Stack BASIC, Core2 and the original Cardputer (K132, non-ADV) have been
-verified on real hardware in this project.** Cardputer ADV and M5StickC Plus2
-have build profiles, but their hardware operation is unverified.
+verified on real hardware in this project.** Cardputer ADV is also shown
+running below. M5StickC Plus2 has a build profile, but hardware operation is
+unverified.
 
 | Device | Chip | Display | Build profile | Hardware test status |
 | --- | --- | --- | --- | --- |
@@ -44,26 +45,19 @@ fork.
 
 ## Operating photos
 
-Photos will be added below. To add one, save the image in `docs/`, remove the
-placeholder text and uncomment the corresponding Markdown image line.
-
 ### M5Stack BASIC
 
-*Operating photo coming soon.*
+![M5Stack BASIC running the standalone spectrum and waterfall display](docs/m5stack-basic-screen.png)
 
-<!-- ![M5Stack BASIC running the standalone spectrum and waterfall display](docs/m5stack-basic-screen.jpg) -->
+### Cardputer ADV
 
-### Cardputer, original K132
-
-*Operating photo coming soon.*
-
-<!-- ![Original Cardputer running the standalone spectrum and waterfall display](docs/cardputer-screen.jpg) -->
+![Cardputer ADV running the standalone spectrum and waterfall display](docs/cardputer-adv-screen.png)
 
 ### M5StickC Plus2
 
 *Photo pending; hardware operation is not yet verified.*
 
-<!-- ![M5StickC Plus2 running the standalone spectrum and waterfall display](docs/m5stickc-plus2-screen.jpg) -->
+<!-- ![M5StickC Plus2 running the standalone spectrum and waterfall display](docs/m5stickc-plus2-screen.png) -->
 
 ## Build environment
 

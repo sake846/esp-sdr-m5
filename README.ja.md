@@ -21,7 +21,8 @@ ESP32がI/Qサンプルの取得、FFT計算、画面描画を行います。
 ## 対応機種と実機確認状況
 
 **M5Stack BASIC、Core2、通常版Cardputer（K132、非ADV）は実機での動作を確認済みです**。
-Cardputer ADVとM5StickC Plus2にはビルド設定がありますが、実機での動作は未確認です。
+Cardputer ADVも下記のとおり実機で動作しています。M5StickC Plus2はビルド設定がありますが、
+実機での動作は未確認です。
 
 | 機種 | チップ | 画面 | ビルドプロファイル | 実機確認状況 |
 | --- | --- | --- | --- | --- |
@@ -37,26 +38,19 @@ M5StickC向けの設定は、**M5StickC Plus2専用**です。
 
 ## 動作画面
 
-写真は後から追加できます。画像を`docs/`に保存し、該当する仮テキストを削除して、
-Markdown画像行のコメントを外してください。
-
 ### M5Stack BASIC
 
-*動作写真は後日追加予定です。*
+![M5Stack BASICのスペクトラム・ウォーターフォール表示](docs/m5stack-basic-screen.png)
 
-<!-- ![M5Stack BASICのスペクトラム・ウォーターフォール表示](docs/m5stack-basic-screen.jpg) -->
+### Cardputer ADV
 
-### Cardputer 通常版 K132
-
-*動作写真は後日追加予定です。*
-
-<!-- ![通常版Cardputerのスペクトラム・ウォーターフォール表示](docs/cardputer-screen.jpg) -->
+![Cardputer ADVのスペクトラム・ウォーターフォール表示](docs/cardputer-adv-screen.png)
 
 ### M5StickC Plus2
 
-*写真は後日追加予定です。実機での動作は未確認です。*
+*写真は後日追加予定です。*
 
-<!-- ![M5StickC Plus2のスペクトラム・ウォーターフォール表示](docs/m5stickc-plus2-screen.jpg) -->
+<!-- ![M5StickC Plus2のスペクトラム・ウォーターフォール表示](docs/m5stickc-plus2-screen.png) -->
 
 ## ビルド環境の準備
 
