@@ -29,11 +29,11 @@
 #define LCD_MADCTL 0x08
 #define PLOT_LEFT 4
 #define PLOT_WIDTH 127
-#define SPECTRUM_TOP 24
-#define SPECTRUM_BOTTOM 65
-#define FREQUENCY_TOP 67
-#define WATERFALL_TOP 75
-#define WATERFALL_HEIGHT 157
+#define SPECTRUM_TOP 45
+#define SPECTRUM_BOTTOM 86
+#define FREQUENCY_TOP 88
+#define WATERFALL_TOP 99
+#define WATERFALL_HEIGHT 130
 #else
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 135
@@ -49,14 +49,47 @@
 #define LCD_MADCTL 0x6c
 #define PLOT_LEFT 4
 #define PLOT_WIDTH 232
-#define SPECTRUM_TOP 20
-#define SPECTRUM_BOTTOM 45
-#define FREQUENCY_TOP 48
-#define WATERFALL_TOP 56
-#define WATERFALL_HEIGHT 64
+#define SPECTRUM_TOP 24
+#define SPECTRUM_BOTTOM 47
+#define FREQUENCY_TOP 49
+#define WATERFALL_TOP 60
+#define WATERFALL_HEIGHT (SCREEN_HEIGHT - WATERFALL_TOP)
 #endif
 #define COLOR_SRDECK_YELLOW_GREEN 0xb726
 #define PIN(n) (UINT64_C(1) << (n))
+
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+enum {
+    MATRIX_COMMA = 1u << 0, MATRIX_PERIOD = 1u << 1, MATRIX_SLASH = 1u << 2,
+    MATRIX_SPACE = 1u << 3, MATRIX_T = 1u << 4, MATRIX_P = 1u << 5,
+    MATRIX_F = 1u << 6, MATRIX_A = 1u << 7, MATRIX_DIGIT_0 = 1u << 8,
+    MATRIX_SHIFT = 1u << 18,
+    ACTION_LEFT = 1u << 0, ACTION_RIGHT = 1u << 1, ACTION_SPACE = 1u << 2,
+    ACTION_T = 1u << 3, ACTION_P = 1u << 4, ACTION_F = 1u << 5, ACTION_A = 1u << 6,
+    ACTION_DIGIT_0 = 1u << 7,
+};
+static bool keyboard_help_visible;
+static unsigned keyboard_raw, keyboard_stable;
+static uint32_t keyboard_changed[17];
+static bool keyboard_reverse[7];
+static char frequency_input[5];
+static unsigned frequency_input_length, frequency_input_value;
+
+static unsigned matrix_key_bit(unsigned matrix_row, unsigned matrix_col) {
+    if (matrix_row == 0 && matrix_col >= 1 && matrix_col <= 10)
+        return MATRIX_DIGIT_0 << (matrix_col == 10 ? 0 : matrix_col);
+    if (matrix_row == 3 && matrix_col == 10) return MATRIX_COMMA;
+    if (matrix_row == 3 && matrix_col == 11) return MATRIX_PERIOD;
+    if (matrix_row == 3 && matrix_col == 12) return MATRIX_SLASH;
+    if (matrix_row == 3 && matrix_col == 13) return MATRIX_SPACE;
+    if (matrix_row == 1 && matrix_col == 5) return MATRIX_T;
+    if (matrix_row == 1 && matrix_col == 10) return MATRIX_P;
+    if (matrix_row == 2 && matrix_col == 1) return MATRIX_SHIFT;
+    if (matrix_row == 2 && matrix_col == 5) return MATRIX_F;
+    if (matrix_row == 2 && matrix_col == 2) return MATRIX_A;
+    return 0;
+}
+#endif
 
 static spi_device_handle_t lcd;
 static m5stack_controls_t controls;
@@ -133,17 +166,45 @@ static uint16_t glyph(char c) {
     if (c == '-') return 0x01c0;
     if (c == '+') return 0x05d0;
     if (c == '/') return 0x12a4;
+    if (c == '<') return 0x2922;
+    if (c == '>') return 0x224a;
     return 0;
 }
 
 static void text_row(unsigned y, unsigned left, const char *text, uint16_t color) {
-    if (y >= 5) return;
-    unsigned shift = 12 - 3 * y;
-    for (; *text && left + 3 <= SCREEN_WIDTH; text++, left += 4) {
-        unsigned pixels = (glyph(*text) >> shift) & 7;
-        for (unsigned x = 0; x < 3; x++)
-            if (pixels & (4u >> x)) row[left + x] = __builtin_bswap16(color);
+    if (y >= 10) return;
+    unsigned source_y = y / 2;
+    for (; *text && left + 6 <= SCREEN_WIDTH; text++, left += 7) {
+        unsigned pixels = (glyph(*text) >> (12 - 3 * source_y)) & 7;
+        for (unsigned x = 0; x < 3; x++) {
+            if (!(pixels & (4u >> x))) continue;
+            row[left + 2 * x] = __builtin_bswap16(color);
+            row[left + 2 * x + 1] = __builtin_bswap16(color);
+        }
     }
+}
+
+static uint8_t title_glyph_row(char c, unsigned y) {
+    static const uint8_t e[7] = {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f};
+    static const uint8_t s[7] = {0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e};
+    static const uint8_t p[7] = {0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10};
+    static const uint8_t d[7] = {0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e};
+    static const uint8_t r[7] = {0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11};
+    static const uint8_t m[7] = {0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11};
+    static const uint8_t five[7] = {0x1f, 0x10, 0x10, 0x1e, 0x01, 0x01, 0x1e};
+    static const uint8_t dash[7] = {0, 0, 0, 0x1f, 0, 0, 0};
+    const uint8_t *rows = c == 'E' ? e : c == 'S' ? s : c == 'P' ? p : c == 'D' ? d :
+                         c == 'R' ? r : c == 'M' ? m : c == '5' ? five : c == '-' ? dash : NULL;
+    return rows ? rows[y] : 0;
+}
+
+static void title_row(unsigned y) {
+    static const char title[] = "ESP-SDR-M5";
+    if (y == 0 || y > 7) return;
+    for (unsigned letter = 0; title[letter]; letter++)
+        for (unsigned x = 0; x < 5; x++)
+            if (title_glyph_row(title[letter], y - 1) & (1u << (4 - x)))
+                row[4 + letter * 6 + x] = __builtin_bswap16(0x0000);
 }
 
 static uint16_t waterfall_color(uint8_t value) {
@@ -177,8 +238,7 @@ static unsigned keyboard_buttons(void) {
         unsigned matrix_row = position / 10, matrix_col = position % 10;
         if (matrix_row >= 7 || matrix_col >= 8) continue;
         unsigned col = matrix_row * 2 + (matrix_col > 3), row = (matrix_col + 4) % 4;
-        unsigned bit = row == 3 && col == 10 ? 1u : row == 3 && col == 13 ? 2u :
-                       row == 3 && col == 12 ? 4u : 0u;
+        unsigned bit = matrix_key_bit(row, col);
         if (!bit) continue;
         if (event & 0x80) adv_keyboard_state &= ~bit; /* TCA8418 release event. */
         else adv_keyboard_state |= bit;
@@ -192,16 +252,115 @@ static unsigned keyboard_buttons(void) {
     return pressed;
 #else
     static const gpio_num_t out_pins[] = {GPIO_NUM_8, GPIO_NUM_9, GPIO_NUM_11};
+    static const gpio_num_t in_pins[] = {GPIO_NUM_13, GPIO_NUM_15, GPIO_NUM_3,
+                                         GPIO_NUM_4, GPIO_NUM_5, GPIO_NUM_6, GPIO_NUM_7};
     unsigned pressed = 0;
     for (unsigned address = 0; address < 8; address++) {
         for (unsigned bit = 0; bit < 3; bit++) gpio_set_level(out_pins[bit], (address >> bit) & 1);
-        if (address == 4 && !gpio_get_level(GPIO_NUM_6)) pressed |= 1u; /* comma: tune down/span */
-        if (address == 0 && !gpio_get_level(GPIO_NUM_7)) pressed |= 2u; /* space: step/FFT */
-        if (address == 4 && !gpio_get_level(GPIO_NUM_7)) pressed |= 4u; /* slash: tune up/average */
+        unsigned matrix_row = address < 4 ? 3 - address : 7 - address;
+        for (unsigned input = 0; input < 7; input++) {
+            if (gpio_get_level(in_pins[input])) continue;
+            unsigned matrix_col = address < 4 ? input * 2 + 1 : input * 2;
+            pressed |= matrix_key_bit(matrix_row, matrix_col);
+        }
     }
     return pressed;
 #endif
 }
+
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+static unsigned cardputer_actions(unsigned matrix_keys) {
+    unsigned actions = 0;
+    if (matrix_keys & MATRIX_COMMA) actions |= ACTION_LEFT;
+    if (matrix_keys & (MATRIX_PERIOD | MATRIX_SLASH)) actions |= ACTION_RIGHT;
+    if (matrix_keys & MATRIX_SPACE) actions |= ACTION_SPACE;
+    if (matrix_keys & MATRIX_T) actions |= ACTION_T;
+    if (matrix_keys & MATRIX_P) actions |= ACTION_P;
+    if (matrix_keys & MATRIX_F) actions |= ACTION_F;
+    if (matrix_keys & MATRIX_A) actions |= ACTION_A;
+    for (unsigned digit = 0; digit < 10; digit++)
+        if (matrix_keys & (MATRIX_DIGIT_0 << digit)) actions |= ACTION_DIGIT_0 << digit;
+    return actions;
+}
+
+static unsigned cardputer_controls_update(unsigned mhz, unsigned matrix_keys, uint32_t now,
+                                           bool pc_control) {
+    static const unsigned action_bits[] = {
+        ACTION_LEFT, ACTION_RIGHT, ACTION_SPACE, ACTION_T, ACTION_P, ACTION_F, ACTION_A,
+        ACTION_DIGIT_0, ACTION_DIGIT_0 << 1, ACTION_DIGIT_0 << 2, ACTION_DIGIT_0 << 3,
+        ACTION_DIGIT_0 << 4, ACTION_DIGIT_0 << 5, ACTION_DIGIT_0 << 6, ACTION_DIGIT_0 << 7,
+        ACTION_DIGIT_0 << 8, ACTION_DIGIT_0 << 9,
+    };
+    unsigned actions = cardputer_actions(matrix_keys);
+    if (pc_control) {
+        keyboard_raw = keyboard_stable = actions;
+        for (unsigned i = 0; i < sizeof(action_bits) / sizeof(action_bits[0]); i++)
+            keyboard_changed[i] = now;
+        frequency_input[0] = '\0';
+        frequency_input_length = frequency_input_value = 0;
+        return mhz;
+    }
+    for (unsigned i = 0; i < sizeof(action_bits) / sizeof(action_bits[0]); i++) {
+        unsigned bit = action_bits[i];
+        if ((actions ^ keyboard_raw) & bit) {
+            keyboard_raw ^= bit;
+            keyboard_changed[i] = now;
+            if ((actions & bit) && i >= 3 && i <= 6)
+                keyboard_reverse[i] = (matrix_keys & MATRIX_SHIFT) != 0;
+        }
+        if (!((keyboard_raw ^ keyboard_stable) & bit) || (uint32_t)(now - keyboard_changed[i]) < 30)
+            continue;
+        keyboard_stable ^= bit;
+        if (!(keyboard_stable & bit)) continue;
+        if (i >= 7) {
+            unsigned digit = i - 7;
+            frequency_input[frequency_input_length++] = (char)('0' + digit);
+            frequency_input[frequency_input_length] = '\0';
+            frequency_input_value = frequency_input_value * 10 + digit;
+            if (frequency_input_length == 4) {
+                if (rx_frequency_valid(frequency_input_value)) mhz = frequency_input_value;
+                frequency_input[0] = '\0';
+                frequency_input_length = frequency_input_value = 0;
+            }
+            continue;
+        }
+        switch (bit) {
+        case ACTION_LEFT: {
+            unsigned step = m5stack_steps[controls.step];
+            mhz = mhz - RX_FREQ_MIN < step ? RX_FREQ_MIN : mhz - step;
+            break;
+        }
+        case ACTION_RIGHT: {
+            unsigned step = m5stack_steps[controls.step];
+            mhz = RX_FREQ_MAX - mhz < step ? RX_FREQ_MAX : mhz + step;
+            break;
+        }
+        case ACTION_SPACE: keyboard_help_visible = !keyboard_help_visible; break;
+        case ACTION_T: {
+            unsigned count = sizeof(m5stack_steps) / sizeof(m5stack_steps[0]);
+            controls.step = (controls.step + (keyboard_reverse[i] ? count - 1 : 1)) % count;
+            break;
+        }
+        case ACTION_P: {
+            unsigned count = sizeof(m5stack_spans) / sizeof(m5stack_spans[0]);
+            controls.rate = (controls.rate + (keyboard_reverse[i] ? count - 1 : 1)) % count;
+            break;
+        }
+        case ACTION_F: {
+            unsigned count = sizeof(m5stack_fft_sizes) / sizeof(m5stack_fft_sizes[0]);
+            controls.fft = (controls.fft + (keyboard_reverse[i] ? count - 1 : 1)) % count;
+            break;
+        }
+        case ACTION_A: {
+            unsigned count = sizeof(m5stack_average_counts) / sizeof(m5stack_average_counts[0]);
+            controls.average = (controls.average + (keyboard_reverse[i] ? count - 1 : 1)) % count;
+            break;
+        }
+        }
+    }
+    return mhz;
+}
+#endif
 
 void m5stack_basic_init(void) {
     controls.rate = 3;
@@ -285,8 +444,13 @@ void m5stack_basic_init(void) {
 }
 
 unsigned m5stack_basic_poll(unsigned mhz, bool pc_control) {
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    return cardputer_controls_update(mhz, keyboard_buttons(),
+                                    (uint32_t)(esp_timer_get_time() / 1000), pc_control);
+#else
     return m5stack_controls_update(&controls, mhz, pc_control ? 0 : keyboard_buttons(),
                                   (uint32_t)(esp_timer_get_time() / 1000), pc_control);
+#endif
 }
 
 unsigned m5stack_basic_rate(void) {
@@ -304,6 +468,10 @@ unsigned m5stack_basic_average_count(void) {
 void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, bool pc_control,
                         bool valid, unsigned cpu_percent) {
     char settings[40], edges[3][12], cpu[12];
+#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+    char details[24];
+#endif
+    const char *status = pc_control ? "PC" : valid ? "LIVE" : "WAIT";
     uint8_t display_bins[PLOT_WIDTH] = {0}, trace[PLOT_WIDTH];
     unsigned span = m5stack_spans[controls.rate];
     if (!waterfall_tuned || waterfall_mhz != mhz || waterfall_span != span || waterfall_fft != fft_points) {
@@ -313,12 +481,17 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         waterfall_head = waterfall_count = 0;
         waterfall_tuned = true;
     }
-    snprintf(settings, sizeof(settings), "STEP%uM SPAN%uM FFT%u AVE%u", m5stack_steps[controls.step], span,
+#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+    snprintf(settings, sizeof(settings), "STP %uM SPN %uM", m5stack_steps[controls.step], span);
+    snprintf(details, sizeof(details), "FFT %u AVE %u", fft_points, m5stack_basic_average_count());
+#else
+    snprintf(settings, sizeof(settings), "STP %uM SPN %uM FFT %u AVE %u", m5stack_steps[controls.step], span,
              fft_points, m5stack_basic_average_count());
+#endif
     snprintf(edges[0], sizeof(edges[0]), "%u", mhz - span / 2);
     snprintf(edges[1], sizeof(edges[1]), "%u", mhz);
     snprintf(edges[2], sizeof(edges[2]), "%u", mhz + span / 2);
-    snprintf(cpu, sizeof(cpu), "CPU%u%%", cpu_percent);
+    snprintf(cpu, sizeof(cpu), "CPU %u%%", cpu_percent);
     if (bins && valid) {
         unsigned capture_span = span < 16 ? 16 : span;
         unsigned visible = fft_points * span / capture_span;
@@ -363,43 +536,49 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
                     }
                 }
             }
-            if (y < 7 && x >= 4 && x < 36) color = COLOR_SRDECK_YELLOW_GREEN;
+            if (y < 10 && x >= 4 && x < 68) color = COLOR_SRDECK_YELLOW_GREEN;
             row[x] = __builtin_bswap16(color);
         }
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-        if (y < 5) {
-            text_row(y, 4, "SDR", 0x0000);
-            unsigned cpu_left = SCREEN_WIDTH - (unsigned)strlen(cpu) * 4;
+        if (y < 10) title_row(y);
+        if (y >= 12 && y < 22) {
+            unsigned cpu_left = SCREEN_WIDTH - (unsigned)strlen(cpu) * 7 - 3;
+            unsigned status_left = cpu_left - (unsigned)strlen(status) * 7 - 7;
+            text_row(y, status_left, status, pc_control ? 0xffe0 : 0xffff);
             text_row(y, cpu_left, cpu, 0xffff);
         }
-        if (y >= 8 && y < 13) text_row(y - 8, 4, settings, 0xffff);
-        if (y >= 16 && y < 21) {
-            text_row(y - 16, 36, pc_control ? "PC" : valid ? "LIVE" : "WAIT", 0xffff);
-        }
-        if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 5) {
+        if (y >= 23 && y < 33) text_row(y - 23, 4, settings, 0xffff);
+        if (y >= 34 && y < 44) text_row(y - 34, 4, details, 0xffff);
+        if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 10) {
             text_row(y - FREQUENCY_TOP, PLOT_LEFT, edges[0], 0xffff);
-            text_row(y - FREQUENCY_TOP, PLOT_LEFT + PLOT_WIDTH / 2 - 8, edges[1], 0xffff);
-            text_row(y - FREQUENCY_TOP, PLOT_LEFT + PLOT_WIDTH - 16, edges[2], 0xffff);
+            text_row(y - FREQUENCY_TOP, SCREEN_WIDTH / 2 - (unsigned)strlen(edges[1]) * 7 / 2, edges[1], 0xffff);
+            text_row(y - FREQUENCY_TOP, SCREEN_WIDTH - (unsigned)strlen(edges[2]) * 7 - 3, edges[2], 0xffff);
         }
-        if (y >= 234 && y < 239)
-            text_row(y - 234, 39, "SPAN  FFT  AVE", COLOR_SRDECK_YELLOW_GREEN);
+        if (y >= 230 && y < 240) text_row(y - 230, 39, "SPAN FFT AVE", COLOR_SRDECK_YELLOW_GREEN);
 #else
-        if (y < 5) {
-            text_row(y, 4, "SDR", 0x0000);
-            text_row(y, 185, cpu, 0xffff);
+        if (y < 10) {
+            title_row(y);
+            unsigned cpu_left = SCREEN_WIDTH - (unsigned)strlen(cpu) * 7 - 3;
+            unsigned status_left = cpu_left - (unsigned)strlen(status) * 7 - 7;
+            text_row(y, status_left, status, pc_control ? 0xffe0 : 0xffff);
+            text_row(y, cpu_left, cpu, 0xffff);
         }
-        if (y >= 8 && y < 13) {
-            text_row(y - 8, 4, settings, 0xffff);
-            text_row(y - 8, 222, pc_control ? "PC" : valid ? "LIVE" : "WAIT", pc_control ? 0xffe0 : 0xffff);
-        }
-        if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 5) {
+        if (y >= 12 && y < 22) text_row(y - 12, 4, settings, 0xffff);
+        if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 10) {
             text_row(y - FREQUENCY_TOP, 4, edges[0], 0xffff);
-            text_row(y - FREQUENCY_TOP, 112, edges[1], 0xffff);
-            text_row(y - FREQUENCY_TOP, 208, edges[2], 0xffff);
+            const char *center = frequency_input_length ? frequency_input : edges[1];
+            text_row(y - FREQUENCY_TOP, SCREEN_WIDTH / 2 - (unsigned)strlen(center) * 7 / 2, center,
+                     frequency_input_length ? COLOR_SRDECK_YELLOW_GREEN : 0xffff);
+            text_row(y - FREQUENCY_TOP, SCREEN_WIDTH - (unsigned)strlen(edges[2]) * 7 - 3, edges[2], 0xffff);
         }
-        if (y >= 128 && y < 133) {
-            text_row(y - 128, 4, "LEFT SPAN SPACE FFT RIGHT AVE", COLOR_SRDECK_YELLOW_GREEN);
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+        if (keyboard_help_visible && y >= 115 && y < 135) {
+            memset(row, 0, sizeof(row));
+            text_row(y < 125 ? y - 115 : y - 125, 4,
+                     y < 125 ? "<> 0-9 FREQ T STEP P SPAN" : "F FFT A AVE SHIFT REV SPACE HELP",
+                     COLOR_SRDECK_YELLOW_GREEN);
         }
+#endif
 #endif
         const uint16_t x_end = LCD_X_OFFSET + SCREEN_WIDTH - 1;
         lcd_command(0x2a, (const uint8_t[]){0, LCD_X_OFFSET, (uint8_t)(x_end >> 8), (uint8_t)x_end}, 4);
