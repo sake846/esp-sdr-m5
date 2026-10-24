@@ -1,205 +1,361 @@
-# ESP-SDR firmware
+# ESP-SDR for M5Stack
 
-<img src="docs/espargos-logo.png" width="40%" align="right" alt="ESPARGOS logo">
+English | [日本語](README.ja.md)
 
-### Try it yourself: [Project overview](https://espargos.net/espsdr/) · [Browser SDR viewer](https://espargos.net/espsdr/app/) · [Browser firmware installer](https://espargos.net/espsdr/app/flash.html)
+Turn an M5Stack device into a standalone spectrum and waterfall display using
+its built-in ESP32 radio. No external SDR hardware or computer is needed during
+standalone operation.
 
-ESP-SDR turns the Wi-Fi/Bluetooth radio of an ordinary ESP32 board into a
-receive-only software-defined radio. The firmware captures raw I/Q samples from
-the chip's own receiver and sends them to your computer over USB or UART.
-No extra SDR hardware is needed.
+This project is a fork of [ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr),
+adapted to run ESP-SDR directly on M5Stack devices with their own screens and
+controls. The ESP32 captures I/Q samples, computes FFTs and draws the results
+on the built-in display. A computer is needed to build and flash the firmware;
+after that, the device can run on its own.
 
-<br clear="all">
+## Features
 
-![ESP32 radio architecture: an undocumented debug path connects the ADC/DAC to the CPU, bypassing the fixed-function Wi-Fi modem.](docs/sdr-bypass.png)
+- Spectrum trace and scrolling color waterfall on the device's LCD.
+- On-device frequency tuning, step, span, FFT size and averaging controls.
+- Standalone profiles for M5Stack BASIC, Core2, Cardputer, Cardputer ADV and
+  M5StickC Plus2.
+- FFT sizes from 256 to 8192 points on BASIC, Core2 and M5StickC Plus2, or up to
+  4096 points on Cardputer and Cardputer ADV.
+- Optional PC connection through the existing ESP-SDR USB/UART protocol for
+  I/Q capture and spectrum viewing.
 
-The ESP32's receiver normally feeds its samples straight into the fixed-function
-Wi-Fi modem. With the help of LLMs, we found an undocumented debug path that
-lets the CPU read those samples instead.
-[How it works](docs/how-it-works.md) explains the mechanism register by register. Parts of the firmware are
-AI-generated: we understand the capture mechanism well on the ESP32-C61 used in
-our ESPARGOS One array, but porting it to the whole ESP32 family by hand would
-have been too much work.
+## Devices and hardware test status
 
-## Quick start
+**Only M5Stack BASIC and the original Cardputer (K132, non-ADV) have been
+verified on real hardware in this project.** Core2, Cardputer ADV and
+M5StickC Plus2 have build profiles, but their hardware operation is unverified.
 
-1. Flash the firmware from the [browser installer](https://espargos.net/espsdr/app/flash.html).
-2. Open the [browser viewer](https://espargos.net/espsdr/app/) and connect.
+| Device | Chip | Display | Build profile | Hardware test status |
+| --- | --- | --- | --- | --- |
+| M5Stack BASIC | ESP32 | 320 × 240 | `m5stack-basic` | **Verified** |
+| M5Stack Core2 | ESP32 | 320 × 240 | `m5stack-core2` | Unverified |
+| Cardputer, original K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **Verified** |
+| Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | Unverified |
+| M5StickC Plus2 | ESP32 | 135 × 240, portrait | `m5stickc-plus2` | Unverified |
 
-For continuous streaming into Gqrx, GNU Radio and friends, use an ESP32-S31
-with [SoapyESPSDR](https://github.com/ESPARGOS/SoapyESPSDR), or an ESP32-S3 with
-[esp-sdr-bridge](https://github.com/z2labs/esp-sdr-bridge).
+The M5StickC profile specifically targets **M5StickC Plus2**. It does not imply
+compatibility with the original M5StickC or M5StickC Plus. Other devices and
+chip profiles inherited from upstream have not been hardware-verified in this
+fork.
 
-## Supported chips
+## Operating photos
 
-| Chip | Status | Native USB | UART0 TX / RX | Sample rates (MS/s) | Notes |
-| --- | --- | --- | --- | --- | --- |
-| ESP32 | ✅ | — | GPIO1 / GPIO3 | 80, 40, 16 | |
-| ESP32-C2 | ✅ | — | GPIO20 / GPIO19 | 80, 40, 16 | 26 MHz crystal; rebuild for 40 MHz |
-| ESP32-C3 | ✅ | Serial/JTAG | GPIO21 / GPIO20 | 80, 40, 16 | |
-| ESP32-C5 | ✅ | Serial/JTAG | GPIO11 / GPIO12 | 80 … 4 | also receives 5 GHz |
-| ESP32-C6 | ✅ | Serial/JTAG | GPIO16 / GPIO17 | 80, 40, 16 | continuous capture¹ (256 bins) |
-| ESP32-C61 | ✅ | Serial/JTAG | GPIO11 / GPIO10 | 80 … 4 | continuous capture¹ (256 bins) |
-| ESP32-H2 | ✅ | Serial/JTAG | GPIO24 / GPIO23 | 32, 16, 10.667, 6.4 | Bluetooth radio, see [esp32h2.md](docs/esp32h2.md) |
-| ESP32-H21 | 🚧 | | | | |
-| ESP32-H4 | 🚧 | | | | |
-| ESP32-P4 | ❌ | | | | no radio |
-| ESP32-S2 | ✅ | USB-OTG CDC | GPIO43 / GPIO44 | 80, 40, 16 | 4 MB flash |
-| ESP32-S3 | ✅ | Serial/JTAG | GPIO43 / GPIO44 | 80, 40, 16 | continuous capture¹ and I/Q over USB |
-| ESP32-S31 | ✅ | Serial/JTAG | GPIO58 / GPIO59 | 80 … 4 | continuous capture¹; streaming firmware |
+Photos will be added below. To add one, save the image in `docs/`, remove the
+placeholder text and uncomment the corresponding Markdown image line.
 
-✅ supported · 🚧 not yet supported · ❌ not possible
+### M5Stack BASIC
 
-¹ **Continuous capture** means the chip records the signal without gaps while
-it computes spectra, over native USB only. It can't FFT all of it: only a
-small share of the signal, often a few percent or less, goes into a
-spectrum. The viewer shows that share as FFT coverage. This mode exists at
-256 FFT bins on the C6 and C61, and at all sizes on the S3 and S31. All other
-spectra, including every spectrum over UART, come from separate snapshots
-with gaps in between; the viewer then says "Reception has gaps between
-snapshots".
+*Operating photo coming soon.*
 
-## M5Stack standalone displays
+<!-- ![M5Stack BASIC running the standalone spectrum and waterfall display](docs/m5stack-basic-screen.jpg) -->
 
-M5Stack Basic and Core2 run the 320×240 standalone spectrum and waterfall on
-the ESP32 backend. Cardputer K132 and ADV run the compact 240×135 version on
-the ESP32-S3, with a 4096-point local FFT limit. M5StickC Plus2 runs a portrait
-135×240 version on the ESP32 backend. See
-[build and control instructions](docs/m5stack-core2-cardputer.md).
+### Cardputer, original K132
 
-All chips accept tuning from 100 to 6000 MHz, but the PLL only locks in a
-limited range around 2.4 GHz (and 5 GHz on the C5). ESP32, C2, C3, S2 and S3
-reach down to about 1.85 GHz using a 5/6 LO divider, the C6 to about 1.95 GHz;
-see [rx-controls.md](docs/rx-controls.md).
+*Operating photo coming soon.*
 
-Snapshots are bursts of up to 16,380 samples (8,190 on the C2 and 12,284 on the
-S2), so there are gaps between them. Gain is not calibrated in dB.
+<!-- ![Original Cardputer running the standalone spectrum and waterfall display](docs/cardputer-screen.jpg) -->
 
-## What you can do with it
+### M5StickC Plus2
 
-**Burst I/Q captures** (all chips): signed 8-bit or packed 10-bit I/Q at the
-rates above. This is what the browser viewer uses.
+*Photo pending; hardware operation is not yet verified.*
 
-**On-chip spectra** (USB/UART protocol): the firmware computes 256–2048-bin
-FFTs and sends compact spectra instead of raw samples. Standalone LCD profiles
-support up to 4096 points on Cardputer and 8192 points on Basic, Core2 and
-StickC Plus2. On the C6, C61, S3 and S31 over
-native USB, the receiver keeps recording between FFTs (continuous capture¹),
-but only part of the signal is analyzed. See [spectrum.md](docs/spectrum.md). The original S3 Turbo
-Mode was developed by Zoltan Doczi from [Z2Labs](https://www.z2labs.io/).
+<!-- ![M5StickC Plus2 running the standalone spectrum and waterfall display](docs/m5stickc-plus2-screen.jpg) -->
 
-**Continuous I/Q on the ESP32-S3**: the second core filters and decimates the
-16 MS/s stream to 15.625–250 kS/s, sent gap-free over native USB. See
-[iq-stream.md](docs/iq-stream.md).
+## Build environment
 
-**ESP32-S31 streaming** (separate `esp32s31-stream` firmware, experimental):
-continuous 8-bit I/Q at up to 20 MS/s over high-speed USB or 40 MS/s over
-Gigabit Ethernet, for [SoapyESPSDR](https://github.com/ESPARGOS/SoapyESPSDR).
-See [s31-streaming.md](docs/s31-streaming.md).
+### 1. Clone this repository
 
-![Gqrx displaying an LTE signal at 2.63 GHz, continuously sampled at 40 MSa/s over Ethernet with an ESP32-S31 and SoapyESPSDR.](docs/gqrx-esp-sdr.png)
-
-## Talking to the firmware
-
-The firmware speaks a simple line-based protocol over native USB or UART
-(2 Mbaud): `INFO`, `FREQ 2442`, `CAP16 4096 0` and so on, with binary payloads
-protected by CRC32. The full command reference is in
-[protocol.md](docs/protocol.md).
-
-A few practical notes:
-
-- **UART adapters** must handle 2 Mbaud reliably. Slow bridges (some CH340
-  boards) can use the viewer's *Switch to 1 Mbaud*.
-- **Power**: the radio draws current spikes when it starts. A board powered
-  from a USB-UART adapter's 3.3 V pin can brown out and reboot in a loop; use a
-  proper supply.
-- **Linux**: ModemManager may probe Espressif USB devices and reset them. If
-  the board resets unexpectedly, stop ModemManager or tell it to ignore the
-  device.
-
-## Build and flash
-
-[firmware-targets.json](firmware-targets.json) lists every firmware variant
-and the ESP-IDF commit it is pinned to. Check out that commit, run
-`install.sh <target>` and source `export.sh`. Then build each chip in its own
-build directory:
+Install Git and Python, then clone the repository with its ESP-DSP submodule.
+These commands work in both sh and PowerShell:
 
 ```sh
-idf.py -B build-s3 -DIDF_TARGET=esp32s3 \
-  -DSDKCONFIG=build-s3/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.esp32s3 build
-idf.py -B build-s3 -p /dev/ttyACM0 flash
+git clone --recursive https://github.com/sake846/esp-sdr-m5.git
+cd esp-sdr-m5
 ```
 
-The S31 needs `idf.py --preview`. `tools/build_firmware.py --profile <id>`
-builds a release image the same way CI does. Host-side tests run with
-`python3 -m unittest discover -s tests`. On real hardware,
-`tools/check_spectrum.py` checks every spectrum profile of a connected board.
+If you already cloned it without submodules, run:
 
-Chip-specific notes: [ESP32-C2](docs/esp32c2.md), [ESP32-H2](docs/esp32h2.md).
+```sh
+git submodule update --init --recursive
+```
 
-## M5Stack Basic
+### 2. Install and activate the pinned ESP-IDF
 
-The `m5stack-basic` profile adds a standalone 256–8192 point spectrum and
-color waterfall display with A/B/C button controls on the original ESP32
-M5Stack Basic, plus the existing USB-UART protocol. See
-[build, flash and operating instructions](docs/m5stack-basic.md).
+All five M5Stack profiles currently use ESP-IDF commit
+`25fe69f946311abdaf9ad56591f25fedbc20ac98`. The required revision for each
+profile is recorded in [firmware-targets.json](firmware-targets.json). Use that
+revision when building these profiles.
 
-Standalone profiles are also available for Core2, Cardputer K132, Cardputer
-ADV and M5StickC Plus2. Their build profiles and button maps are listed in
-[the M5Stack display guide](docs/m5stack-core2-cardputer.md).
+Install the ESP-IDF host prerequisites for your OS first. On Windows, use
+Python 3.12 and ensure Python and Git are on your PATH; see the
+[Windows development setup](docs/windows-development-setup.md) for additional
+setup notes.
 
-## Source layout
+Choose the commands for your shell below. Both install the pinned SDK beside
+this repository and return to the repository root. Run them from the
+`esp-sdr-m5` directory.
 
-- `main/targets/<chip>/`: per-chip receiver, tuning and capture memory guard.
-- `main/families/c5_c6_c61/`: receiver shared by the C5, C6 and C61.
-- `main/targets/esp32s31/streaming/`: the S31 USB/Ethernet streaming application.
-- `main/common/`: serial transport, gain, limits, bandwidth, spectrum and ring capture.
-- `main/diagnostics/`: optional register probes, not part of release builds.
-- `platform/esp32s2/`: patched copy of the ESP-IDF USB CDC console for the S2.
+**sh (Linux/macOS, Bash or Zsh)**
 
-## Contributors
+```sh
+cd ..
+git clone https://github.com/espressif/esp-idf.git esp-idf-esp-sdr
+cd esp-idf-esp-sdr
+git checkout 25fe69f946311abdaf9ad56591f25fedbc20ac98
+git submodule update --init --recursive
+./install.sh esp32,esp32s3
+. ./export.sh
+cd ../esp-sdr-m5
+```
 
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/Jeija">
-        <img src="https://github.com/Jeija.png?size=160" width="80" height="80" alt="Florian Euchner"><br>
-        <b>Florian Euchner</b>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/zodoczi">
-        <img src="https://github.com/zodoczi.png?size=160" width="80" height="80" alt="Zoltan Doczi"><br>
-        <b>Zoltan Doczi</b>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/14sea">
-        <img src="https://github.com/14sea.png?size=160" width="80" height="80" alt="14sea"><br>
-        <b>14sea</b>
-      </a>
-    </td>
-  </tr>
-</table>
+**PowerShell (Windows)**
 
-Thanks to [h0m3us3r](https://github.com/h0m3us3r) for
-[eSpDR](https://github.com/h0m3us3r/eSpDR), whose 5/6 LO investigation informed
-our lower-frequency tuning.
+```powershell
+Set-Location ..
+git clone https://github.com/espressif/esp-idf.git esp-idf-esp-sdr
+Set-Location esp-idf-esp-sdr
+git checkout 25fe69f946311abdaf9ad56591f25fedbc20ac98
+git submodule update --init --recursive
+.\install.ps1 'esp32,esp32s3'
+. .\export.ps1
+Set-Location ..\esp-sdr-m5
+```
+
+In each new terminal session, activate this ESP-IDF environment before running
+`idf.py`. From the repository root, use the command for your shell:
+
+**sh**
+
+```sh
+. ../esp-idf-esp-sdr/export.sh
+```
+
+**PowerShell**
+
+```powershell
+. ..\esp-idf-esp-sdr\export.ps1
+```
+
+## Build and flash by device
+
+Connect the device with a USB data cable, then run the commands for your model
+and shell from the repository root in the activated ESP-IDF environment.
+The sh examples use a backslash (`\`) for line continuation; PowerShell uses
+a backtick (`` ` ``). Keep the continuation character at the end of its line,
+with no trailing spaces.
+
+Replace `PORT` with the device's serial port, for example `COM5` on Windows,
+`/dev/ttyUSB0` or `/dev/ttyACM0` on Linux, or `/dev/cu.usbmodem...` on macOS.
+Use a separate build directory for each profile, as shown below.
+
+### M5Stack BASIC
+
+**sh**
+
+```sh
+idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 \
+  -DSDKCONFIG=build-m5stack-basic/sdkconfig \
+  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic build
+idf.py -B build-m5stack-basic -p PORT flash
+```
+
+**PowerShell**
+
+```powershell
+idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 `
+  -DSDKCONFIG=build-m5stack-basic/sdkconfig `
+  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic build
+idf.py -B build-m5stack-basic -p PORT flash
+```
+
+The profile uses 4 MB of flash and also fits newer 16 MB BASIC devices.
+The default LCD driver is ILI9342C. If an early BASIC has an ILI9341 LCD, run
+`idf.py -B build-m5stack-basic menuconfig`, enable **ESP-SDR board > Early
+Basic with ILI9341 LCD**, then rebuild and flash.
+
+### M5Stack Core2
+
+**sh**
+
+```sh
+idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 \
+  -DSDKCONFIG=build-m5stack-core2/sdkconfig \
+  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2 build
+idf.py -B build-m5stack-core2 -p PORT flash
+```
+
+**PowerShell**
+
+```powershell
+idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 `
+  -DSDKCONFIG=build-m5stack-core2/sdkconfig `
+  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2 build
+idf.py -B build-m5stack-core2 -p PORT flash
+```
+
+This profile uses the Core2's LCD and three touch zones along the bottom of the
+screen. It includes support for AXP192 and AXP2101 power controllers.
+
+### Cardputer, original K132
+
+**sh**
+
+```sh
+idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 \
+  -DSDKCONFIG=build-m5stack-cardputer/sdkconfig \
+  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer build
+idf.py -B build-m5stack-cardputer -p PORT flash
+```
+
+**PowerShell**
+
+```powershell
+idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 `
+  -DSDKCONFIG=build-m5stack-cardputer/sdkconfig `
+  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer build
+idf.py -B build-m5stack-cardputer -p PORT flash
+```
+
+Use this profile for the original, non-ADV Cardputer. It uses the built-in
+keyboard matrix and native USB Serial/JTAG.
+
+### Cardputer ADV
+
+**sh**
+
+```sh
+idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 \
+  -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig \
+  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv build
+idf.py -B build-m5stack-cardputer-adv -p PORT flash
+```
+
+**PowerShell**
+
+```powershell
+idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 `
+  -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig `
+  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv build
+idf.py -B build-m5stack-cardputer-adv -p PORT flash
+```
+
+The ADV requires its own profile because its keyboard uses a TCA8418 I²C
+controller. Do not substitute the original Cardputer profile.
+
+### M5StickC Plus2
+
+**sh**
+
+```sh
+idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 \
+  -DSDKCONFIG=build-m5stickc-plus2/sdkconfig \
+  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2 build
+idf.py -B build-m5stickc-plus2 -p PORT flash
+```
+
+**PowerShell**
+
+```powershell
+idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 `
+  -DSDKCONFIG=build-m5stickc-plus2/sdkconfig `
+  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2 build
+idf.py -B build-m5stickc-plus2 -p PORT flash
+```
+
+This profile uses the portrait LCD and built-in A/B/C buttons.
+
+After flashing, power on or reset the device to start the standalone display.
+It starts at 2412 MHz with a 16 MHz span, a 256-point FFT and automatic gain
+control.
+
+## Standalone controls
+
+### BASIC, Core2 and M5StickC Plus2
+
+Core2 uses three touch zones corresponding to A/B/C.
+
+| Control | Short press | Hold for 0.6 seconds |
+| --- | --- | --- |
+| A | Tune down by the selected step | Cycle span |
+| B | Cycle tuning step | Cycle FFT size |
+| C | Tune up by the selected step | Cycle averaging count |
+
+### Cardputer and Cardputer ADV
+
+| Key | Action |
+| --- | --- |
+| `,` | Tune down by the selected step |
+| `.` or `/` | Tune up by the selected step |
+| `0`–`9` | Enter four digits to set the frequency in MHz, e.g. `2412` |
+| `T` | Cycle tuning step |
+| `P` | Cycle span |
+| `F` | Cycle FFT size |
+| `A` | Cycle averaging count |
+| `Shift` + `T`, `P`, `F` or `A` | Cycle that setting in reverse |
+| `Space` | Show or hide keyboard help |
+
+Tuning steps are 1, 5, 20 and 100 MHz. Spans are 2, 4, 8, 16, 40 and 80 MHz;
+the 2/4/8 MHz views zoom into a 16 MS/s capture. Averaging counts are 1, 2, 4,
+8 and 16.
+
+## Optional PC connection
+
+Standalone operation does not need a PC. To use the serial protocol, connect
+the device over USB and open the [ESP-SDR browser viewer](https://espargos.net/espsdr/app/)
+or another compatible client. BASIC, Core2 and M5StickC Plus2 use their onboard
+USB-UART bridge at **2,000,000 baud**; Cardputer models use native USB
+Serial/JTAG.
+
+PC commands take priority and pause local controls and captures. Standalone
+operation resumes after `RELEASE` or five seconds without commands. See the
+[protocol reference](docs/protocol.md) for details.
+
+## Radio and display limitations
+
+- These M5Stack profiles receive primarily around **2.4 GHz**. Experimental
+  tuning can reach roughly 1.85 GHz, but the accepted 100–6000 MHz setting
+  range does not mean reception works across that entire range. See
+  [RX controls](docs/rx-controls.md).
+- The standalone display uses snapshot captures with gaps between them.
+- Spectrum and waterfall levels show relative power and are not calibrated
+  in dBm.
+- This is receive-only firmware for spectrum display and I/Q capture. It does
+  not provide audio demodulation.
+
+## Further documentation
+
+- [M5Stack BASIC display and hardware notes](docs/m5stack-basic.md)
+- [Core2, Cardputer and M5StickC Plus2 hardware notes](docs/m5stack-core2-cardputer.md)
+- [Spectrum processing](docs/spectrum.md)
+- [How ESP-SDR captures radio samples](docs/how-it-works.md)
+- [Firmware profiles and pinned ESP-IDF revisions](firmware-targets.json)
+
+## Upstream and credits
+
+The radio capture mechanism and original ESP-SDR firmware come from
+[ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr). This fork focuses on
+standalone M5Stack displays and controls. For the original project's broader
+chip support and research, see the [upstream repository](https://github.com/ESPARGOS/esp-sdr)
+and [project overview](https://espargos.net/espsdr/).
+
+Thanks to the upstream contributors, including
+[Florian Euchner](https://github.com/Jeija),
+[Zoltan Doczi](https://github.com/zodoczi) and [14sea](https://github.com/14sea),
+and to [h0m3us3r](https://github.com/h0m3us3r/eSpDR) for the 5/6 LO investigation
+that informed lower-frequency tuning.
 
 ## License
 
-ESP-SDR is licensed under the GNU General Public License, version 3 or later
-(`GPL-3.0-or-later`); see [LICENSE](LICENSE). We chose the GPL because we want
-improvements to flow back to the community: if you distribute a modified
-version, you must make its source available under the GPL. Contributing
-upstream is welcome but not required.
+ESP-SDR is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE).
+If you distribute a modified version, you must make its source available under
+the GPL.
 
-The capture mechanism itself is not covered by copyright, only this code is.
-You are free to implement it independently under any license.
-
-Third-party code keeps its own license, including the Apache-2.0 ESP-IDF code in
-`platform/esp32s2/esp_usb_cdc_rom_console/`, the
+Third-party code retains its own licenses, including the Apache-2.0 ESP-IDF
+code in `platform/esp32s2/esp_usb_cdc_rom_console/`, the
 [ESP-DSP component](components/esp-dsp/LICENSE), and the FFT kernels derived
 from it in `main/targets/esp32s3/s3_fft_rnd.S` and
 `main/targets/esp32s31/burst/s31_fft_rnd.S`.
