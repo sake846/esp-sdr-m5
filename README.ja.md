@@ -28,7 +28,7 @@ Cardputer ADVとM5StickC Plus2にはビルド設定がありますが、実機�
 | M5Stack BASIC | ESP32 | 320 × 240 | `m5stack-basic` | **確認済み** |
 | M5Stack Core2 | ESP32 | 320 × 240 | `m5stack-core2` | **確認済み** |
 | Cardputer 通常版 K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **確認済み** |
-| Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | 未確認 |
+| Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | **確認済み** |
 | M5StickC Plus2 | ESP32 | 135 × 240、縦画面 | `m5stickc-plus2` | 未確認 |
 
 M5StickC向けの設定は、**M5StickC Plus2専用**です。
@@ -135,8 +135,8 @@ Set-Location ..\esp-sdr-m5
 
 データ通信に対応したUSBケーブルで本体を接続し、ESP-IDF環境を有効化したターミナルで、
 機種とシェルに合ったコマンドをリポジトリのルートから実行してください。
-shではバックスラッシュ（`\`）、PowerShellではバッククォート（`` ` ``）で行を継続します。
-行継続の記号は行末に置き、その後に空白を入れないでください。
+shの例ではバックスラッシュ（`\`）で行を継続します。PowerShellのビルド例は
+コピーして実行しやすいように1行にしています。
 
 `PORT`は本体のシリアルポート名に置き換えてください。
 Windowsでは`COM5`、Linuxでは`/dev/ttyUSB0`や`/dev/ttyACM0`、
@@ -151,16 +151,14 @@ macOSでは`/dev/cu.usbmodem...`などです。
 idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 \
   -DSDKCONFIG=build-m5stack-basic/sdkconfig \
   -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic build
-idf.py -B build-m5stack-basic -p PORT flash
+idf.py -B build-m5stack-basic -p COMx flash
 ```
 
 **PowerShell**
 
 ```powershell
-idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 `
-  -DSDKCONFIG=build-m5stack-basic/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic build
-idf.py -B build-m5stack-basic -p PORT flash
+idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stack-basic/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic' build
+idf.py -B build-m5stack-basic -p COMx flash
 ```
 
 この設定は4 MBのフラッシュを使用し、新しい16 MBモデルのBASICにも書き込めます。
@@ -176,16 +174,14 @@ ILI9341を搭載した初期のBASICでは、`idf.py -B build-m5stack-basic menu
 idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 \
   -DSDKCONFIG=build-m5stack-core2/sdkconfig \
   -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2 build
-idf.py -B build-m5stack-core2 -p PORT flash
+idf.py -B build-m5stack-core2 -p COMx flash
 ```
 
 **PowerShell**
 
 ```powershell
-idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 `
-  -DSDKCONFIG=build-m5stack-core2/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2 build
-idf.py -B build-m5stack-core2 -p PORT flash
+idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stack-core2/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2' build
+idf.py -B build-m5stack-core2 -p COMx flash
 ```
 
 Core2のLCDと画面下部の3つのタッチ領域を使用します。
@@ -199,16 +195,14 @@ Core2のLCDと画面下部の3つのタッチ領域を使用します。
 idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 \
   -DSDKCONFIG=build-m5stack-cardputer/sdkconfig \
   -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer build
-idf.py -B build-m5stack-cardputer -p PORT flash
+idf.py -B build-m5stack-cardputer -p COMx flash
 ```
 
 **PowerShell**
 
 ```powershell
-idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 `
-  -DSDKCONFIG=build-m5stack-cardputer/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer build
-idf.py -B build-m5stack-cardputer -p PORT flash
+idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 -DSDKCONFIG=build-m5stack-cardputer/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer' build
+idf.py -B build-m5stack-cardputer -p COMx flash
 ```
 
 通常版のCardputerにはこのプロファイルを使用してください。
@@ -222,16 +216,14 @@ idf.py -B build-m5stack-cardputer -p PORT flash
 idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 \
   -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig \
   -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv build
-idf.py -B build-m5stack-cardputer-adv -p PORT flash
+idf.py -B build-m5stack-cardputer-adv -p COMx flash
 ```
 
 **PowerShell**
 
 ```powershell
-idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 `
-  -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv build
-idf.py -B build-m5stack-cardputer-adv -p PORT flash
+idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv' build
+idf.py -B build-m5stack-cardputer-adv -p COMx flash
 ```
 
 ADVのキーボードはTCA8418 I²Cコントローラーを使用するため、専用プロファイルが必要です。
@@ -245,16 +237,14 @@ ADVのキーボードはTCA8418 I²Cコントローラーを使用するため�
 idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 \
   -DSDKCONFIG=build-m5stickc-plus2/sdkconfig \
   -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2 build
-idf.py -B build-m5stickc-plus2 -p PORT flash
+idf.py -B build-m5stickc-plus2 -p COMx flash
 ```
 
 **PowerShell**
 
 ```powershell
-idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 `
-  -DSDKCONFIG=build-m5stickc-plus2/sdkconfig `
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2 build
-idf.py -B build-m5stickc-plus2 -p PORT flash
+idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stickc-plus2/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2' build
+idf.py -B build-m5stickc-plus2 -p COMx flash
 ```
 
 縦向きのLCDと、本体のA/B/Cボタンを使用します。

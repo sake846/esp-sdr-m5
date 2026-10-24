@@ -34,7 +34,7 @@ have build profiles, but their hardware operation is unverified.
 | M5Stack BASIC | ESP32 | 320 × 240 | `m5stack-basic` | **Verified** |
 | M5Stack Core2 | ESP32 | 320 × 240 | `m5stack-core2` | **Verified** |
 | Cardputer, original K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **Verified** |
-| Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | Unverified |
+| Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | **Verified** |
 | M5StickC Plus2 | ESP32 | 135 × 240, portrait | `m5stickc-plus2` | Unverified |
 
 The M5StickC profile specifically targets **M5StickC Plus2**. It does not imply
@@ -160,16 +160,14 @@ Use a separate build directory for each profile, as shown below.
 idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 \
   -DSDKCONFIG=build-m5stack-basic/sdkconfig \
   -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic build
-idf.py -B build-m5stack-basic -p PORT flash
+idf.py -B build-m5stack-basic -p COMx flash
 ```
 
 **PowerShell**
 
 ```powershell
-idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 `
-  -DSDKCONFIG=build-m5stack-basic/sdkconfig `
-  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic' build
-idf.py -B build-m5stack-basic -p PORT flash
+idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stack-basic/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic' build
+idf.py -B build-m5stack-basic -p COMx flash
 ```
 
 The profile uses 4 MB of flash and also fits newer 16 MB BASIC devices.
@@ -185,16 +183,14 @@ Basic with ILI9341 LCD**, then rebuild and flash.
 idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 \
   -DSDKCONFIG=build-m5stack-core2/sdkconfig \
   -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2 build
-idf.py -B build-m5stack-core2 -p PORT flash
+idf.py -B build-m5stack-core2 -p COMx flash
 ```
 
 **PowerShell**
 
 ```powershell
-idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 `
-  -DSDKCONFIG=build-m5stack-core2/sdkconfig `
-  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2' build
-idf.py -B build-m5stack-core2 -p PORT flash
+idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stack-core2/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2' build
+idf.py -B build-m5stack-core2 -p COMx flash
 ```
 
 This profile uses the Core2's LCD and three touch zones along the bottom of the
@@ -208,16 +204,14 @@ screen. It includes support for AXP192 and AXP2101 power controllers.
 idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 \
   -DSDKCONFIG=build-m5stack-cardputer/sdkconfig \
   -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer build
-idf.py -B build-m5stack-cardputer -p PORT flash
+idf.py -B build-m5stack-cardputer -p COMx flash
 ```
 
 **PowerShell**
 
 ```powershell
-idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 `
-  -DSDKCONFIG=build-m5stack-cardputer/sdkconfig `
-  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer' build
-idf.py -B build-m5stack-cardputer -p PORT flash
+idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 -DSDKCONFIG=build-m5stack-cardputer/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer' build
+idf.py -B build-m5stack-cardputer -p COMx flash
 ```
 
 Use this profile for the original, non-ADV Cardputer. It uses the built-in
@@ -231,16 +225,14 @@ keyboard matrix and native USB Serial/JTAG.
 idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 \
   -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig \
   -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv build
-idf.py -B build-m5stack-cardputer-adv -p PORT flash
+idf.py -B build-m5stack-cardputer-adv -p COMx flash
 ```
 
 **PowerShell**
 
 ```powershell
-idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 `
-  -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig `
-  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv' build
-idf.py -B build-m5stack-cardputer-adv -p PORT flash
+idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv' build
+idf.py -B build-m5stack-cardputer-adv -p COMx flash
 ```
 
 The ADV requires its own profile because its keyboard uses a TCA8418 I²C
@@ -254,16 +246,14 @@ controller. Do not substitute the original Cardputer profile.
 idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 \
   -DSDKCONFIG=build-m5stickc-plus2/sdkconfig \
   -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2 build
-idf.py -B build-m5stickc-plus2 -p PORT flash
+idf.py -B build-m5stickc-plus2 -p COMx flash
 ```
 
 **PowerShell**
 
 ```powershell
-idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 `
-  -DSDKCONFIG=build-m5stickc-plus2/sdkconfig `
-  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2' build
-idf.py -B build-m5stickc-plus2 -p PORT flash
+idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stickc-plus2/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2' build
+idf.py -B build-m5stickc-plus2 -p COMx flash
 ```
 
 This profile uses the portrait LCD and built-in A/B/C buttons.
