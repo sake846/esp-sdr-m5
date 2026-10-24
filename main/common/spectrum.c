@@ -89,6 +89,11 @@ static bool allocate_fft_workspace(unsigned n) {
            grow_fft_buffer(&twiddles, &twiddle_capacity, n, 1);
 }
 
+static bool allocate_fft_tables(unsigned n) {
+    return grow_fft_buffer(&window, &window_capacity, n, 1) &&
+           grow_fft_buffer(&twiddles, &twiddle_capacity, n, 1);
+}
+
 static bool allocate_workspace(void) {
     if (!allocate_fft_workspace(MAX_FFT)) return false;
     if (!power_storage)
@@ -125,7 +130,7 @@ bool spectrum_fft_init(void) {
 
 bool spectrum_fft_init_n(unsigned n) {
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
-    if (n < 256 || n > MAX_FFT || (n & (n - 1)) || !allocate_fft_workspace(n)) return false;
+    if (n < 256 || n > MAX_FFT || (n & (n - 1)) || !allocate_fft_tables(n)) return false;
     if (twiddle_n != n) {
         /* Private tables let the local FFT use its current size independently
          * of the continuous ring FFT's ESP-DSP table. */
@@ -182,13 +187,13 @@ static void setup_window(unsigned n) {
     setup_n = n;
 }
 
-static void transform(const uint32_t *words, unsigned n, spectrum_time_dc_t *dc,
+static void transform(const uint32_t *words, unsigned n, int16_t *data, spectrum_time_dc_t *dc,
                       void (*poll)(void *), void *context) {
     int32_t sum_i = 0, sum_q = 0;
     for (unsigned j = 0; j < n; j++) {
         int32_t i = ((int32_t)(words[j] << 22) >> 22), q = ((int32_t)(words[j] << 12) >> 22);
-        fft_data[2 * j] = (int16_t)i;
-        fft_data[2 * j + 1] = (int16_t)q;
+        data[2 * j] = (int16_t)i;
+        data[2 * j + 1] = (int16_t)q;
         sum_i += i;
         sum_q += q;
     }
@@ -210,12 +215,12 @@ static void transform(const uint32_t *words, unsigned n, spectrum_time_dc_t *dc,
     int32_t offset_q = estimate_q / 256, fraction_q = estimate_q % 256;
     for (unsigned j = 0; j < n; j++) {
         int32_t wi = window[j];
-        int32_t re = (fft_data[2 * j] - offset_i) * wi - (fraction_i * wi) / 256;
-        int32_t im = (fft_data[2 * j + 1] - offset_q) * wi - (fraction_q * wi) / 256;
-        fft_data[2 * j] = clamp16(re >> 9);
-        fft_data[2 * j + 1] = clamp16(im >> 9);
+        int32_t re = (data[2 * j] - offset_i) * wi - (fraction_i * wi) / 256;
+        int32_t im = (data[2 * j + 1] - offset_q) * wi - (fraction_q * wi) / 256;
+        data[2 * j] = clamp16(re >> 9);
+        data[2 * j + 1] = clamp16(im >> 9);
     }
-    spectrum_fft_poll(fft_data, n, twiddles, poll, context);
+    spectrum_fft_poll(data, n, twiddles, poll, context);
 }
 
 static void local_fft_poll(void *context) {
@@ -227,11 +232,22 @@ void spectrum_snapshot_reset_dc(void) {
     snapshot_dc_ready = false;
 }
 
-bool spectrum_snapshot(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins) {
-    if (!rate_hz(rate) || n < 256 || n > MAX_FFT || (n & (n - 1)) || !spectrum_fft_init_n(n)) return false;
+static bool spectrum_snapshot_run(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins,
+                                  int16_t *workspace, bool require_inplace) {
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    if (!rate_hz(rate) || n < 256 || n > MAX_FFT || (n & (n - 1)) || !acquire || !bins ||
+        (require_inplace ? !workspace : !allocate_fft_workspace(n)) || !spectrum_fft_init_n(n))
+        return false;
+    if (!workspace) workspace = fft_data;
+#else
+    if (!rate_hz(rate) || n < 256 || n > MAX_FFT || (n & (n - 1)) || !acquire || !bins ||
+        !spectrum_fft_init_n(n)) return false;
+    if (!workspace) workspace = fft_data;
+#endif
     const uint32_t *words;
     unsigned elapsed;
     if (!acquire(n, rate, &words, &elapsed)) return false;
+    if (require_inplace && words != (const uint32_t *)workspace) return false;
     setup_window(n);
     if (!snapshot_dc_ready || snapshot_dc_rate != rate || snapshot_dc_mode != spectrum_dc_mode ||
         snapshot_dc_n != n) {
@@ -241,9 +257,9 @@ bool spectrum_snapshot(unsigned rate, unsigned n, spectrum_acquire_fn acquire, u
         snapshot_dc_n = n;
         snapshot_dc_ready = true;
     }
-    transform(words, n, &snapshot_dc, local_fft_poll, NULL);
+    transform(words, n, workspace, &snapshot_dc, local_fft_poll, NULL);
     for (unsigned j = 0, bin = 0; j < n; j++) {
-        bins[bin] = spectrum_power_code(spectrum_complex_power(fft_data[2 * j], fft_data[2 * j + 1]));
+        bins[bin] = spectrum_power_code(spectrum_complex_power(workspace[2 * j], workspace[2 * j + 1]));
         unsigned bit = n >> 1;
         while (bin & bit) {
             bin ^= bit;
@@ -252,6 +268,15 @@ bool spectrum_snapshot(unsigned rate, unsigned n, spectrum_acquire_fn acquire, u
         bin ^= bit;
     }
     return true;
+}
+
+bool spectrum_snapshot(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins) {
+    return spectrum_snapshot_run(rate, n, acquire, bins, NULL, false);
+}
+
+bool spectrum_snapshot_inplace(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins,
+                               int16_t *workspace) {
+    return spectrum_snapshot_run(rate, n, acquire, bins, workspace, true);
 }
 
 static void capabilities(void) {
@@ -393,7 +418,7 @@ bool spectrum_command(const char *line, unsigned frequency_mhz, spectrum_acquire
             break;
         }
         if (!merged) gain = words[0] >> 20;
-        transform(words, n, &dc, pump_spectrum, &out);
+        transform(words, n, fft_data, &dc, pump_spectrum, &out);
         for (unsigned j = 0; j < n; j++) {
             uint32_t p = spectrum_complex_power(fft_data[2 * j], fft_data[2 * j + 1]);
             if (det) {

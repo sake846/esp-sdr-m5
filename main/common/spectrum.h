@@ -11,6 +11,10 @@ bool spectrum_fft_init_n(unsigned n);
 /* One n-point local snapshot in natural FFT order, without serial output.
  * Call only between serial leases; it shares the protocol FFT workspace. */
 bool spectrum_snapshot(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins);
+/* Reuse the captured IQ buffer as FFT work memory; acquire() must return it.
+ * This overwrites the captured samples after acquisition. */
+bool spectrum_snapshot_inplace(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins,
+                               int16_t *workspace);
 /* Reset the local snapshot DC tracker after retuning or other RF-path changes. */
 void spectrum_snapshot_reset_dc(void);
 

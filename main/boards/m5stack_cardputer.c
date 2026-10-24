@@ -355,6 +355,7 @@ static unsigned cardputer_controls_update(unsigned mhz, unsigned matrix_keys, ui
 
 void m5stack_basic_init(void) {
     controls.rate = 3;
+    controls.fft = 2; /* Default to 1024 points. */
     controls.average = 3;
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
     const gpio_config_t hold = {.pin_bit_mask = PIN(4), .mode = GPIO_MODE_OUTPUT};

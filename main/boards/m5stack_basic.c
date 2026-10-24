@@ -153,6 +153,7 @@ static void lcd_command(uint8_t command, const uint8_t *data, size_t size) {
 
 void m5stack_basic_init(void) {
     controls.rate = 3; /* Preserve the original 16 MHz default span. */
+    controls.fft = 2; /* Default to 1024 points. */
     controls.average = 3; /* Default to eight spectra per 100 ms interval. */
 #if CONFIG_ESP_SDR_M5STACK_CORE2
     core2_power_init();

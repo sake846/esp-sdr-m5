@@ -558,7 +558,7 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE));
     prepare_rx();
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
-    (void)spectrum_fft_init_n(m5stack_basic_fft_points()); /* Reserve only the selected FFT size. */
+    (void)spectrum_fft_init_n(m5stack_basic_fft_points()); /* Prepare only the selected FFT tables. */
 #endif
     esp_log_level_set("*", ESP_LOG_NONE);
     /* USB may be unplugged when the host uses the UART bridge. */
@@ -644,7 +644,8 @@ void burst_serial_idle(bool leased) {
                 average_slot = due_slot + 1;
                 int64_t work_start = esp_timer_get_time();
                 local_capture = true;
-                bool captured = spectrum_snapshot(rate, fft_points, spectrum_acquire, bins);
+                bool captured = spectrum_snapshot_inplace(rate, fft_points, spectrum_acquire, bins,
+                                                          (int16_t *)IQ_BUFFER);
                 local_capture = false;
                 int64_t work_end = esp_timer_get_time();
                 frame_work_us += (uint64_t)(work_end - work_start);
