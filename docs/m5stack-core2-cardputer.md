@@ -10,7 +10,11 @@ Core2 uses the ESP32 receiver backend, its 320×240 LCD and three touch zones
 along the bottom of the display. The firmware detects the AXP192 or AXP2101
 power controller and configures the LCD, backlight and shared LCD/touch reset.
 The display touch zones map to the Basic A/B/C controls. The USB connection
-uses the onboard USB-UART bridge at 2,000,000 baud.
+uses the onboard USB-UART bridge at 2,000,000 baud. A hold cycles SPAN, B hold
+cycles FFT, and C hold cycles AVE; short presses tune down, change STEP, and
+tune up, respectively. Since the touchscreen reports one touch point at a
+time, resume software gain control after a serial manual adjustment by
+rebooting or sending `GAIN SOFTWARE` over USB.
 
 ```powershell
 idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 `
@@ -23,9 +27,11 @@ idf.py -B build-m5stack-core2 -p COMx flash
 
 Cardputer K132 uses the ESP32-S3 receiver backend, the 240×135 ST7789 display
 and the built-in keyboard matrix. Key `,` tunes down; `.` or `/` tunes up.
-Keys `T`, `P`, `F` and `A` cycle STEP, SPAN, FFT and AVE; hold Shift with one
-of these keys to cycle in reverse. Enter four digits to set the frequency in
-MHz, and press Space to show or hide keyboard help.
+Keys `T`, `P`, `F` and `A` cycle STEP, SPAN, FFT and AVE. Hold Shift with `T`,
+`P`, `F` or `A` to cycle that setting in reverse. Enter four digits to set the
+frequency in MHz, and press Space to show or hide keyboard help. Software AGC
+stays enabled during standalone operation; serial gain commands can explicitly
+override it. The standalone defaults are FFT 1024, AVE 16 and gain index 30.
 The local FFT menu goes up to 4096 points and uses internal RAM.
 Its screen uses a compact spectrum trace and waterfall layout. The USB
 connection uses native USB Serial/JTAG.
@@ -54,10 +60,10 @@ idf.py -B build-m5stack-cardputer-adv -p COMx flash
 ## M5StickC Plus2
 
 M5StickC Plus2 uses the ESP32 backend, its portrait 135×240 ST7789 display and
-the built-in A/B/C buttons. Button C (GPIO35, left side) tunes down and cycles
-SPAN when held. Button A (GPIO37, center) cycles STEP with a short press and FFT
-when held. Button B (GPIO39, right side) tunes up and cycles AVE when held. The
-firmware asserts GPIO4 early to keep the power rail on. USB serial uses its
+the built-in A/B/C buttons. Button C (GPIO35, left side) tunes down and
+cycles SPAN when held. Button A (GPIO37, center) cycles STEP with a short press
+and FFT size when held. Button B (GPIO39, right side) tunes up and cycles AVE
+when held. The firmware asserts GPIO4 early to keep the power rail on. USB serial uses its
 onboard USB-UART bridge at 2,000,000 baud.
 
 ```powershell

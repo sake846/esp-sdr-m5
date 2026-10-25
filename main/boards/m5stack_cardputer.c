@@ -1,6 +1,7 @@
 /* Compact M5Stack displays: Cardputer/K132, Cardputer-ADV and StickC Plus2. */
 #include "m5stack_basic.h"
 #include "m5stack_basic_controls.h"
+#include "spectrum_math.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
@@ -64,11 +65,11 @@
 enum {
     MATRIX_COMMA = 1u << 0, MATRIX_PERIOD = 1u << 1, MATRIX_SLASH = 1u << 2,
     MATRIX_SPACE = 1u << 3, MATRIX_T = 1u << 4, MATRIX_P = 1u << 5,
-    MATRIX_F = 1u << 6, MATRIX_A = 1u << 7, MATRIX_DIGIT_0 = 1u << 8,
-    MATRIX_SHIFT = 1u << 18,
+    MATRIX_F = 1u << 6, MATRIX_A = 1u << 7, MATRIX_DIGIT_0 = 1u << 9,
+    MATRIX_SHIFT = 1u << 19,
     ACTION_LEFT = 1u << 0, ACTION_RIGHT = 1u << 1, ACTION_SPACE = 1u << 2,
     ACTION_T = 1u << 3, ACTION_P = 1u << 4, ACTION_F = 1u << 5, ACTION_A = 1u << 6,
-    ACTION_DIGIT_0 = 1u << 7,
+    ACTION_DIGIT_0 = 1u << 8,
 };
 static bool keyboard_help_visible;
 static unsigned keyboard_raw, keyboard_stable;
@@ -95,10 +96,13 @@ static unsigned matrix_key_bit(unsigned matrix_row, unsigned matrix_col) {
 
 static spi_device_handle_t lcd;
 static m5stack_controls_t controls;
+static unsigned display_gain_index;
 static uint16_t row[SCREEN_WIDTH] __attribute__((aligned(4)));
-static uint8_t (*waterfall)[PLOT_WIDTH];
+static spectrum_dbfs_t (*waterfall)[PLOT_WIDTH];
+static spectrum_dbfs_t waterfall_floor[WATERFALL_HEIGHT];
 static unsigned waterfall_head, waterfall_count, waterfall_mhz, waterfall_span, waterfall_fft;
 static bool waterfall_tuned;
+static spectrum_noise_floor_t noise_floor_avg;
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
 static i2c_master_dev_handle_t keyboard_i2c;
 static unsigned adv_keyboard_state;
@@ -187,28 +191,32 @@ static void text_row(unsigned y, unsigned left, const char *text, uint16_t color
 }
 
 static void title_row(unsigned y) {
-    static const char title[] = "ESP-SDR-M5";
+    static const char title[] = "ESP SDR M5";
     text_row(y, 6, title, 0x0000);
 }
 
-static uint16_t waterfall_color(uint8_t value) {
-    unsigned red, green, blue;
-    if (value < 64) {
-        red = green = 0;
-        blue = value * 4;
-    } else if (value < 128) {
-        red = 0;
-        green = (value - 64) * 4;
-        blue = 255;
-    } else if (value < 192) {
-        red = (value - 128) * 4;
-        green = 255;
-        blue = 255 - (value - 128) * 4;
-    } else {
-        red = 255;
-        green = blue = (value - 192) * 4;
-    }
-    return (uint16_t)(((red & 0xf8) << 8) | ((green & 0xfc) << 3) | (blue >> 3));
+void m5stack_basic_set_gain_index(unsigned gain_index) {
+    display_gain_index = gain_index;
+}
+
+static uint16_t waterfall_blend(uint16_t from, uint16_t to, unsigned step, unsigned span) {
+    unsigned r0 = (from >> 11) & 31, g0 = (from >> 5) & 63, b0 = from & 31;
+    unsigned r1 = (to >> 11) & 31, g1 = (to >> 5) & 63, b1 = to & 31;
+    unsigned red = (r0 * (span - step) + r1 * step + span / 2) / span;
+    unsigned green = (g0 * (span - step) + g1 * step + span / 2) / span;
+    unsigned blue = (b0 * (span - step) + b1 * step + span / 2) / span;
+    return (uint16_t)((red << 11) | (green << 5) | blue);
+}
+
+static uint16_t waterfall_color(int delta_db) {
+    if (delta_db <= 0) return 0x0000;
+    if (delta_db < 10) return waterfall_blend(0x0000, 0x001f, delta_db, 10);
+    if (delta_db < 20) return waterfall_blend(0x001f, 0x07ff, delta_db - 10, 10);
+    if (delta_db < 30) return waterfall_blend(0x07ff, 0x07e0, delta_db - 20, 10);
+    if (delta_db < 40) return waterfall_blend(0x07e0, 0xffe0, delta_db - 30, 10);
+    if (delta_db < 50) return waterfall_blend(0xffe0, 0xf800, delta_db - 40, 10);
+    if (delta_db < 60) return waterfall_blend(0xf800, 0xffff, delta_db - 50, 10);
+    return 0xffff;
 }
 
 static inline bool spectrum_vertical_grid(unsigned plot_x) {
@@ -356,7 +364,7 @@ static unsigned cardputer_controls_update(unsigned mhz, unsigned matrix_keys, ui
 void m5stack_basic_init(void) {
     controls.rate = 3;
     controls.fft = 2; /* Default to 1024 points. */
-    controls.average = 3;
+    controls.average = 4; /* Default to sixteen spectra per 100 ms interval. */
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
     const gpio_config_t hold = {.pin_bit_mask = PIN(4), .mode = GPIO_MODE_OUTPUT};
     ESP_ERROR_CHECK(gpio_config(&hold));
@@ -430,7 +438,7 @@ void m5stack_basic_init(void) {
     lcd_command(0x11, NULL, 0);
     vTaskDelay(pdMS_TO_TICKS(130));
     lcd_command(0x38, NULL, 0);
-    m5stack_basic_draw(2412, NULL, 256, false, false, 0);
+    m5stack_basic_draw(2412, NULL, m5stack_basic_fft_points(), false, false, 0);
     lcd_command(0x29, NULL, 0);
     ESP_ERROR_CHECK(gpio_set_level(LCD_BL, 1));
 }
@@ -449,6 +457,10 @@ unsigned m5stack_basic_rate(void) {
     return m5stack_rates[controls.rate];
 }
 
+unsigned m5stack_basic_span(void) {
+    return m5stack_spans[controls.rate];
+}
+
 unsigned m5stack_basic_fft_points(void) {
     return m5stack_fft_sizes[controls.fft];
 }
@@ -459,18 +471,21 @@ unsigned m5stack_basic_average_count(void) {
 
 void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, bool pc_control,
                         bool valid, unsigned cpu_percent) {
-    char settings[40], edges[3][12], cpu[12];
+    char settings[40], edges[3][12], cpu[12], gain[8];
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
     char details[24];
 #endif
     const char *status = pc_control ? "PC" : valid ? "LIVE" : "WAIT";
-    uint8_t display_bins[PLOT_WIDTH] = {0}, trace[PLOT_WIDTH];
+    spectrum_dbfs_t display_bins[PLOT_WIDTH];
+    uint8_t trace[PLOT_WIDTH];
+    spectrum_dbfs_t noise_floor = SPECTRUM_DBFS_MIN;
     unsigned span = m5stack_spans[controls.rate];
     if (!waterfall_tuned || waterfall_mhz != mhz || waterfall_span != span || waterfall_fft != fft_points) {
         waterfall_mhz = mhz;
         waterfall_span = span;
         waterfall_fft = fft_points;
         waterfall_head = waterfall_count = 0;
+        noise_floor_avg = (spectrum_noise_floor_t){0};
         waterfall_tuned = true;
     }
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
@@ -484,10 +499,13 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
     snprintf(edges[1], sizeof(edges[1]), "%u", mhz);
     snprintf(edges[2], sizeof(edges[2]), "%u", mhz + span / 2);
     snprintf(cpu, sizeof(cpu), "CPU %u%%", cpu_percent);
+    snprintf(gain, sizeof(gain), "%u", display_gain_index);
     if (bins && valid) {
+        for (unsigned x = 0; x < PLOT_WIDTH; x++) display_bins[x] = SPECTRUM_DBFS_MIN;
         unsigned capture_span = span < 16 ? 16 : span;
         unsigned visible = fft_points * span / capture_span;
         unsigned first_bin = (fft_points - visible) / 2 + fft_points / 2;
+        spectrum_dbfs_t frame_minimum = SPECTRUM_DBFS_MAX;
         for (unsigned x = 0; x < PLOT_WIDTH; x++) {
             unsigned first = x * visible / PLOT_WIDTH, limit = (x + 1) * visible / PLOT_WIDTH;
             if (limit <= first) limit = first + 1;
@@ -495,14 +513,22 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             for (unsigned j = first; j < limit; j++) {
                 unsigned bin = first_bin + j;
                 if (bin >= fft_points) bin -= fft_points;
-                if (bins[bin] > display_bins[x]) display_bins[x] = bins[bin];
+                spectrum_dbfs_t dbfs = spectrum_code_to_dbfs(bins[bin]);
+                if (dbfs < frame_minimum) frame_minimum = dbfs;
+                if (dbfs > display_bins[x]) display_bins[x] = dbfs;
             }
-            trace[x] = SPECTRUM_BOTTOM -
-                       (display_bins[x] * (SPECTRUM_BOTTOM - SPECTRUM_TOP)) / 255;
+        }
+        noise_floor = spectrum_noise_floor_update(&noise_floor_avg, frame_minimum);
+        int graph_minimum = noise_floor;
+        for (unsigned x = 0; x < PLOT_WIDTH; x++) {
+            unsigned height = (spectrum_dbfs_to_display_value(display_bins[x], graph_minimum, 80) *
+                               (SPECTRUM_BOTTOM - SPECTRUM_TOP)) / 255;
+            trace[x] = SPECTRUM_BOTTOM - height;
         }
         if (!pc_control) {
             waterfall_head = (waterfall_head + 1) % WATERFALL_HEIGHT;
             memcpy(waterfall[waterfall_head], display_bins, sizeof(display_bins));
+            waterfall_floor[waterfall_head] = noise_floor;
             if (waterfall_count < WATERFALL_HEIGHT) waterfall_count++;
         }
     }
@@ -528,9 +554,9 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             if (age < waterfall_count) {
                 unsigned index = waterfall_head + WATERFALL_HEIGHT - age;
                 if (index >= WATERFALL_HEIGHT) index -= WATERFALL_HEIGHT;
-                const uint8_t *history = waterfall[index];
+                const spectrum_dbfs_t *history = waterfall[index];
                 for (unsigned x = 0; x < PLOT_WIDTH; x++)
-                    row[PLOT_LEFT + x] = __builtin_bswap16(waterfall_color(history[x]));
+                    row[PLOT_LEFT + x] = __builtin_bswap16(waterfall_color(history[x] - waterfall_floor[index]));
             }
         }
         if (y < 12)
@@ -539,6 +565,9 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         if (y >= 1 && y < 11) {
             title_row(y - 1);
             unsigned status_left = SCREEN_WIDTH - (unsigned)strlen(status) * 7 - 3;
+            unsigned title_end = 6 + (unsigned)strlen("ESP SDR M5") * 7;
+            unsigned gain_left = (title_end + status_left) / 2 - (unsigned)strlen(gain) * 7 / 2;
+            text_row(y - 1, gain_left, gain, 0xffff);
             text_row(y - 1, status_left, status, pc_control ? 0xffe0 : 0xffff);
         }
         if (y >= 14 && y < 24) text_row(y - 14, 4, settings, 0xffff);
@@ -555,8 +584,8 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         }
         if (y >= 230 && y < 240) {
             text_row(y - 230, 4, "SPAN", COLOR_SRDECK_YELLOW_GREEN);
-            text_row(y - 230, 57, "FFT", COLOR_SRDECK_YELLOW_GREEN);
-            text_row(y - 230, 110, "AVE", COLOR_SRDECK_YELLOW_GREEN);
+            text_row(y - 230, 53, "FFT", COLOR_SRDECK_YELLOW_GREEN);
+            text_row(y - 230, 96, "AVE", COLOR_SRDECK_YELLOW_GREEN);
         }
 #else
         if (y >= 1 && y < 11) title_row(y - 1);
@@ -564,6 +593,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             unsigned cpu_left = SCREEN_WIDTH - (unsigned)strlen(cpu) * 7 - 3;
             unsigned status_left = cpu_left - (unsigned)strlen(status) * 7 - 7;
             text_row(y, status_left, status, pc_control ? 0xffe0 : 0xffff);
+            text_row(y, SCREEN_WIDTH / 2 - (unsigned)strlen(gain) * 7 / 2, gain, 0xffff);
             text_row(y, cpu_left, cpu, 0xffff);
         }
         if (y >= 12 && y < 22) text_row(y - 12, 4, settings, 0xffff);
@@ -578,7 +608,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         if (keyboard_help_visible && y >= 115 && y < 135) {
             memset(row, 0, sizeof(row));
             text_row(y < 125 ? y - 115 : y - 125, 4,
-                     y < 125 ? "<> 0-9 FREQ T STEP P SPAN" : "F FFT A AVE SHIFT REV SPACE HELP",
+                     y < 125 ? "<> FREQ 0-9 T STEP P SPAN" : "F FFT A AVE REV SPC",
                      COLOR_SRDECK_YELLOW_GREEN);
         }
 #endif

@@ -163,10 +163,10 @@ int main(void) {
     memset(bins, 0, sizeof(bins));
     m5stack_basic_draw(2412, bins, 256, false, true, 0);
     assert(rows == 720);
-    assert(pixels[97 * 320 + 4] == 0x0000); /* Newest row is quiet. */
+    assert(pixels[97 * 320 + 4] == waterfall_color(0)); /* The tracked noise floor is black. */
     assert(pixels[98 * 320 + 4] == 0xffff); /* Previous capture moved down. */
     m5stack_basic_draw(2412, bins, 256, true, false, 0);
-    assert(rows == 960 && pixels[97 * 320 + 4] == 0x0000);
+    assert(rows == 960 && pixels[97 * 320 + 4] == waterfall_color(0));
     assert(pixels[98 * 320 + 4] == 0xffff); /* PC lease freezes local history. */
     m5stack_basic_draw(2413, bins, 256, false, true, 0);
     assert(rows == 1200 && pixels[98 * 320 + 4] == 0x0000); /* Retune clears stale history. */

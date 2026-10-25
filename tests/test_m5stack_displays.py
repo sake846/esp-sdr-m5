@@ -133,7 +133,7 @@ int main(void) {
     assert(pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==0xffff);
     memset(bins,0,sizeof(bins));
     m5stack_basic_draw(2412,bins,256,false,true,100);
-    assert(pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==0);
+    assert(pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==waterfall_color(0));
     assert(pixels[(WATERFALL_TOP+1)*TEST_WIDTH+PLOT_LEFT]==0xffff);
     m5stack_basic_draw(2412,bins,256,true,false,50);
     assert(waterfall_count==2); /* PC and failed captures freeze history. */
@@ -143,7 +143,7 @@ int main(void) {
     controls.rate=0;bins[128]=255;bins[240]=200;
     m5stack_basic_draw(2413,bins,256,false,true,0);
     assert(waterfall_count==1);
-    assert(pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==waterfall_color(200));
+    assert(pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==waterfall_color(60));
     /* Peak reduction preserves a narrow signal in an 8192/4096-bin spectrum. */
     memset(bins,0,sizeof(bins));controls.rate=3;
     bins[TEST_FFT/2+1]=255;

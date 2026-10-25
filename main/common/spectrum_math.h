@@ -2,7 +2,45 @@
  * Piecewise-linear log2 approximation has <0.06 dB error before 0.5 dB
  * quantization. It avoids soft-float logarithms in the capture deadline. */
 #pragma once
+#include <stdbool.h>
 #include <stdint.h>
+
+typedef int8_t spectrum_dbfs_t; /* Whole dBFS, rounded to 1 dB for the compact on-device history. */
+#define SPECTRUM_DBFS_MIN (-84)
+#define SPECTRUM_DBFS_MAX 43
+
+typedef struct {
+    int32_t q8;
+    bool ready;
+} spectrum_noise_floor_t;
+
+static inline spectrum_dbfs_t spectrum_code_to_dbfs(uint8_t code) {
+    int tenths = (int)code * 5 - 843; /* code / 2 - 84.3 dBFS */
+    return (spectrum_dbfs_t)(tenths >= 0 ? (tenths + 5) / 10 : (tenths - 5) / 10);
+}
+
+/* Smooth the minimum in-band FFT-bin level with a 1/32 EWMA per frame. */
+static inline spectrum_dbfs_t spectrum_noise_floor_update(spectrum_noise_floor_t *state,
+                                                           spectrum_dbfs_t frame_minimum) {
+    int32_t target = (int32_t)frame_minimum * 256;
+    if (!state->ready) {
+        state->q8 = target;
+        state->ready = true;
+    } else {
+        state->q8 += (target - state->q8) / 32;
+    }
+    int32_t rounded = state->q8 >= 0 ? (state->q8 + 128) / 256 : (state->q8 - 128) / 256;
+    return (spectrum_dbfs_t)rounded;
+}
+
+static inline uint8_t spectrum_dbfs_to_display_value(spectrum_dbfs_t dbfs, int lower_dbfs,
+                                                     unsigned range_db) {
+    if (!range_db || dbfs <= lower_dbfs) return 0;
+    unsigned offset = (unsigned)(dbfs - lower_dbfs);
+    if (offset >= range_db) return 255;
+    return (uint8_t)((offset * 255 + range_db / 2) / range_db);
+}
+
 static inline uint32_t spectrum_complex_power(int16_t re, int16_t im) {
     /* Each product fits int32_t; the sum can be exactly 2^31. */
     return (uint32_t)((int32_t)re * re) + (uint32_t)((int32_t)im * im);

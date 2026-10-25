@@ -1,5 +1,5 @@
 /* Shared snapshot RX gain control. Codes are PHY gain indices, not dB.
- * Hardware AGC controls gain unless a manual index is selected.
+ * Hardware AGC controls gain unless manual or software AGC selects an index.
  * AGCPWR_CTRL7 bits 8..14 hold the maximum calibrated low-table index.
  * The pinned PHY implementations populate this field when tuning. */
 #if CONFIG_IDF_TARGET_ESP32H2
@@ -18,9 +18,14 @@ extern void force_rx_gain(unsigned, unsigned, unsigned);
 #define BURST_GAIN_REG 0x6001c02cu
 #endif
 #include "burst_gain_min.h"
-typedef enum { GAIN_MANUAL, GAIN_HARDWARE } burst_gain_mode_t;
+typedef enum { GAIN_MANUAL, GAIN_SOFTWARE, GAIN_HARDWARE } burst_gain_mode_t;
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+static burst_gain_mode_t gain_mode = GAIN_SOFTWARE;
+static unsigned gain_code = 30;
+#else
 static burst_gain_mode_t gain_mode = GAIN_HARDWARE;
 static unsigned gain_code = 40;
+#endif
 static unsigned gain_max(void) {
 #if CONFIG_IDF_TARGET_ESP32H2
     /* Pinned H2 set_rx_gain_table stores the last calibrated index here. */
@@ -48,7 +53,7 @@ static unsigned gain_init_saved, gain_threshold_saved;
 static bool gain_defaults_saved;
 #endif
 static void gain_apply(void) {
-    bool manual = gain_mode == GAIN_MANUAL;
+    bool manual = gain_mode != GAIN_HARDWARE;
     if (gain_code > gain_max()) gain_code = gain_max();
 #if CONFIG_IDF_TARGET_ESP32C61
     if (!gain_defaults_saved) {
@@ -79,7 +84,9 @@ static bool gain_command(const char *line) {
     char extra;
     if (!strcmp(line, "GAIN?")) {
         char h[64];
-        snprintf(h, sizeof(h), "GAIN %s %d 0 %u %u\n", gain_mode == GAIN_HARDWARE ? "HARDWARE" : "MANUAL",
+        const char *mode = gain_mode == GAIN_HARDWARE ? "HARDWARE" :
+                           gain_mode == GAIN_SOFTWARE ? "SOFTWARE" : "MANUAL";
+        snprintf(h, sizeof(h), "GAIN %s %d 0 %u %u\n", mode,
                  gain_mode == GAIN_HARDWARE ? -1 : (int)gain_code, gain_max(),
                  (unsigned)((REG_READ(BURST_GAIN_REG) >> 23) & 1));
         reply(h);
@@ -87,6 +94,10 @@ static bool gain_command(const char *line) {
     }
     if (!strcmp(line, "GAIN HARDWARE")) {
         gain_mode = GAIN_HARDWARE;
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    } else if (!strcmp(line, "GAIN SOFTWARE")) {
+        gain_mode = GAIN_SOFTWARE;
+#endif
     } else if (sscanf(line, "GAIN MANUAL %u %c", &code, &extra) == 1 &&
                code - GAIN_MIN <= gain_max() - GAIN_MIN) { /* GAIN_MIN..gain_max() */
         gain_mode = GAIN_MANUAL;

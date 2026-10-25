@@ -62,11 +62,12 @@ static inline unsigned m5stack_controls_update(m5stack_controls_t *s, unsigned m
         s->fft = (s->fft + 1) % (sizeof(m5stack_fft_sizes) / sizeof(m5stack_fft_sizes[0]));
         s->b_long = true;
     }
-    if ((s->stable & 1) && !s->suppress_release[0] && (uint32_t)(now - s->pressed_at[0]) >= 600) {
+    if ((s->stable & 1) && !s->suppress_release[0] &&
+        (uint32_t)(now - s->pressed_at[0]) >= 600) {
         s->rate = (s->rate + 1) % (sizeof(m5stack_spans) / sizeof(m5stack_spans[0]));
         s->suppress_release[0] = true;
-    }
-    if ((s->stable & 4) && !s->suppress_release[2] && (uint32_t)(now - s->pressed_at[2]) >= 600) {
+    } else if ((s->stable & 4) && !s->suppress_release[2] &&
+               (uint32_t)(now - s->pressed_at[2]) >= 600) {
         s->average = (s->average + 1) % (sizeof(m5stack_average_counts) / sizeof(m5stack_average_counts[0]));
         s->suppress_release[2] = true;
     }

@@ -8,14 +8,32 @@ Protocol 6 advertises `RXLIMITS` in `CAPS`. Query `LIMITS?` after `INFO` for:
 - `rates`: supported nominal sample rates in samples/second.
 - `bits`: supported precision per I/Q component.
 
-Hardware AGC is the default; manual gain indices are not absolute gain in dB.
+M5Stack BASIC, Core2, StickC Plus2, Cardputer and Cardputer ADV start with
+software gain control at PHY gain index 30. Standalone control centers the
+largest raw 10-bit I/Q component peak around -12 dBFS (about 129/512), smoothing
+the peak across display intervals. It raises gain by one index below the -18 dBFS
+release threshold (64/512) and lowers it by one above the -6 dBFS attack threshold
+(257/512), holding gain between those thresholds. In standalone mode the peak
+estimate falls at a slower rate; gain rises only after five consecutive frames
+below the release threshold, at most one PHY index per 100 ms frame. Serial
+software AGC likewise requires five consecutive low probe captures before
+raising gain. It measures before DC removal and windowing.
+M5Stack buttons and the Cardputer keyboard do not switch gain modes during
+standalone operation. Serial `GAIN HARDWARE` and `GAIN MANUAL` commands remain
+available; `GAIN SOFTWARE` or a reboot resumes automatic control. Their analog
+receive bandwidth follows the local SPAN setting, clamped to the chip's
+supported range. Other profiles default to hardware AGC. Manual indices are
+PHY table entries, not dB values.
 
 The Wi-Fi AGC is built to settle on packet preambles. It does not protect
 the ADC from a strong *continuous* signal: with a test tone a few
-centimetres from the antenna, every Wi-Fi chip clipped in AGC mode (peak at
-full scale), and clipping products buried the tone. Use manual gain for strong
-signals. On the H2, which has no usable AGC for this purpose, `GAIN HARDWARE`
-runs a firmware AGC instead; see [esp32h2.md](esp32h2.md).
+centimetres from the antenna, every Wi-Fi chip clipped in hardware AGC mode
+(peak at full scale), and clipping products buried the tone. Software AGC
+backs off based on peaks in captured IQ snapshots, but snapshots have gaps;
+short bursts between captures can be missed, and a signal that clips even at
+minimum gain can still saturate. Serial software AGC also probes before the
+requested capture. On the H2, which has no usable AGC for this purpose,
+`GAIN HARDWARE` runs a firmware AGC instead; see [esp32h2.md](esp32h2.md).
 
 ## Gain implementation
 
@@ -33,8 +51,9 @@ selecting an uncalibrated second-table entry.
 ## Bandwidth implementation
 
 `BANDWIDTH <MHz>` interpolates the chip's capacitor-code curve in
-`main/common/rx_bandwidth.h`. Zero selects the widest setting, not filter bypass.
-Out-of-range requests are rejected.
+`main/common/rx_bandwidth.h`. On M5Stack profiles it disables SPAN following
+until `LPF AUTO` restores it. Zero selects the widest setting, not filter
+bypass. Out-of-range requests are rejected.
 
 | Chip | Approximate bandwidth | BBTOP registers | Code width |
 | --- | --- | --- | --- |

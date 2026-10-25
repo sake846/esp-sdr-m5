@@ -15,6 +15,10 @@ bool spectrum_snapshot(unsigned rate, unsigned n, spectrum_acquire_fn acquire, u
  * This overwrites the captured samples after acquisition. */
 bool spectrum_snapshot_inplace(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins,
                                int16_t *workspace);
+/* Like spectrum_snapshot_inplace, and reports the largest raw 10-bit I/Q
+ * sample magnitude before DC removal and windowing. */
+bool spectrum_snapshot_inplace_peak(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins,
+                                   int16_t *workspace, unsigned *peak);
 /* Reset the local snapshot DC tracker after retuning or other RF-path changes. */
 void spectrum_snapshot_reset_dc(void);
 

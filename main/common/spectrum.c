@@ -184,10 +184,16 @@ static void setup_window(unsigned n) {
 }
 
 static void transform(const uint32_t *words, unsigned n, int16_t *data, spectrum_time_dc_t *dc,
-                      void (*poll)(void *), void *context) {
+                      void (*poll)(void *), void *context, unsigned *peak_out) {
     int32_t sum_i = 0, sum_q = 0;
+    unsigned peak = 0;
     for (unsigned j = 0; j < n; j++) {
         int32_t i = ((int32_t)(words[j] << 22) >> 22), q = ((int32_t)(words[j] << 12) >> 22);
+        if (peak_out) {
+            unsigned abs_i = (unsigned)(i < 0 ? -i : i), abs_q = (unsigned)(q < 0 ? -q : q);
+            if (abs_i > peak) peak = abs_i;
+            if (abs_q > peak) peak = abs_q;
+        }
         data[2 * j] = (int16_t)i;
         data[2 * j + 1] = (int16_t)q;
         sum_i += i;
@@ -217,6 +223,7 @@ static void transform(const uint32_t *words, unsigned n, int16_t *data, spectrum
         data[2 * j + 1] = clamp16(im >> 9);
     }
     spectrum_fft_poll(data, n, twiddles, poll, context);
+    if (peak_out) *peak_out = peak;
 }
 
 static void local_fft_poll(void *context) {
@@ -229,7 +236,7 @@ void spectrum_snapshot_reset_dc(void) {
 }
 
 static bool spectrum_snapshot_run(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins,
-                                  int16_t *workspace, bool require_inplace) {
+                                  int16_t *workspace, bool require_inplace, unsigned *peak_out) {
 #if SPEC_HEAP_WORKSPACE
     if (!rate_hz(rate) || n < 256 || n > MAX_FFT || (n & (n - 1)) || !acquire || !bins ||
         (require_inplace ? !workspace : !allocate_fft_workspace(n)) || !spectrum_fft_init_n(n))
@@ -253,7 +260,7 @@ static bool spectrum_snapshot_run(unsigned rate, unsigned n, spectrum_acquire_fn
         snapshot_dc_n = n;
         snapshot_dc_ready = true;
     }
-    transform(words, n, workspace, &snapshot_dc, local_fft_poll, NULL);
+    transform(words, n, workspace, &snapshot_dc, local_fft_poll, NULL, peak_out);
     for (unsigned j = 0, bin = 0; j < n; j++) {
         bins[bin] = spectrum_power_code(spectrum_complex_power(workspace[2 * j], workspace[2 * j + 1]));
         unsigned bit = n >> 1;
@@ -267,12 +274,17 @@ static bool spectrum_snapshot_run(unsigned rate, unsigned n, spectrum_acquire_fn
 }
 
 bool spectrum_snapshot(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins) {
-    return spectrum_snapshot_run(rate, n, acquire, bins, NULL, false);
+    return spectrum_snapshot_run(rate, n, acquire, bins, NULL, false, NULL);
 }
 
 bool spectrum_snapshot_inplace(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins,
                                int16_t *workspace) {
-    return spectrum_snapshot_run(rate, n, acquire, bins, workspace, true);
+    return spectrum_snapshot_run(rate, n, acquire, bins, workspace, true, NULL);
+}
+
+bool spectrum_snapshot_inplace_peak(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins,
+                                    int16_t *workspace, unsigned *peak) {
+    return spectrum_snapshot_run(rate, n, acquire, bins, workspace, true, peak);
 }
 
 static void capabilities(void) {
@@ -413,7 +425,7 @@ bool spectrum_command(const char *line, unsigned frequency_mhz, spectrum_acquire
             break;
         }
         if (!merged) gain = words[0] >> 20;
-        transform(words, n, fft_data, &dc, pump_spectrum, &out);
+        transform(words, n, fft_data, &dc, pump_spectrum, &out, NULL);
         for (unsigned j = 0; j < n; j++) {
             uint32_t p = spectrum_complex_power(fft_data[2 * j], fft_data[2 * j + 1]);
             if (det) {

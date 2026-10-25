@@ -36,22 +36,25 @@ python tools/build_firmware.py --profile m5stack-basic --version YOUR_VERSION
 
 ## Standalone operation
 
-Power on to start at 2412 MHz, with a 16 MHz span, a 256-point FFT and hardware
-automatic gain control. Each display update averages FFT results captured
+Power on to start at 2412 MHz, with a 16 MHz span, a 1024-point FFT, 16-spectrum
+averaging and software gain control targeting a raw IQ peak of -12 dBFS. It
+starts from PHY gain index 30. Each display update averages FFT results captured
 during a nominal 100 ms interval; LCD drawing adds a little to refresh time.
 
 | Button | Action |
 | --- | --- |
 | A, short press | Decrease the center frequency by the selected step |
-| A, hold for 0.6 seconds | Cycle span: 2, 4, 8, 16, 40, 80 MHz |
+| A, hold for 0.6 seconds | Cycle span |
 | B, short press | Cycle the step: 1, 5, 20, 100 MHz |
-| B, hold for 0.6 seconds | Cycle FFT size: 256, 512, 1024, 2048, 4096, 8192, then 256 |
+| B, hold for 0.6 seconds | Cycle FFT size |
 | C | Increase the center frequency by the selected step |
-| C, hold for 0.6 seconds | Cycle averaging count: 1, 2, 4, 8, 16 (default 8) |
+| C, hold for 0.6 seconds | Cycle averaging count |
 
-Short A/C presses tune only after the button is released. Holding A cycles the
-span instead of tuning; holding B cycles the FFT size, and holding C cycles
-the averaging count. The CPU
+Short A/C presses tune only after the button is released. On button-only
+profiles, FFT and AVE start at 1024 and 16 and can be changed with the center
+and right button long presses. M5Stack profiles use software AGC in standalone
+operation; serial gain commands can explicitly override it. Gain changes stay
+within the calibrated PHY range. The CPU
 percentage estimates time spent capturing, calculating FFTs and drawing the
 LCD during each integration/update interval; it is a local display workload
 estimate, not a system-wide idle-task measurement.
@@ -76,8 +79,17 @@ Its vertical grid divides the selected span into eight intervals (2 MHz each
 at a 16 MHz span). Frequency marks sit between the plots. The lower waterfall
 puts each averaged spectrum at the top and scrolls older spectra down, showing
 about twelve seconds of history at the nominal 100 ms interval, plus LCD drawing
-time. Its colors show relative power: blue is quieter,
-cyan/yellow/white is stronger. Neither plot is calibrated in dBm. Captures are
+time. The display converts the upstream 0–255 power code to signed integer
+dBFS, rounded to 1 dB (`code / 2 - 84.3 dBFS`). It estimates the minimum FFT-bin
+level in the displayed frequency band and smooths it with a 1/32 exponential
+average per frame. The trace spans 80 dB, from that floor to 80 dB above it.
+The waterfall uses each row's smoothed floor as its reference: the floor is
+black, +10 dB blue, +20 dB cyan, +30 dB green, +40 dB yellow, +50 dB red, and
++60 dB or more white, with gradients between those points. The floor reference resets
+when tuning, span or FFT size changes. dBFS is referenced to a full-scale,
+bin-centered tone with the current IQ and Hann-window normalization; antenna
+input power is not calibrated in dBm, and software-controlled PHY gain changes
+the corresponding RF input level. Captures are
 snapshots with gaps, as on the original ESP32 backend. DC correction estimates
 the I/Q mean over each captured waveform before windowing and FFT. A stationary
 signal exactly at the LO cannot be distinguished from a DC offset. The three

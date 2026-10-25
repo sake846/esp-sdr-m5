@@ -250,8 +250,9 @@ idf.py -B build-m5stickc-plus2 -p COMx flash
 This profile uses the portrait LCD and built-in A/B/C buttons.
 
 After flashing, power on or reset the device to start the standalone display.
-It starts at 2412 MHz with a 16 MHz span, a 256-point FFT and automatic gain
-control.
+It starts at 2412 MHz with a 16 MHz span, a 1024-point FFT, 16-spectrum
+averaging and software gain control targeting a raw IQ peak of -12 dBFS. It
+starts from PHY gain index 30.
 
 ## Standalone controls
 
@@ -289,7 +290,11 @@ Core2 uses three touch zones corresponding to A/B/C.
 
 Tuning steps are 1, 5, 20 and 100 MHz. Spans are 2, 4, 8, 16, 40 and 80 MHz;
 the 2/4/8 MHz views zoom into a 16 MS/s capture. Averaging counts are 1, 2, 4,
-8 and 16.
+8 and 16. FFT and AVE start at 1024 and 16; button-only profiles change them
+with the center and right button long presses. All M5Stack profiles use
+software AGC in standalone operation; their buttons and Cardputer keyboard do
+not switch gain modes. A serial `GAIN HARDWARE` or `GAIN MANUAL` command can
+override it; send `GAIN SOFTWARE` or reboot to resume automatic control.
 
 ## Optional PC connection
 
@@ -310,8 +315,8 @@ operation resumes after `RELEASE` or five seconds without commands. See the
   range does not mean reception works across that entire range. See
   [RX controls](docs/rx-controls.md).
 - The standalone display uses snapshot captures with gaps between them.
-- Spectrum and waterfall levels show relative power and are not calibrated
-  in dBm.
+- On-device spectrum and waterfall levels use signed integer dBFS rounded to
+  1 dB; antenna input power is not calibrated in dBm.
 - This is receive-only firmware for spectrum display and I/Q capture. It does
   not provide audio demodulation.
 
