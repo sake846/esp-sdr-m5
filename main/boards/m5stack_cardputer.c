@@ -513,6 +513,9 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             for (unsigned j = first; j < limit; j++) {
                 unsigned bin = first_bin + j;
                 if (bin >= fft_points) bin -= fft_points;
+                /* The radio produces negative FFT offsets for RF above the LO.
+                 * Mirror the selected bins so higher RF is right. */
+                bin = fft_points - 1 - bin;
                 spectrum_dbfs_t dbfs = spectrum_code_to_dbfs(bins[bin]);
                 if (dbfs < frame_minimum) frame_minimum = dbfs;
                 if (dbfs > display_bins[x]) display_bins[x] = dbfs;
