@@ -10,6 +10,8 @@ COMPILER = shutil.which('cc') or shutil.which('cl')
 TARGETS = {
     'ESP32': (40, None, (1, 3), set(range(6, 12)) | {16, 17} | set(range(34, 40))),
     'ESP32_M5STACK': (40, None, (1, 3), set(range(6, 12)) | {16, 17, 4, 14, 18, 19, 21, 22, 23, 25, 27, 32, 33} | set(range(34, 40))),
+    'ESP32_CORE2': (40, None, (1, 3), set(range(6, 12)) | {16, 17, 0, 1, 2, 3, 4, 5, 12, 15, 18, 21, 22, 23} | set(range(34, 40))),
+    'ESP32_STICKC_PLUS2': (40, None, (1, 3), set(range(6, 12)) | {16, 17, 0, 2, 4, 5, 12, 13, 14, 15, 19, 21, 22, 27} | set(range(34, 40))),
     'ESP32C2': (21, None, (20, 19), set(range(11, 18))),
     'ESP32C3': (22, (18, 19), (21, 20), set(range(11, 18))),
     'ESP32C5': (29, (13, 14), (11, 12), set(range(15, 23))),
@@ -18,6 +20,8 @@ TARGETS = {
     'ESP32H2': (28, (26, 27), (24, 23), set(range(15, 22))),
     'ESP32S2': (47, (19, 20), (43, 44), set(range(26, 33)) | {46}),
     'ESP32S3': (49, (19, 20), (43, 44), set(range(26, 38)) | set(range(22, 26))),
+    'ESP32S3_CARDPUTER': (49, (19, 20), (43, 44), {0, 38, 46} | set(range(3, 16)) | set(range(22, 38)) | set(range(39, 45))),
+    'ESP32S3_CARDPUTER_ADV': (49, (19, 20), (43, 44), {0, 38, 46} | set(range(3, 16)) | set(range(22, 38)) | set(range(39, 45))),
     'ESP32S31': (62, (33, 34), (58, 59), set(range(26, 33)) | {41}),
 }
 
@@ -99,10 +103,21 @@ int main(void) {
  for(unsigned i=0;i<sizeof(bad)/sizeof(*bad);++i){assert(burst_gpio_command(bad[i]));assert(!strcmp(response,"ERR gpio_args\n"));}
  assert(calls==before);assert(!burst_gpio_command("FREQ 2412"));
  /* State reflects acknowledged requests, and survives subsequent queries. */
- assert(burst_gpio_command("GPIO 0 1"));
- assert(burst_gpio_command("GPIO?"));assert(strstr(response," 0:1"));
- fail=1;assert(burst_gpio_command("GPIO 0 0"));assert(!strcmp(response,"ERR gpio_io\n"));
- assert(burst_gpio_command("GPIO?"));assert(strstr(response," 0:1"));
+ unsigned pin=0;while(!(EXPECTED_MASK&(UINT64_C(1)<<pin)))pin++;
+ char command[32],item[16];snprintf(command,sizeof(command),"GPIO %u 1",pin);
+ snprintf(item,sizeof(item)," %u:1",pin);
+ assert(burst_gpio_command(command));
+ assert(burst_gpio_command("GPIO?"));assert(strstr(response,item));
+ snprintf(command,sizeof(command),"GPIO %u 0",pin);
+ fail=1;assert(burst_gpio_command(command));assert(!strcmp(response,"ERR gpio_io\n"));
+ assert(burst_gpio_command("GPIO?"));assert(strstr(response,item));
+ /* Every excluded onboard peripheral is rejected without touching hardware. */
+ before=calls;
+ for(pin=0;pin<SOC_GPIO_PIN_COUNT;pin++)if(!(EXPECTED_MASK&(UINT64_C(1)<<pin))){
+  snprintf(command,sizeof(command),"GPIO %u 1",pin);
+  assert(burst_gpio_command(command));assert(!strcmp(response,"ERR gpio_args\n"));
+ }
+ assert(calls==before);
  return 0;
 }
 ''')
@@ -118,13 +133,18 @@ int main(void) {
 ''')
                         (tmp/'soc/io_mux_reg.h').write_text('' if usb is None else f'#define USB_INT_PHY0_DM_GPIO_NUM {usb[0]}\n#define USB_INT_PHY0_DP_GPIO_NUM {usb[1]}\n')
                         # Mimic silicon holes/input-only pins separately from the service's memory exclusions.
-                        invalid = {p for p in excluded if ((target.startswith('ESP32_') or target=='ESP32') and p>=34) or (target=='ESP32S2' and p==46) or (target=='ESP32S3' and p in range(22,26)) or (target=='ESP32S31' and p==41)}
+                        chip = target.split('_')[0]
+                        board = {'ESP32_M5STACK': 'BASIC', 'ESP32_CORE2': 'CORE2',
+                                 'ESP32_STICKC_PLUS2': 'STICKC_PLUS2',
+                                 'ESP32S3_CARDPUTER': 'CARDPUTER',
+                                 'ESP32S3_CARDPUTER_ADV': 'CARDPUTER_ADV'}.get(target)
+                        invalid = {p for p in excluded if (chip=='ESP32' and p>=34) or (chip=='ESP32S2' and p==46) or (chip=='ESP32S3' and p in range(22,26)) or (chip=='ESP32S31' and p==41)}
                         with (tmp/'soc/soc_caps.h').open('a') as f:
                             if invalid:
                                 f.write(f'#undef SOC_GPIO_VALID_OUTPUT_GPIO_MASK\n#define SOC_GPIO_VALID_OUTPUT_GPIO_MASK {sum(1 << p for p in range(count) if p not in invalid)}ULL\n')
                         definitions = [
-                            f'CONFIG_IDF_TARGET_{target.split("_")[0]}=1',
-                            f'CONFIG_ESP_SDR_M5STACK_BASIC={int(target == "ESP32_M5STACK")}',
+                            f'CONFIG_IDF_TARGET_{chip}=1',
+                            *([f'CONFIG_ESP_SDR_M5STACK_{board}=1'] if board else []),
                             f'CONFIG_ESP_SDR_UART_ENABLED={uart_enabled}',
                             f'CONFIG_ESP_SDR_UART_TX_PIN={uart[0]}', f'CONFIG_ESP_SDR_UART_RX_PIN={uart[1]}',
                             f'EXPECTED_MASK={expected}ULL']

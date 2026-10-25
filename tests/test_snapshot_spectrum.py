@@ -14,7 +14,7 @@ class SnapshotSpectrum(unittest.TestCase):
     def test_mean_max_bin_order_and_frame_counts(self):
         source = (ROOT / 'main/common/spectrum.c').read_text()
         sdk_headers = ['esp_cpu.h', 'dsps_fft2r.h', 'esp_rom_crc.h', 'esp_timer.h',
-                       'freertos/FreeRTOS.h', 'freertos/task.h', 'spectrum_fft.h']
+                       'freertos/FreeRTOS.h', 'freertos/task.h', 'spectrum_fft.h', 'esp_heap_caps.h']
         for header in sdk_headers:
             source = source.replace(f'#include "{header}"', '')
         stub = r'''
@@ -25,6 +25,12 @@ class SnapshotSpectrum(unittest.TestCase):
 #include "spectrum_stats.h"
 #include "burst_serial.h"
 #define ESP_OK 0
+#define MALLOC_CAP_INTERNAL 1
+#define MALLOC_CAP_8BIT 2
+static void *heap_caps_realloc(void *p, size_t n, unsigned caps){return realloc(p,n);}
+static void *heap_caps_malloc(size_t n, unsigned caps){return malloc(n);}
+static int dsps_gen_w_r2_sc16(int16_t *w,unsigned n){return ESP_OK;}
+static int dsps_bit_rev_sc16_ansi(int16_t *w,unsigned n){return ESP_OK;}
 unsigned spectrum_dc_mode;
 static unsigned transforms,frames,wanted_units,wanted_n,wanted_detector,full_scale,stop_after, release_at;
 static bool pass_through;
@@ -163,15 +169,19 @@ static unsigned count_leading_zeros(unsigned value) {
 '''
             src.write_text(compatibility + '#include <stdlib.h>\n' + stub + source + check)
             exe = Path(tmp) / ('snapshot.exe' if msvc else 'snapshot')
-            for target in ['ESP32C3', 'ESP32C61']:
-                with self.subTest(target=target):
+            for target, board in [('ESP32C3', None), ('ESP32C61', None),
+                                  ('ESP32', 'BASIC'), ('ESP32S3', 'CARDPUTER')]:
+                with self.subTest(target=target, board=board):
+                    definitions = [f'CONFIG_IDF_TARGET_{target}=1']
+                    if board:
+                        definitions.append(f'CONFIG_ESP_SDR_M5STACK_{board}=1')
                     if msvc:
                         command = [COMPILER, '/nologo', '/std:c11', '/O2',
-                                   f'/DCONFIG_IDF_TARGET_{target}=1',
+                                   *('/D'+d for d in definitions),
                                    '/I' + str(ROOT / 'main/common'), str(src), '/Fe:' + str(exe)]
                     else:
                         command = [COMPILER, '-std=gnu11', '-O2', '-fsanitize=undefined',
-                                   f'-DCONFIG_IDF_TARGET_{target}=1',
+                                   *('-D'+d for d in definitions),
                                    '-I' + str(ROOT / 'main/common'), str(src), '-lm', '-o', str(exe)]
                     subprocess.run(command, cwd=tmp, check=True)
                     subprocess.run([str(exe)], check=True)

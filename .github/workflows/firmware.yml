@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Test artifact export
+      - name: Run host regression tests
         run: python3 -m unittest discover -s tests
       - id: catalog
         run: echo "matrix=$(python3 tools/build_firmware.py --matrix)" >> "$GITHUB_OUTPUT"

@@ -370,7 +370,8 @@ void burst_serial_idle(bool leased) {
                 average_slot = due_slot + 1; /* Skip missed slots rather than bunching captures. */
                 int64_t work_start = esp_timer_get_time();
                 local_capture = true;
-                bool captured = spectrum_snapshot(rate, fft_points, spectrum_acquire, bins);
+                bool captured = spectrum_snapshot_inplace(rate, fft_points, spectrum_acquire, bins,
+                                                          (int16_t *)IQ_BUFFER);
                 local_capture = false;
                 int64_t work_end = esp_timer_get_time();
                 frame_work_us += (uint64_t)(work_end - work_start);

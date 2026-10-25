@@ -74,20 +74,29 @@ class FirmwareExport(unittest.TestCase):
             self.export()
         self.assertFalse((self.root / 'output').exists())
 
-    def test_basic_profile_export_keeps_board_identity(self):
-        (self.build / 'config/sdkconfig.json').write_text(json.dumps({'IDF_TARGET': 'esp32'}))
-        self.args['extra_esptool_args']['chip'] = 'esp32'
-        self.args['flash_settings']['flash_size'] = '4MB'
-        self.save_args()
-        record = dict(revision='a'*40, build_date='2026-10-24',
-                      build_timestamp='2026-10-24T00:00:00Z', profile='m5stack-basic')
-        (self.build / 'app.bin').write_bytes(b'ESP-SDR-VERSION:'+json.dumps(record).encode()+b'\0')
-        path = exporter.export(self.build, self.root / 'output', 'm5stack-basic',
-                               'M5Stack Basic', 'test', True)
-        variant = json.loads(path.read_text())['variants']['m5stack-basic']
-        self.assertEqual(variant['target'], 'esp32')
-        self.assertEqual(variant['flash_size'], '4MB')
-        self.assertEqual(variant['flash_size_policy'], 'minimum')
+    def test_m5stack_profiles_export_keeps_board_identity(self):
+        profiles = [('m5stack-basic', 'esp32', '4MB'),
+                    ('m5stack-core2', 'esp32', '16MB'),
+                    ('m5stack-cardputer', 'esp32s3', '8MB'),
+                    ('m5stack-cardputer-adv', 'esp32s3', '8MB'),
+                    ('m5stickc-plus2', 'esp32', '8MB')]
+        for profile, target, flash in profiles:
+            with self.subTest(profile=profile):
+                (self.build / 'config/sdkconfig.json').write_text(json.dumps({'IDF_TARGET': target}))
+                self.args['extra_esptool_args']['chip'] = target
+                self.args['flash_settings']['flash_size'] = flash
+                self.save_args()
+                record = dict(revision='a'*40, build_date='2026-10-24',
+                              build_timestamp='2026-10-24T00:00:00Z', profile=profile)
+                data = b'ESP-SDR-VERSION:'+json.dumps(record).encode()+b'\0'
+                (self.build / 'app.bin').write_bytes(data)
+                output = self.root / profile
+                path = exporter.export(self.build, output, profile, profile, 'test', True)
+                variant = json.loads(path.read_text())['variants'][profile]
+                self.assertEqual(variant['target'], target)
+                self.assertEqual(variant['flash_size'], flash)
+                self.assertEqual(variant['flash_size_policy'], 'minimum')
+                self.assertEqual(variant['git_revision'], record['revision'])
 
     def test_probe_firmware_rejected(self):
         for flag in ['RING_PROBE','SAMPLE_RATE_PROBE','FILTER_REGISTER_PROBE','S2_RF_PROBE','S3_RF_PROBE','C5_TUNE_PROBE']:

@@ -1,18 +1,12 @@
 """Exercise the actual Basic button state machine with a native C compiler."""
-import os
-from pathlib import Path
-import shutil
-import subprocess
-import tempfile
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
-COMPILER = shutil.which('cc') or shutil.which('cl')
+from host_test import COMPILER, ROOT, compile_run
 
 
 @unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
 class BasicControls(unittest.TestCase):
-    def test_debounce_steps_span_limits_and_pc_lease(self):
+    def test_debounce_short_long_presses_limits_and_pc_lease(self):
         source = r'''
 #include <assert.h>
 #include "m5stack_basic_controls.h"
@@ -27,6 +21,12 @@ static void press(unsigned key) {
     tick(key, 1, false); tick(key, 30, false);
     tick(0, 1, false); tick(0, 30, false);
 }
+static void hold(unsigned key) {
+    tick(key, 1, false); tick(key, 30, false);
+    tick(key, 599, false); tick(key, 1, false);
+    tick(key, 1000, false); /* Holding longer must not repeat. */
+    tick(0, 1, false); tick(0, 30, false);
+}
 int main(void) {
     tick(1, 1, false); tick(0, 10, false); tick(0, 30, false);
     assert(mhz == 2412); /* Contact bounce is not a press. */
@@ -36,40 +36,41 @@ int main(void) {
     press(4); assert(mhz == 2417);
     press(2); assert(s.step == 2);
     press(1); assert(mhz == 2397);
+    press(2); assert(s.step == 3);
+    press(4); assert(mhz == 2497); /* Fourth tuning step is 100 MHz. */
     press(2); assert(s.step == 0);
     tick(2, 1, false); tick(2, 30, false); tick(2, 600, false);
-    assert(s.rate == 1 && s.step == 0);
-    tick(2, 1000, false); assert(s.rate == 1);
+    assert(s.fft == 1 && s.rate == 0 && s.step == 0);
+    tick(2, 1000, false); assert(s.fft == 1);
     tick(0, 1, false); tick(0, 30, false); assert(s.step == 0);
-    assert(m5stack_rates[s.rate] == 1 && m5stack_spans[s.rate] == 40);
+    for (unsigned j = 1; j <= 6; j++) {
+        hold(1); assert(s.rate == j % 6 && mhz == 2497);
+    }
+    for (unsigned j = 1; j <= 5; j++) {
+        hold(4); assert(s.average == j % 5 && mhz == 2497);
+    }
+    for (unsigned j = 2; j <= 6; j++) {
+        hold(2); assert(s.fft == j % 6 && s.step == 0);
+    }
+    assert(m5stack_spans[0] == 2 && m5stack_spans[5] == 80);
+    assert(m5stack_rates[3] == 6 && m5stack_rates[4] == 1 && m5stack_rates[5] == 0);
+    assert(m5stack_fft_sizes[5] == 8192 && m5stack_average_counts[4] == 16);
     mhz = RX_FREQ_MIN; press(1); assert(mhz == RX_FREQ_MIN);
     mhz = RX_FREQ_MAX; press(4); assert(mhz == RX_FREQ_MAX);
     tick(7, 100, true); tick(7, 1000, true);
-    assert(mhz == RX_FREQ_MAX && s.rate == 1 && s.step == 0);
+    assert(mhz == RX_FREQ_MAX && s.rate == 0 && s.step == 0);
     tick(7, 1000, false); tick(0, 1, false); tick(0, 30, false);
-    assert(mhz == RX_FREQ_MAX && s.rate == 1 && s.step == 0);
+    assert(mhz == RX_FREQ_MAX && s.rate == 0 && s.step == 0);
     /* A button held across a PC lease cannot become a local action. */
     press(1); assert(mhz == RX_FREQ_MAX - 1);
     now = UINT32_MAX - 10;
     tick(4, 0, false); tick(4, 30, false);
+    tick(0, 1, false); tick(0, 30, false);
     assert(mhz == RX_FREQ_MAX); /* Debouncing survives timer wraparound. */
     return 0;
 }
 '''
-        with tempfile.TemporaryDirectory() as directory:
-            tmp = Path(directory)
-            src = tmp / 'controls.c'
-            src.write_text(source)
-            exe = tmp / ('controls.exe' if os.name == 'nt' else 'controls')
-            includes = [ROOT / 'main/boards', ROOT / 'main/common']
-            if Path(COMPILER).name.lower() == 'cl.exe':
-                command = [COMPILER, '/nologo', '/std:c11', '/W4', '/WX',
-                           *('/I' + str(p) for p in includes), str(src), '/Fe:' + str(exe)]
-            else:
-                command = [COMPILER, '-std=c11', '-Wall', '-Wextra', '-Werror',
-                           *('-I' + str(p) for p in includes), str(src), '-o', str(exe)]
-            subprocess.run(command, cwd=tmp, check=True)
-            subprocess.run([str(exe)], check=True)
+        compile_run(source)
 
 
 @unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
@@ -86,11 +87,6 @@ class BasicDisplay(unittest.TestCase):
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef _MSC_VER
-#define __attribute__(x)
-static uint16_t swap16(uint16_t v) { return (uint16_t)((v << 8) | (v >> 8)); }
-#define __builtin_bswap16 swap16
-#endif
 #define GPIO_MODE_OUTPUT 2
 #define GPIO_MODE_INPUT 1
 #define GPIO_PULLDOWN_ONLY 2
@@ -159,9 +155,9 @@ int main(void) {
     for (unsigned x = PLOT_LEFT; x < PLOT_LEFT + PLOT_WIDTH; x++)
         assert(pixels[SPECTRUM_BOTTOM * 320 + x] == 0x4208); /* Visible baseline across the plot. */
     assert(pixels[FREQUENCY_TOP * 320 + 4] == 0xffff); /* Frequency axis between plots. */
-    assert(pixels[BUTTON_HINT_TOP * 320 + 33] == 0x07ff);
-    assert(pixels[BUTTON_HINT_TOP * 320 + 124] == 0x07ff);
-    assert(pixels[BUTTON_HINT_TOP * 320 + 247] == 0x07ff); /* Hints stay over the buttons. */
+    assert(pixels[BUTTON_HINT_TOP * 320 + 13] == 0xb726);
+    assert(pixels[BUTTON_HINT_TOP * 320 + 128] == 0xb726);
+    assert(pixels[BUTTON_HINT_TOP * 320 + 231] == 0xb726); /* Hints stay over the buttons. */
     assert(pixels[97 * 320 + 4] == 0xffff); /* Newest waterfall row. */
     assert(pixels[97 * 320 + 160] == waterfall_color(0));
     memset(bins, 0, sizeof(bins));
@@ -204,17 +200,4 @@ int main(void) {
     return 0;
 }
 '''
-        with tempfile.TemporaryDirectory() as directory:
-            tmp = Path(directory)
-            src = tmp / 'display.c'
-            src.write_text(stub + production + check)
-            exe = tmp / ('display.exe' if os.name == 'nt' else 'display')
-            includes = [ROOT / 'main/boards', ROOT / 'main/common']
-            if Path(COMPILER).name.lower() == 'cl.exe':
-                command = [COMPILER, '/nologo', '/std:c11', '/W3',
-                           *('/I' + str(p) for p in includes), str(src), '/Fe:' + str(exe)]
-            else:
-                command = [COMPILER, '-std=c11', '-Wall', '-Wextra', '-Werror',
-                           *('-I' + str(p) for p in includes), str(src), '-o', str(exe)]
-            subprocess.run(command, cwd=tmp, check=True)
-            subprocess.run([str(exe)], check=True)
+        compile_run(stub + production + check)

@@ -7,8 +7,12 @@
 #include "spectrum_fft.h"
 #include "spectrum_stats.h"
 #include "esp_cpu.h"
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#if CONFIG_ESP_SDR_M5STACK_BASIC || CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2 || \
+    CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#define SPEC_HEAP_WORKSPACE 1
 #include "esp_heap_caps.h"
+#else
+#define SPEC_HEAP_WORKSPACE 0
 #endif
 #include "burst_serial.h"
 #include "dsps_fft2r.h"
@@ -42,8 +46,8 @@ typedef union {
     float mean[MAX_SPEC_FFT];
     uint32_t maximum[MAX_SPEC_FFT];
 } spectrum_power_storage_t;
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
-/* Keep the S3's RF-ring-limited BSS below its reserved SRAM aperture. */
+#if SPEC_HEAP_WORKSPACE
+/* Local snapshots reuse RF capture memory; allocate protocol buffers on demand. */
 static int16_t *fft_data, *window, *twiddles;
 static uint8_t *frame;
 static spectrum_power_storage_t *power_storage;
@@ -58,19 +62,19 @@ typedef struct {
     int32_t re, im; /* Time-domain DC estimate with 8 fractional bits. */
     bool ready;
 } spectrum_time_dc_t;
-#if !CONFIG_ESP_SDR_M5STACK_CARDPUTER && !CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#if !SPEC_HEAP_WORKSPACE
 static uint8_t frame[HEADER_BYTES + MAX_SPEC_FFT + 4] SPEC_STORAGE;
+static bool ready;
 #endif
 static unsigned setup_n;
-static bool ready;
 static spectrum_time_dc_t snapshot_dc;
 static unsigned snapshot_dc_rate, snapshot_dc_mode, snapshot_dc_n;
 static bool snapshot_dc_ready;
-#if !CONFIG_ESP_SDR_M5STACK_CARDPUTER && !CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#if !SPEC_HEAP_WORKSPACE
 static int16_t twiddles[MAX_FFT] __attribute__((aligned(16))) SPEC_STORAGE;
 #endif
 
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#if SPEC_HEAP_WORKSPACE
 static bool grow_fft_buffer(int16_t **buffer, unsigned *capacity, unsigned n, unsigned channels) {
     if (*capacity >= n) return true;
     int16_t *next = heap_caps_realloc(*buffer, (size_t)n * channels * sizeof(*next),
@@ -82,8 +86,7 @@ static bool grow_fft_buffer(int16_t **buffer, unsigned *capacity, unsigned n, un
 }
 
 static bool allocate_fft_workspace(unsigned n) {
-    /* Local display only needs buffers for its selected FFT size. Growing
-     * from 256 avoids reserving the Cardputer's full 4096-point workspace. */
+    /* Non-destructive snapshots keep a separate FFT buffer. */
     return grow_fft_buffer(&fft_data, &fft_capacity, n, 2) &&
            grow_fft_buffer(&window, &window_capacity, n, 1) &&
            grow_fft_buffer(&twiddles, &twiddle_capacity, n, 1);
@@ -94,8 +97,8 @@ static bool allocate_fft_tables(unsigned n) {
            grow_fft_buffer(&twiddles, &twiddle_capacity, n, 1);
 }
 
-static bool allocate_workspace(void) {
-    if (!allocate_fft_workspace(MAX_FFT)) return false;
+static bool allocate_workspace(unsigned n) {
+    if (!allocate_fft_workspace(n)) return false;
     if (!power_storage)
         power_storage = heap_caps_malloc(sizeof(*power_storage), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (!frame) frame = heap_caps_malloc(HEADER_BYTES + MAX_SPEC_FFT + 4, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -105,40 +108,33 @@ static bool allocate_workspace(void) {
 
 spectrum_workspace_t spectrum_workspace(void) {
     setup_n = 0;
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
-    if (!allocate_workspace()) return (spectrum_workspace_t){0};
+#if SPEC_HEAP_WORKSPACE
+    if (!allocate_workspace(MAX_FFT)) return (spectrum_workspace_t){0};
 #endif
     return (spectrum_workspace_t){fft_data, window, powers.mean, frame};
 }
 
 bool spectrum_fft_init(void) {
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
-    if (!allocate_workspace()) return false;
-    /* Keep a private table: ESP-DSP's shared table is also used by the ring FFT. */
-    if (twiddle_n != MAX_FFT) {
-        if (dsps_gen_w_r2_sc16(twiddles, MAX_FFT) != ESP_OK ||
-            dsps_bit_rev_sc16_ansi(twiddles, MAX_FFT >> 1) != ESP_OK)
-            return false;
-        twiddle_n = MAX_FFT;
-    }
-    ready = true;
+#if SPEC_HEAP_WORKSPACE
+    /* Serial spectra stop at 2048 points, regardless of the local display size. */
+    return allocate_workspace(MAX_SPEC_FFT) && spectrum_fft_init_n(MAX_SPEC_FFT);
 #else
     if (!ready) ready = dsps_fft2r_init_sc16(twiddles, MAX_FFT) == ESP_OK;
-#endif
     return ready;
+#endif
 }
 
 bool spectrum_fft_init_n(unsigned n) {
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#if SPEC_HEAP_WORKSPACE
     if (n < 256 || n > MAX_FFT || (n & (n - 1)) || !allocate_fft_tables(n)) return false;
-    if (twiddle_n != n) {
+    if (twiddle_n < n) {
         /* Private tables let the local FFT use its current size independently
-         * of the continuous ring FFT's ESP-DSP table. */
+         * of the ring FFT. Bit-reversed prefixes also serve smaller FFTs. */
+        twiddle_n = 0; /* A failed rebuild may have overwritten the previous table. */
         if (dsps_gen_w_r2_sc16(twiddles, n) != ESP_OK || dsps_bit_rev_sc16_ansi(twiddles, n >> 1) != ESP_OK)
             return false;
         twiddle_n = n;
     }
-    ready = n == MAX_FFT;
     return true;
 #else
     (void)n;
@@ -234,7 +230,7 @@ void spectrum_snapshot_reset_dc(void) {
 
 static bool spectrum_snapshot_run(unsigned rate, unsigned n, spectrum_acquire_fn acquire, uint8_t *bins,
                                   int16_t *workspace, bool require_inplace) {
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#if SPEC_HEAP_WORKSPACE
     if (!rate_hz(rate) || n < 256 || n > MAX_FFT || (n & (n - 1)) || !acquire || !bins ||
         (require_inplace ? !workspace : !allocate_fft_workspace(n)) || !spectrum_fft_init_n(n))
         return false;
@@ -381,8 +377,7 @@ bool spectrum_command(const char *line, unsigned frequency_mhz, spectrum_acquire
         send_text("ERR spec_args\n");
         return true;
     }
-    spectrum_fft_init();
-    if (!ready) {
+    if (!spectrum_fft_init()) {
         send_text("ERR spectrum_memory\n");
         return true;
     }

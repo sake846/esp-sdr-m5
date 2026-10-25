@@ -487,13 +487,14 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
     if (bins && valid) {
         unsigned capture_span = span < 16 ? 16 : span;
         unsigned visible = fft_points * span / capture_span;
-        unsigned first_point = (fft_points - visible) / 2;
+        unsigned first_bin = (fft_points - visible) / 2 + fft_points / 2;
         for (unsigned x = 0; x < PLOT_WIDTH; x++) {
             unsigned first = x * visible / PLOT_WIDTH, limit = (x + 1) * visible / PLOT_WIDTH;
             if (limit <= first) limit = first + 1;
             if (limit > visible) limit = visible;
             for (unsigned j = first; j < limit; j++) {
-                unsigned bin = (first_point + j + fft_points / 2) % fft_points;
+                unsigned bin = first_bin + j;
+                if (bin >= fft_points) bin -= fft_points;
                 if (bins[bin] > display_bins[x]) display_bins[x] = bins[bin];
             }
             trace[x] = SPECTRUM_BOTTOM -
@@ -506,31 +507,34 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         }
     }
 
+    const uint16_t x_end = LCD_X_OFFSET + SCREEN_WIDTH - 1;
+    lcd_command(0x2a, (const uint8_t[]){0, LCD_X_OFFSET, (uint8_t)(x_end >> 8), (uint8_t)x_end}, 4);
     for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
-        for (unsigned x = 0; x < SCREEN_WIDTH; x++) {
-            uint16_t color = 0;
-            if (x >= PLOT_LEFT && x < PLOT_LEFT + PLOT_WIDTH) {
-                unsigned plot_x = x - PLOT_LEFT;
-                if (y >= SPECTRUM_TOP && y <= SPECTRUM_BOTTOM) {
-                    if (y == SPECTRUM_BOTTOM) color = 0x4208;
-                    else if ((y - SPECTRUM_TOP) % 6 == 0 || spectrum_vertical_grid(plot_x))
-                        color = 0x2104;
-                    if (bins && valid && y != SPECTRUM_BOTTOM) {
-                        unsigned current = trace[plot_x], previous = plot_x ? trace[plot_x - 1] : current;
-                        if (y >= (current < previous ? current : previous) &&
-                            y <= (current > previous ? current : previous)) color = 0x05ff;
-                    }
-                } else if (y >= WATERFALL_TOP && y < WATERFALL_TOP + WATERFALL_HEIGHT) {
-                    unsigned age = y - WATERFALL_TOP;
-                    if (age < waterfall_count) {
-                        unsigned index = (waterfall_head + WATERFALL_HEIGHT - age) % WATERFALL_HEIGHT;
-                        color = waterfall_color(waterfall[index][plot_x]);
-                    }
+        memset(row, 0, sizeof(row));
+        if (y >= SPECTRUM_TOP && y <= SPECTRUM_BOTTOM) {
+            bool horizontal_grid = (y - SPECTRUM_TOP) % 6 == 0;
+            for (unsigned x = 0; x < PLOT_WIDTH; x++) {
+                uint16_t color = y == SPECTRUM_BOTTOM ? 0x4208 :
+                                 horizontal_grid || spectrum_vertical_grid(x) ? 0x2104 : 0;
+                if (bins && valid && y != SPECTRUM_BOTTOM) {
+                    unsigned current = trace[x], previous = x ? trace[x - 1] : current;
+                    if (y >= (current < previous ? current : previous) &&
+                        y <= (current > previous ? current : previous)) color = 0x05ff;
                 }
+                row[PLOT_LEFT + x] = __builtin_bswap16(color);
             }
-            if (y < 12 && x >= 4 && x < 78) color = COLOR_SRDECK_YELLOW_GREEN;
-            row[x] = __builtin_bswap16(color);
+        } else if (y >= WATERFALL_TOP && y < WATERFALL_TOP + WATERFALL_HEIGHT) {
+            unsigned age = y - WATERFALL_TOP;
+            if (age < waterfall_count) {
+                unsigned index = waterfall_head + WATERFALL_HEIGHT - age;
+                if (index >= WATERFALL_HEIGHT) index -= WATERFALL_HEIGHT;
+                const uint8_t *history = waterfall[index];
+                for (unsigned x = 0; x < PLOT_WIDTH; x++)
+                    row[PLOT_LEFT + x] = __builtin_bswap16(waterfall_color(history[x]));
+            }
         }
+        if (y < 12)
+            for (unsigned x = 4; x < 78; x++) row[x] = __builtin_bswap16(COLOR_SRDECK_YELLOW_GREEN);
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
         if (y >= 1 && y < 11) {
             title_row(y - 1);
@@ -579,8 +583,6 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         }
 #endif
 #endif
-        const uint16_t x_end = LCD_X_OFFSET + SCREEN_WIDTH - 1;
-        lcd_command(0x2a, (const uint8_t[]){0, LCD_X_OFFSET, (uint8_t)(x_end >> 8), (uint8_t)x_end}, 4);
         unsigned address = y + LCD_Y_OFFSET;
         const uint8_t window[] = {(uint8_t)(address >> 8), (uint8_t)address,
                                   (uint8_t)(address >> 8), (uint8_t)address};
