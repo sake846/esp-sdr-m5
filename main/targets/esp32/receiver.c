@@ -11,6 +11,7 @@
 #include "burst_gpio.h"
 #include "burst_version.h"
 #include "spectrum.h"
+#include "spectrum_dc.h"
 #include "software_agc.h"
 #include "rx_recalibration.h"
 #include "rx_tuning.h"
@@ -34,6 +35,7 @@
 #define M5_LOCAL_FFT_MAX 8192u
 #define M5_LOCAL_AVERAGE_MAX 16u
 static bool local_capture;
+static unsigned local_capture_gain;
 #endif
 
 /* Reserve both SRAM banks, including their instruction aliases. Mode 2 only
@@ -180,6 +182,9 @@ static bool spectrum_acquire(unsigned n, unsigned rate, const uint32_t **data, u
     unsigned clock = rate == 6 ? 0 : rate == 1 ? 2 : 1;
     bool ok = acquire_iq(n, 0, clock, elapsed);
     *data = samples;
+#if CONFIG_ESP_SDR_M5STACK_BASIC || CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+    if (ok && local_capture) local_capture_gain = (uint8_t)(samples[0] >> 20);
+#endif
     return ok;
 }
 
@@ -469,6 +474,8 @@ void burst_serial_idle(bool leased) {
                 bool captured = spectrum_snapshot_inplace_peak(rate, fft_points, spectrum_acquire, bins,
                                                                (int16_t *)IQ_BUFFER, &iq_peak);
                 local_capture = false;
+                if (captured) m5stack_basic_spectrum(frequency_mhz, bins, fft_points,
+                                                     local_capture_gain, rx_filter, spectrum_dc_mode);
                 int64_t work_end = esp_timer_get_time();
                 frame_work_us += (uint64_t)(work_end - work_start);
                 if (captured) {

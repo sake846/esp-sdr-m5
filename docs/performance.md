@@ -48,6 +48,10 @@ In a host benchmark of 1000 Basic frames, the median of three runs fell from
 The workload uses deterministic 8192-bin input and cycles all spans, frequencies
 and CPU labels. It uses MSVC `/O2` and mocked SPI; it measures host rendering
 work, not device frame rate. LCD payload size and SPI clock are unchanged.
+Those timing/hash figures used the earlier screen layout. The current benchmark
+expects hash `543597743`; the committed menu/layout version and the DPX changes
+produce the same normal-mode pixels, 962 SPI transactions and five formatting
+calls per frame.
 
 Run the current benchmark from a compiler-enabled shell:
 
@@ -61,3 +65,41 @@ one column-window update per frame, geometry and waterfall history. All 24
 related tests and the five firmware builds/partition size checks passed. See
 [the test instructions](../tests/README.md). Physical RF and LCD behavior still
 needs validation on the boards.
+
+## DPX ingestion and rendering
+
+DPX keeps its 64 level buckets and 8-bit density values. When the selected FFT
+window contains fewer bins than screen columns, duplicate pixels share history.
+The renderer reuses its level buffer for the normal trace after saving the
+waterfall row, and skips trace conversion in DPX mode. FFT-bin wrapping uses
+the power-of-two mask. Grid positions advance through eight intervals instead
+of recalculating the nearest division at every pixel. A 61-entry flash palette
+replaces repeated RGB565 interpolation, preserving the original integer colors.
+
+The production DPX ingestion/rendering benchmark used MSVC `/O2`, mocked SPI,
+16 FFT-result inputs per update and the median of three 800-update runs:
+
+| Geometry, 1024 points / 16 MHz | Before | After | Time reduction |
+| --- | ---: | ---: | ---: |
+| Basic | 153 ms | 126 ms | 17.6% |
+| Cardputer | 74 ms | 58 ms | 21.6% |
+| StickC Plus2 | 69 ms | 55 ms | 20.3% |
+
+Across all 12 default/maximum FFT and 2/16 MHz cases, time fell by 15.5–23.6%.
+Pixel and expanded density-history hashes matched in every case. These timings
+exclude FFT computation and physical SPI delays, and do not establish device FPS.
+
+| Density heap payload | Before | After |
+| --- | ---: | ---: |
+| Basic/Core2, 1024 points / 2 MHz | 19,968 B | 8,192 B |
+| Cardputer/ADV, 1024 points / 2 MHz | 14,848 B | 8,192 B |
+| All geometries, 256 points / 2 MHz | 8,128–19,968 B | 2,048 B |
+
+The 16 MHz default retains the full density width and heap payload. The shared
+level/trace buffer removes one 312/232/127-byte working array from the respective
+draw function; compiler-generated stack savings can differ with alignment.
+
+Run `python tests/benchmark_m5stack_density.py` in a compiler-enabled shell.
+Regression checks compare the original bin projection at every supported FFT
+size/span on all five boards, cover every brightness/contrast color combination,
+and retain the existing allocation-failure, decay and PC-handoff checks.

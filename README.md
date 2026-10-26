@@ -268,7 +268,7 @@ Core2 uses three touch zones corresponding to A/B/C.
 
 Five seconds without input returns to tuning. The selected value appears in
 larger text at screen center. Items are FREQ STEP, FREQ SPAN, Y POS, WF BRIGHT,
-WF CONTRAST, WF SPEED, FFT NUM, FFT AVERAGE, AGC TYPE, RF GAIN, FILTER, ABOUT,
+WF CONTRAST, WF SPEED, FFT NUM, FFT AVERAGE, SPEC MODE, AGC TYPE, RF GAIN, FILTER, ABOUT,
 RESET. In RESET, right restores startup settings and left exits.
 See [menu values and defaults](docs/m5stack-basic.md#standalone-operation).
 
@@ -288,6 +288,7 @@ and B (right side) for TUNE+/increase.
 | `P` | Cycle span |
 | `F` | Cycle FFT size |
 | `A` | Cycle averaging count |
+| `Shift` + `Space` | Toggle normal spectrum / DPX-style density display |
 | `Shift` + `T`, `P`, `F` or `A` | Cycle that setting in reverse |
 | `Space` | Show or hide keyboard help |
 
@@ -297,6 +298,15 @@ the 2/4/8 MHz views zoom into a 16 MS/s capture. Averaging counts are 1, 2, 4,
 software AGC. Three-button profiles offer AGC TYPE and RF GAIN in the menu;
 Cardputer gain modes are controlled through serial commands. `GAIN HARDWARE`
 or `GAIN MANUAL` overrides software AGC; `GAIN SOFTWARE` resumes it.
+
+`SPEC MODE` selects NORMAL (default) or a DPX-style upper graph built from each
+FFT before averaging. Cardputer/ADV use Shift+Space. The waterfall continues to
+show averaged power. Density uses up to approximately 20 KiB on Basic/Core2, 15 KiB on
+Cardputer/ADV and 8 KiB on Plus2; zoomed pixels sharing an FFT bin share history
+to reduce RAM. Allocation failure returns to the normal trace
+and shows `RAM`. Colors indicate relative occurrence, not a measured probability;
+signals outside snapshot windows remain unseen. Gain changes clear history, so
+manual gain is preferable for comparisons.
 
 ## Optional PC connection
 

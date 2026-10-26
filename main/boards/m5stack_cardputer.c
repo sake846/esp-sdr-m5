@@ -104,6 +104,8 @@ static unsigned waterfall_head, waterfall_count, waterfall_mhz, waterfall_span, 
 static unsigned waterfall_frame;
 static bool waterfall_tuned;
 static spectrum_noise_floor_t noise_floor_avg;
+
+#include "m5stack_density.h"
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
 static i2c_master_dev_handle_t keyboard_i2c;
 static unsigned adv_keyboard_state;
@@ -204,32 +206,19 @@ void m5stack_basic_set_gain_index(unsigned gain_index) {
     display_gain_index = gain_index;
 }
 
-static uint16_t waterfall_blend(uint16_t from, uint16_t to, unsigned step, unsigned span) {
-    unsigned r0 = (from >> 11) & 31, g0 = (from >> 5) & 63, b0 = from & 31;
-    unsigned r1 = (to >> 11) & 31, g1 = (to >> 5) & 63, b1 = to & 31;
-    unsigned red = (r0 * (span - step) + r1 * step + span / 2) / span;
-    unsigned green = (g0 * (span - step) + g1 * step + span / 2) / span;
-    unsigned blue = (b0 * (span - step) + b1 * step + span / 2) / span;
-    return (uint16_t)((red << 11) | (green << 5) | blue);
-}
-
 static uint16_t waterfall_color(int delta_db) {
+    static const uint16_t colors[] = {
+    0x0000, 0x0003, 0x0006, 0x0009, 0x000c, 0x0010, 0x0013, 0x0016,
+    0x0019, 0x001c, 0x001f, 0x00df, 0x01bf, 0x027f, 0x033f, 0x041f,
+    0x04df, 0x059f, 0x065f, 0x073f, 0x07ff, 0x07fc, 0x07f9, 0x07f6,
+    0x07f3, 0x07f0, 0x07ec, 0x07e9, 0x07e6, 0x07e3, 0x07e0, 0x1fe0,
+    0x37e0, 0x4fe0, 0x67e0, 0x87e0, 0x9fe0, 0xb7e0, 0xcfe0, 0xe7e0,
+    0xffe0, 0xff20, 0xfe40, 0xfd80, 0xfcc0, 0xfc00, 0xfb20, 0xfa60,
+    0xf9a0, 0xf8c0, 0xf800, 0xf8c3, 0xf9a6, 0xfa69, 0xfb2c, 0xfc10,
+    0xfcd3, 0xfd96, 0xfe59, 0xff3c, 0xffff,
+    };
     delta_db = delta_db * controls.wf_contrast / 100 + controls.wf_bright;
-    if (delta_db <= 0) return 0x0000;
-    if (delta_db < 10) return waterfall_blend(0x0000, 0x001f, delta_db, 10);
-    if (delta_db < 20) return waterfall_blend(0x001f, 0x07ff, delta_db - 10, 10);
-    if (delta_db < 30) return waterfall_blend(0x07ff, 0x07e0, delta_db - 20, 10);
-    if (delta_db < 40) return waterfall_blend(0x07e0, 0xffe0, delta_db - 30, 10);
-    if (delta_db < 50) return waterfall_blend(0xffe0, 0xf800, delta_db - 40, 10);
-    if (delta_db < 60) return waterfall_blend(0xf800, 0xffff, delta_db - 50, 10);
-    return 0xffff;
-}
-
-static inline bool spectrum_vertical_grid(unsigned plot_x) {
-    const unsigned divisions = 8, interval = PLOT_WIDTH - 1;
-    unsigned division = (plot_x * divisions + interval / 2) / interval;
-    unsigned position = (division * interval + divisions / 2) / divisions;
-    return plot_x == position;
+    return colors[delta_db <= 0 ? 0 : delta_db >= 60 ? 60 : delta_db];
 }
 
 static unsigned keyboard_buttons(void) {
@@ -310,7 +299,7 @@ static unsigned cardputer_controls_update(unsigned mhz, unsigned matrix_keys, ui
         if ((actions ^ keyboard_raw) & bit) {
             keyboard_raw ^= bit;
             keyboard_changed[i] = now;
-            if ((actions & bit) && i >= 3 && i <= 6)
+            if ((actions & bit) && i >= 2 && i <= 6)
                 keyboard_reverse[i] = (matrix_keys & MATRIX_SHIFT) != 0;
         }
         if (!((keyboard_raw ^ keyboard_stable) & bit) || (uint32_t)(now - keyboard_changed[i]) < 30)
@@ -340,7 +329,10 @@ static unsigned cardputer_controls_update(unsigned mhz, unsigned matrix_keys, ui
             mhz = RX_FREQ_MAX - mhz < step ? RX_FREQ_MAX : mhz + step;
             break;
         }
-        case ACTION_SPACE: keyboard_help_visible = !keyboard_help_visible; break;
+        case ACTION_SPACE:
+            if (keyboard_reverse[i]) { controls.dpx = !controls.dpx; controls.dpx_failed = false; }
+            else keyboard_help_visible = !keyboard_help_visible;
+            break;
         case ACTION_T: {
             unsigned count = sizeof(m5stack_steps) / sizeof(m5stack_steps[0]);
             controls.step = (controls.step + (keyboard_reverse[i] ? count - 1 : 1)) % count;
@@ -449,12 +441,14 @@ void m5stack_basic_init(void) {
 
 unsigned m5stack_basic_poll(unsigned mhz, bool pc_control) {
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
-    return cardputer_controls_update(mhz, keyboard_buttons(),
+    mhz = cardputer_controls_update(mhz, keyboard_buttons(),
                                     (uint32_t)(esp_timer_get_time() / 1000), pc_control);
 #else
-    return m5stack_controls_update(&controls, mhz, pc_control ? 0 : keyboard_buttons(),
+    mhz = m5stack_controls_update(&controls, mhz, pc_control ? 0 : keyboard_buttons(),
                                   (uint32_t)(esp_timer_get_time() / 1000), pc_control);
 #endif
+    density_mode(mhz, pc_control);
+    return mhz;
 }
 
 bool m5stack_basic_sync_rx(unsigned *agc, unsigned *gain, unsigned gain_max,
@@ -480,15 +474,19 @@ unsigned m5stack_basic_average_count(void) {
 
 void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, bool pc_control,
                         bool valid, unsigned cpu_percent) {
+    density_mode(mhz, pc_control);
+    density_decay();
     char edges[3][12], cpu[12], gain[8];
-    const char *status = pc_control ? "PC" : valid ? "LIVE" : "WAIT";
+    const char *status = pc_control ? "PC" : controls.dpx_failed ? "RAM" :
+                         valid ? (density ? "DPX" : "LIVE") : "WAIT";
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
     char menu_value[24];
     m5stack_menu_value(menu_value, sizeof(menu_value));
 #endif
     spectrum_dbfs_t display_bins[PLOT_WIDTH];
-    uint8_t trace[PLOT_WIDTH];
-    spectrum_dbfs_t noise_floor = SPECTRUM_DBFS_MIN;
+    uint8_t *trace = (uint8_t *)display_bins;
+    spectrum_dbfs_t noise_floor = noise_floor_avg.ready ?
+        (spectrum_dbfs_t)((noise_floor_avg.q8 + (noise_floor_avg.q8 < 0 ? -128 : 128)) / 256) : SPECTRUM_DBFS_MIN;
     unsigned span = m5stack_spans[controls.rate];
     if (!waterfall_tuned || waterfall_mhz != mhz || waterfall_span != span || waterfall_fft != fft_points) {
         waterfall_mhz = mhz;
@@ -525,12 +523,6 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             }
         }
         noise_floor = spectrum_noise_floor_update(&noise_floor_avg, frame_minimum);
-        int graph_minimum = noise_floor - controls.y_pos;
-        for (unsigned x = 0; x < PLOT_WIDTH; x++) {
-            unsigned height = (spectrum_dbfs_to_display_value(display_bins[x], graph_minimum, 80) *
-                               (SPECTRUM_BOTTOM - SPECTRUM_TOP)) / 255;
-            trace[x] = SPECTRUM_BOTTOM - height;
-        }
         if (!pc_control && waterfall_frame++ % m5stack_wf_intervals[controls.wf_speed] == 0) {
             waterfall_head = (waterfall_head + 1) % WATERFALL_HEIGHT;
             memcpy(waterfall[waterfall_head], display_bins, sizeof(display_bins));
@@ -539,22 +531,35 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         }
     }
 
+    /* After saving waterfall levels, reuse the same bytes for the normal trace. */
+    if (!density && bins && valid) {
+        int graph_minimum = noise_floor - controls.y_pos;
+        for (unsigned x = 0; x < PLOT_WIDTH; x++) {
+            unsigned height = (spectrum_dbfs_to_display_value(display_bins[x], graph_minimum, 80) *
+                               (SPECTRUM_BOTTOM - SPECTRUM_TOP)) / 255;
+            trace[x] = SPECTRUM_BOTTOM - height;
+        }
+    }
     const uint16_t x_end = LCD_X_OFFSET + SCREEN_WIDTH - 1;
     lcd_command(0x2a, (const uint8_t[]){0, LCD_X_OFFSET, (uint8_t)(x_end >> 8), (uint8_t)x_end}, 4);
     for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
         memset(row, 0, sizeof(row));
         if (y >= SPECTRUM_TOP && y <= SPECTRUM_BOTTOM) {
             bool horizontal_grid = (y - SPECTRUM_TOP) % 6 == 0;
+            unsigned division = 0, next_grid = 0;
             for (unsigned x = 0; x < PLOT_WIDTH; x++) {
+                bool vertical_grid = x == next_grid;
+                if (vertical_grid) next_grid = (++division * (PLOT_WIDTH - 1) + 4) / 8;
                 uint16_t color = y == SPECTRUM_BOTTOM ? 0x4208 :
-                                 horizontal_grid || spectrum_vertical_grid(x) ? 0x2104 : 0;
-                if (bins && valid && y != SPECTRUM_BOTTOM) {
+                                 horizontal_grid || vertical_grid ? 0x2104 : 0;
+                if (!density && bins && valid && y != SPECTRUM_BOTTOM) {
                     unsigned current = trace[x], previous = x ? trace[x - 1] : current;
                     if (y >= (current < previous ? current : previous) &&
                         y <= (current > previous ? current : previous)) color = 0x05ff;
                 }
                 row[PLOT_LEFT + x] = __builtin_bswap16(color);
             }
+            if (density && y < SPECTRUM_BOTTOM) density_row(y, noise_floor - controls.y_pos);
         } else if (y >= WATERFALL_TOP && y < WATERFALL_TOP + WATERFALL_HEIGHT) {
             unsigned age = y - WATERFALL_TOP;
             if (age < waterfall_count) {
@@ -611,7 +616,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         if (keyboard_help_visible && y >= 115 && y < 135) {
             memset(row, 0, sizeof(row));
             text_row(y < 125 ? y - 115 : y - 125, 4,
-                     y < 125 ? "<> FREQ 0-9 T STEP P SPAN" : "F FFT A AVE REV SPC",
+                     y < 125 ? "<> FREQ 0-9 T STEP P SPAN" : "F FFT A AVE SHIFT SPC DPX",
                      COLOR_SRDECK_YELLOW_GREEN);
         }
 #endif

@@ -3,7 +3,7 @@
 /* Shared scanline overlay, using each display's row buffer and 3x5 glyphs. */
 static const char *const m5stack_menu_names[] = {
     "", "FREQ STEP", "FREQ SPAN", "Y POS", "WF BRIGHT", "WF CONTRAST", "WF SPEED",
-    "FFT NUM", "FFT AVERAGE", "AGC TYPE", "RF GAIN", "FILTER", "ABOUT", "RESET",
+    "FFT NUM", "FFT AVERAGE", "SPEC MODE", "AGC TYPE", "RF GAIN", "FILTER", "ABOUT", "RESET",
 };
 
 static void m5stack_menu_value(char *value, size_t size) {
@@ -19,6 +19,9 @@ static void m5stack_menu_value(char *value, size_t size) {
         break;
     case M5_MENU_FFT: snprintf(value, size, "%u", m5stack_fft_sizes[controls.fft]); break;
     case M5_MENU_AVERAGE: snprintf(value, size, "%u", m5stack_average_counts[controls.average]); break;
+    case M5_MENU_SPECTRUM:
+        snprintf(value, size, "%s", controls.dpx_failed ? "NO RAM" : controls.dpx ? "DPX" : "NORMAL");
+        break;
     case M5_MENU_AGC:
         snprintf(value, size, "%s", controls.agc == M5_AGC_MANUAL ? "MANUAL" :
                  controls.agc == M5_AGC_SOFTWARE ? "SOFTWARE" : "HARDWARE"); break;

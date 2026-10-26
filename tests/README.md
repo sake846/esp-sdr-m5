@@ -28,6 +28,7 @@ python -m unittest discover -s tests -p "test_firmware_export.py" -v
 | `test_m5stack_displays.py` | Core2 AXP192/AXP2101 power setup, touch-zone boundaries and I2C failure; Core2/Cardputer/ADV/Plus2 LCD geometry, cropped spans, peak reduction, waterfall reset and one column-window update per frame |
 | `test_m5stack_spectrum.py` | Actual IQ unpacking, Hann window, FFT and quantization for all five boards; positive/negative tones at every supported FFT size, in-place capture, DC resets, workspace reuse, 4 KiB default table budget, 2048-point protocol workspace and allocation recovery |
 | `test_m5stack_idle.py` | ESP32/S3 scheduling, 1/2/4/8/16-sample linear-power averaging against a numeric reference, failed captures, missed slots, setting changes and PC handoff |
+| `test_m5stack_density.py` | All five boards: individual FFT ingestion, transient retention, level-to-row coverage, zoom direction, timed decay, context resets, PC freeze/resume, memory release and allocation failure/retry |
 | `test_m5stack_serial.py` | CR/LF/CRLF, partial/overlong/stale lines, peer fairness, idle notification, lease expiry and explicit release |
 | `test_m5stack_ring.py` | S3 queue/twiddle allocation and FFT-init failures, retries, idempotent init, queue capacity and counter wrap |
 | `test_gpio.py` | Peripheral pin exclusions on all five boards with UART enabled/disabled; excluded pins cannot cause GPIO writes |
@@ -38,6 +39,9 @@ The numerical snapshot tests use the production FFT; the older snapshot protocol
 test separately supplies deterministic FFT output to check frame encoding.
 `benchmark_m5stack_display.py` measures host rendering work with the same SDK
 mocks; see [the performance measurements](../docs/performance.md).
+`benchmark_m5stack_density.py` measures DPX ingestion and rendering for three
+screen geometries, default/maximum FFT sizes and 2/16 MHz spans. It saves timings,
+heap payload and pixel/history hashes in `artifacts/dpx-benchmark/current.json`.
 Native C tests report a skip if their compiler is unavailable. Some upstream
 tests require GNU C even on Windows, so use Linux for the complete suite.
 

@@ -258,7 +258,7 @@ Core2では、A/B/Cに対応する画面上の3つのタッチ領域を使いま
 
 無入力が5秒続くと通常操作に戻ります。設定値は画面中央に大きめに表示します。
 メニューの順番は、FREQ STEP、FREQ SPAN、Y POS、WF BRIGHT、WF CONTRAST、
-WF SPEED、FFT NUM、FFT AVERAGE、AGC TYPE、RF GAIN、FILTER、ABOUT、RESETです。
+WF SPEED、FFT NUM、FFT AVERAGE、SPEC MODE、AGC TYPE、RF GAIN、FILTER、ABOUT、RESETです。
 先頭と末尾の項目は循環します。RESETでは右ボタンで周波数と設定を初期値に戻し、左ボタンで終了します。
 
 Y POSはスペクトラムの上下位置、WF BRIGHT・WF CONTRAST・WF SPEEDはウォーターフォールの
@@ -284,6 +284,7 @@ B（右側）：TUNE+／値を上げる、の割り当てで操作します。
 | `P` | 表示スパンを切り替える |
 | `F` | FFTサイズを切り替える |
 | `A` | 平均化回数を切り替える |
+| `Shift` + `Space` | 通常スペクトラム／DPX風の密度表示を切り替える |
 | `Shift` + `T`、`P`、`F`、`A` | 該当する設定を逆順に切り替える |
 | `Space` | キーボード操作のヘルプを表示・非表示にする |
 
@@ -293,6 +294,14 @@ B（右側）：TUNE+／値を上げる、の割り当てで操作します。
 M5Stack各機種は起動時にソフトウェアAGCを使います。3ボタン機種はメニューのAGC TYPEと
 RF GAINで変更できます。Cardputerのゲインモードはシリアルコマンドで変更します。
 `GAIN HARDWARE`または`GAIN MANUAL`で切り替え、`GAIN SOFTWARE`でソフトウェアAGCへ戻せます。
+
+SPEC MODEのDPXは、平均化前の各FFTで取得できたレベルを色と残光で示します。
+初期値はNORMALです。下段のウォーターフォールは引き続き平均化した結果を表示します。
+DPX用の追加RAMは最大でBASIC・Core2が約20 KB、Cardputer系が約15 KB、Plus2が約8 KBです。
+拡大表示などで同じFFTビンを複数列に表示するときは履歴を共有し、RAM使用量を減らします。
+確保に失敗すると通常表示へ戻り、状態欄にRAMと表示します。
+色は出現の多さの目安で、出現確率を表す値ではありません。取得していない時間帯の信号は表示できません。
+ゲイン変更時は履歴が消えるため、信号を比較するときは手動ゲインが適しています。
 
 ## PCとの接続
 

@@ -29,8 +29,9 @@ Cardputer K132 uses the ESP32-S3 receiver backend, the 240×135 ST7789 display
 and the built-in keyboard matrix. Key `,` tunes down; `.` or `/` tunes up.
 Keys `T`, `P`, `F` and `A` cycle STEP, SPAN, FFT and AVE. Hold Shift with `T`,
 `P`, `F` or `A` to cycle that setting in reverse. Enter four digits to set the
-frequency in MHz, and press Space to show or hide keyboard help. Software AGC
-stays enabled during standalone operation; serial gain commands can explicitly
+frequency in MHz, and press Space to show or hide keyboard help. Shift+Space
+toggles the DPX-style upper graph. Density history clears when capture gain changes.
+Software AGC stays enabled during standalone operation; serial gain commands can explicitly
 override it. The standalone defaults are FFT 1024, AVE 16 and gain index 30.
 The local FFT menu goes up to 4096 points and uses internal RAM.
 Its screen uses a compact spectrum trace and waterfall layout. The USB

@@ -40,7 +40,7 @@ int main(void) {
     press(1); assert(s.step == 0); /* Values stop at the lower bound. */
     const m5stack_menu_t order[] = {M5_MENU_SPAN, M5_MENU_Y_POS, M5_MENU_WF_BRIGHT,
         M5_MENU_WF_CONTRAST, M5_MENU_WF_SPEED, M5_MENU_FFT, M5_MENU_AVERAGE,
-        M5_MENU_AGC, M5_MENU_GAIN, M5_MENU_FILTER, M5_MENU_ABOUT, M5_MENU_RESET, M5_MENU_STEP};
+        M5_MENU_SPECTRUM, M5_MENU_AGC, M5_MENU_GAIN, M5_MENU_FILTER, M5_MENU_ABOUT, M5_MENU_RESET, M5_MENU_STEP};
     for (unsigned j = 0; j < sizeof(order)/sizeof(order[0]); j++) {
         press(2); assert(s.menu == order[j]);
     }
@@ -54,6 +54,7 @@ int main(void) {
     s.menu = M5_MENU_WF_SPEED; press(1); assert(s.wf_speed == 2);
     s.menu = M5_MENU_FFT; press(4); assert(s.fft == 3);
     s.menu = M5_MENU_AVERAGE; press(1); assert(s.average == 3);
+    s.menu = M5_MENU_SPECTRUM; press(4); assert(s.dpx); press(1); assert(!s.dpx);
     s.menu = M5_MENU_AGC; press(4); assert(s.agc == M5_AGC_HARDWARE);
     press(4); assert(s.agc == M5_AGC_MANUAL); press(1); assert(s.agc == M5_AGC_HARDWARE);
     unsigned agc = M5_AGC_SOFTWARE, gain = 35; int filter = 80; bool follow = true;
@@ -76,6 +77,7 @@ int main(void) {
     assert(s.reset_done && mhz == 2412 && s.menu == M5_MENU_RESET);
     assert(s.rate == 3 && s.step == 0 && s.fft == 2 && s.average == 4);
     assert(s.y_pos == 0 && s.wf_bright == 0 && s.wf_contrast == 100 && s.wf_speed == 3);
+    assert(!s.dpx && !s.dpx_failed);
     m5stack_controls_sync_rx(&s, &agc, &gain, 20, &filter, &follow);
     assert(agc == M5_AGC_SOFTWARE && gain == 20 && follow); /* Reset respects calibrated bounds. */
     press(1); assert(s.menu == M5_MENU_NONE);
@@ -114,7 +116,7 @@ int main(void) {
 class BasicDisplay(unittest.TestCase):
     def test_board_init_and_fft_shifted_scanlines(self):
         production = (ROOT / 'main/boards/m5stack_basic.c').read_text()
-        for header in ['driver/gpio.h', 'driver/spi_master.h', 'esp_check.h', 'esp_timer.h',
+        for header in ['driver/gpio.h', 'driver/spi_master.h', 'esp_check.h', 'esp_timer.h', 'esp_heap_caps.h',
                        'freertos/FreeRTOS.h', 'freertos/task.h']:
             production = production.replace('#include "' + header + '"', '')
         stub = r'''
@@ -130,6 +132,9 @@ class BasicDisplay(unittest.TestCase):
 #define GPIO_FLOATING 0
 #define SPI3_HOST 3
 #define SPI_DMA_CH_AUTO 1
+#define MALLOC_CAP_INTERNAL 1
+#define MALLOC_CAP_8BIT 2
+static void *heap_caps_calloc(size_t n, size_t size, unsigned caps) { assert(caps == 3); return calloc(n, size); }
 #define ESP_ERROR_CHECK(x) assert((x) == 0)
 #define pdMS_TO_TICKS(x) (x)
 typedef void *spi_device_handle_t;
@@ -182,7 +187,7 @@ int main(void) {
     bins[127] = 255; bins[255] = 0; bins[254] = 128; bins[0] = 64;
     m5stack_basic_draw(2412, bins, 256, false, true, 0);
     assert(rows == 480);
-    assert(pixels[32 * 320 + 4] == 0x05ff); /* Thin trace starts at the left edge. */
+    assert(pixels[SPECTRUM_TOP * 320 + 4] == 0x05ff); /* Thin trace starts at the left edge. */
     assert(pixels[50 * 320 + 6] == 0x05ff); /* The steep peak is connected to its neighbor. */
     assert(pixels[64 * 320 + 164] != 0x05ff); /* The floor beyond the adjoining peak remains unfilled. */
     unsigned vertical_grid_lines = 0;

@@ -17,6 +17,8 @@ class StandaloneLoop(unittest.TestCase):
 #include "software_agc.h"
 #include "m5stack_basic_controls.h"
 static unsigned gain_code = 30, gain_applies;
+static unsigned local_capture_gain = 45, spectrum_dc_mode = 1, density_inputs;
+#define ring_capture_dc_mode spectrum_dc_mode
 static m5stack_controls_t ui;
 static int rx_filter = -1;
 static bool rx_filter_span_follow = true;
@@ -31,11 +33,11 @@ static unsigned gain_max = 72;
 static bool hardware_agc, software_agc;
 static void apply_gain(void) { gain_applies++; }
 #endif
-static bool m5stack_basic_sync_rx(unsigned *agc, unsigned *gain, unsigned maximum,
+bool m5stack_basic_sync_rx(unsigned *agc, unsigned *gain, unsigned maximum,
                                  int *filter, bool *follow) {
     return m5stack_controls_sync_rx(&ui, agc, gain, maximum, filter, follow);
 }
-static void m5stack_basic_set_gain_index(unsigned gain) { assert(gain <= 72); }
+void m5stack_basic_set_gain_index(unsigned gain) { assert(gain <= 72); }
 #define M5_LOCAL_FFT_MAX 8192
 #define M5_LOCAL_AVERAGE_MAX 16
 static int64_t now = 10000;
@@ -50,10 +52,10 @@ static int16_t iq_buffer[16384];
 #define IQ_BUFFER iq_buffer
 static int64_t esp_timer_get_time(void) { return now; }
 static void prepare_rx(void) { assert(!rx_ready); prepared++; rx_ready = true; }
-static unsigned m5stack_basic_poll(unsigned mhz, bool pc) { return pc || !requested_mhz ? mhz : requested_mhz; }
-static unsigned m5stack_basic_rate(void) { return rate; }
-static unsigned m5stack_basic_fft_points(void) { return points; }
-static unsigned m5stack_basic_average_count(void) { return target; }
+unsigned m5stack_basic_poll(unsigned mhz, bool pc) { return pc || !requested_mhz ? mhz : requested_mhz; }
+unsigned m5stack_basic_rate(void) { return rate; }
+unsigned m5stack_basic_fft_points(void) { return points; }
+unsigned m5stack_basic_average_count(void) { return target; }
 static void spectrum_snapshot_reset_dc(void) { resets++; }
 static bool spectrum_acquire(unsigned n, unsigned r, const uint32_t **p, unsigned *us) { return true; }
 static bool spectrum_snapshot(unsigned r, unsigned n,
@@ -74,7 +76,15 @@ static bool spectrum_snapshot_inplace_peak(unsigned r, unsigned n,
     *peak = 0;
     assert(workspace == iq_buffer); return spectrum_snapshot(r, n, acquire, bins);
 }
-static void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned n,
+void m5stack_basic_spectrum(unsigned mhz, const uint8_t *bins, unsigned n,
+                                   unsigned gain, int filter, unsigned dc) {
+    assert(!local_capture && mhz == frequency_mhz && n == points);
+    assert(gain == 45 && filter == rx_filter && dc == 1);
+    assert(bins[0] == ((captures - 1) % 2 ? 120 : 80)); /* Each raw FFT, before averaging. */
+    density_inputs++;
+    now += 200;
+}
+void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned n,
                                 bool pc, bool valid, unsigned cpu) {
     assert(!local_capture && mhz == frequency_mhz && cpu <= 100);
     draws++; drawn_valid = valid; drawn_pc = pc; drawn_points = n;
@@ -84,12 +94,14 @@ static void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned n,
         check = r'''
 static int64_t begin_window(void) {
     frequency_mhz++; now += 200000; /* Retuning starts a fresh averaging window. */
+    density_inputs = 0;
     captures = successful = 0; memset(expected_power, 0, sizeof(expected_power));
     burst_serial_idle(false); return now;
 }
 static void at(int64_t t, bool pc) { now = t; burst_serial_idle(pc); assert(!local_capture); }
 static void verify_average(void) {
     assert(!drawn_pc && drawn_valid == (successful != 0) && drawn_points == points);
+    assert(density_inputs == successful); /* Failed acquisitions cannot add stale bins. */
     if (!successful) return;
     for (unsigned j = 0; j < points; j++) {
         double p = expected_power[j%4]/successful;
@@ -121,7 +133,7 @@ int main(void) {
     frequency_mhz++; at(start+40000, true); assert(draws == before+2);
     at(start+45000, false); assert(resets > reset_before && captures == 1);
     /* Resume must discard the partial average from before the PC lease. */
-    captures = successful = 0; memset(expected_power, 0, sizeof(expected_power));
+    captures = successful = density_inputs = 0; memset(expected_power, 0, sizeof(expected_power));
     at(start+70000, false); at(start+120000, false); at(start+145000, false);
     assert(captures == 2); verify_average();
     /* Each setting change also discards the old partial frame. */
@@ -134,7 +146,7 @@ int main(void) {
         if (setting == 3) requested_mhz = frequency_mhz+1;
         at(start+30000, false); assert(resets == reset_before+1);
         requested_mhz = 0;
-        captures = successful = 0; memset(expected_power, 0, sizeof(expected_power));
+        captures = successful = density_inputs = 0; memset(expected_power, 0, sizeof(expected_power));
         for (unsigned k = 0; k < target; k++)
             at(start+30000+(2*k+1)*50000/target, false);
         at(start+130000, false); verify_average();
@@ -148,7 +160,7 @@ int main(void) {
     at(start+30000, false);
     assert(gain_code == 31 && !hardware_agc && !software_agc && gain_applies == 1);
     assert(resets == reset_before + 1);
-    captures = successful = 0; memset(expected_power, 0, sizeof(expected_power));
+    captures = successful = density_inputs = 0; memset(expected_power, 0, sizeof(expected_power));
     at(start+55000, false); at(start+105000, false); at(start+130000, false);
     assert(captures == 2); verify_average(); /* Old gain samples were discarded. */
     ui.menu = M5_MENU_FILTER;

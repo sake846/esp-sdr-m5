@@ -3,7 +3,7 @@ from host_test import COMPILER, ROOT, compile_run
 from test_m5stack_displays import STUB
 
 source = (ROOT / 'main/boards/m5stack_basic.c').read_text()
-for header in ['driver/gpio.h', 'driver/spi_master.h', 'esp_check.h', 'esp_timer.h',
+for header in ['driver/gpio.h', 'driver/spi_master.h', 'esp_check.h', 'esp_timer.h', 'esp_heap_caps.h',
                'freertos/FreeRTOS.h', 'freertos/task.h']:
     source = source.replace(f'#include "{header}"', '')
 
@@ -34,7 +34,7 @@ int main(void) {
         double ms=1000.0*(clock()-start)/CLOCKS_PER_SEC;
         uint32_t hash=2166136261u;
         for(unsigned j=0;j<320*240;j++)hash=(hash^pixels[j])*16777619u;
-        assert(transactions<=962000 && formats<=5000 && hash==1508956624u);
+        assert(transactions<=962000 && formats<=5000 && hash==543597743u);
         printf("{\"frames\":1000,\"host_ms\":%.3f,\"spi_transactions\":%u,\"formats\":%u,\"pixel_hash\":%u}\n",
                ms,transactions,formats,hash);
     }

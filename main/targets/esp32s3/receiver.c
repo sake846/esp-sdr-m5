@@ -35,6 +35,7 @@
 #define M5_LOCAL_FFT_MAX 4096u
 #define M5_LOCAL_AVERAGE_MAX 16u
 static bool local_capture;
+static unsigned local_capture_gain;
 static uint8_t *local_bins;
 static uint16_t *local_average_power_q6;
 #endif
@@ -621,7 +622,9 @@ void app_main(void) {
 
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
 static bool spectrum_acquire(unsigned n, unsigned rate, const uint32_t **data, unsigned *elapsed) {
-    return acquire_iq(n, rate, data, elapsed);
+    bool ok = acquire_iq(n, rate, data, elapsed);
+    if (ok && local_capture) local_capture_gain = (uint8_t)((*data)[0] >> 20);
+    return ok;
 }
 
 void burst_serial_idle(bool leased) {
@@ -718,6 +721,8 @@ void burst_serial_idle(bool leased) {
                 bool captured = spectrum_snapshot_inplace_peak(rate, fft_points, spectrum_acquire, bins,
                                                                (int16_t *)IQ_BUFFER, &iq_peak);
                 local_capture = false;
+                if (captured) m5stack_basic_spectrum(frequency_mhz, bins, fft_points,
+                                                     local_capture_gain, rx_filter, ring_capture_dc_mode);
                 int64_t work_end = esp_timer_get_time();
                 frame_work_us += (uint64_t)(work_end - work_start);
                 if (captured) {

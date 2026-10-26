@@ -62,6 +62,8 @@ int main(void) {
     assert(m5stack_fft_sizes[4] == 4096);
     press(MATRIX_SPACE); assert(keyboard_help_visible);
     press(MATRIX_SPACE); assert(!keyboard_help_visible);
+    press(MATRIX_SHIFT | MATRIX_SPACE); assert(controls.dpx && !keyboard_help_visible);
+    press(MATRIX_SHIFT | MATRIX_SPACE); assert(!controls.dpx && !keyboard_help_visible);
     enter("2412"); assert(mhz == 2412);
     enter("0100"); assert(mhz == 100);
     enter("6000"); assert(mhz == 6000);
