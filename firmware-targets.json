@@ -198,6 +198,15 @@
       "allow_larger_flash": true,
       "preview": false,
       "sdkconfig": "sdkconfig.defaults.lilygo-t-deck-pro-v11"
+    },
+    {
+      "id": "ats-mini",
+      "target": "esp32s3",
+      "label": "ATS-mini (8 MB or larger, parallel LCD/encoder, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.ats-mini"
     }
   ],
   "unavailable": {}

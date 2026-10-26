@@ -22,6 +22,7 @@ TARGETS = {
     'ESP32S3': (49, (19, 20), (43, 44), set(range(26, 38)) | set(range(22, 26))),
     'ESP32S3_CARDPUTER': (49, (19, 20), (43, 44), {0, 38, 46} | set(range(3, 16)) | set(range(22, 38)) | set(range(39, 45))),
     'ESP32S3_CARDPUTER_ADV': (49, (19, 20), (43, 44), {0, 38, 46} | set(range(3, 16)) | set(range(22, 38)) | set(range(39, 45))),
+    'ESP32S3_ATS_MINI': (49, (19, 20), (43, 44), set(range(0, 11)) | set(range(15, 19)) | {21} | set(range(22, 43)) | set(range(45, 49))),
     'ESP32S31': (62, (33, 34), (58, 59), set(range(26, 33)) | {41}),
 }
 
@@ -161,6 +162,7 @@ int main(void) {
                         definitions = [
                             f'CONFIG_IDF_TARGET_{chip}=1',
                             *([f'CONFIG_ESP_SDR_M5STACK_{board}=1'] if board else []),
+                            *(['CONFIG_ESP_SDR_ATS_MINI=1'] if target == 'ESP32S3_ATS_MINI' else []),
                             *(['CONFIG_ESP_SDR_LILYGO=1', f'CONFIG_ESP_SDR_LILYGO_{target[15:]}=1']
                               if target.startswith('ESP32S3_LILYGO_') else []),
                             f'CONFIG_ESP_SDR_UART_ENABLED={uart_enabled}',

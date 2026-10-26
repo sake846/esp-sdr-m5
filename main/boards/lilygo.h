@@ -1,7 +1,9 @@
 #pragma once
 #include "m5stack_basic_controls.h"
 
-#if CONFIG_ESP_SDR_LILYGO_T_PAGER
+#if CONFIG_ESP_SDR_ATS_MINI
+#include "ats_mini.h"
+#elif CONFIG_ESP_SDR_LILYGO_T_PAGER
 #define SCREEN_WIDTH 480
 #define SCREEN_HEIGHT 222
 #define LCD_MOSI 34

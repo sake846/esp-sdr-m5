@@ -42,7 +42,10 @@ static uint64_t excluded_pins(void) {
 #else
 #error Define memory pin exclusions for this target before enabling GPIO control
 #endif
-#if CONFIG_ESP_SDR_LILYGO
+#if CONFIG_ESP_SDR_ATS_MINI
+    /* BOOT, encoder, battery ADC, parallel LCD, SI4732 power/I2C and audio. */
+    mask |= PINS(0, 10) | PINS(15, 18) | PIN(21) | PINS(38, 42) | PINS(45, 48);
+#elif CONFIG_ESP_SDR_LILYGO
     /* Display, power rails and onboard radios/sensors share nearly every pad.
      * Reserve even inactive peripherals so GPIO commands cannot power or drive them. */
 #if CONFIG_ESP_SDR_LILYGO_T_PAGER

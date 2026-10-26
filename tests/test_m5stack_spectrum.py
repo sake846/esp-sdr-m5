@@ -159,9 +159,9 @@ int main(void) {
 '''
         for profile, chip in [('BASIC', 'ESP32'), ('CORE2', 'ESP32'),
                               ('STICKC_PLUS2', 'ESP32'), ('CARDPUTER', 'ESP32S3'),
-                              ('CARDPUTER_ADV', 'ESP32S3'), ('LILYGO', 'ESP32S3')]:
+                              ('CARDPUTER_ADV', 'ESP32S3'), ('LILYGO', 'ESP32S3'), ('ATS_MINI', 'ESP32S3')]:
             for budget in [0, 1]:
                 with self.subTest(profile=profile, memory_budget=bool(budget)):
                     compile_run(stub + source + check, [f'CONFIG_IDF_TARGET_{chip}=1',
-                                ('CONFIG_ESP_SDR_LILYGO=1' if profile == 'LILYGO' else
+                                (f'CONFIG_ESP_SDR_{profile}=1' if profile in ('LILYGO', 'ATS_MINI') else
                                  f'CONFIG_ESP_SDR_M5STACK_{profile}=1'), f'CHECK_MEMORY_BUDGET={budget}'])

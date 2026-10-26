@@ -1,4 +1,4 @@
-/* Board wiring: official Xinyuan-LilyGO repositories linked in docs/lilygo.md. */
+/* Compact S3 display/control glue. Wiring: docs/lilygo.md and docs/ats-mini.md. */
 #include "lilygo.h"
 #include "lilygo_controls.h"
 #include "driver/gpio.h"
@@ -13,7 +13,9 @@
 #include <string.h>
 
 #define PIN(n) (UINT64_C(1) << (n))
+#if !CONFIG_ESP_SDR_ATS_MINI
 static spi_device_handle_t display;
+#endif
 static i2c_master_dev_handle_t keyboard;
 
 static void output(unsigned pin, unsigned level) {
@@ -21,6 +23,7 @@ static void output(unsigned pin, unsigned level) {
     ESP_ERROR_CHECK(gpio_set_direction(pin, GPIO_MODE_OUTPUT));
 }
 
+#if !CONFIG_ESP_SDR_ATS_MINI
 static void write_display(bool data, const void *bytes, size_t count) {
     ESP_ERROR_CHECK(gpio_set_level(LCD_DC, data));
     spi_transaction_t transaction = {.length = count * 8, .tx_buffer = bytes};
@@ -36,8 +39,10 @@ static void reg_write(i2c_master_dev_handle_t device, uint8_t reg, uint8_t value
     const uint8_t data[] = {reg, value};
     ESP_ERROR_CHECK(i2c_master_transmit(device, data, sizeof(data), 20));
 }
+#endif
 
 static void input_init(void) {
+#if !CONFIG_ESP_SDR_ATS_MINI
     const i2c_master_bus_config_t config = {
         .i2c_port = I2C_NUM_0, .sda_io_num = BOARD_SDA, .scl_io_num = BOARD_SCL,
         .clk_source = I2C_CLK_SRC_DEFAULT, .glitch_ignore_cnt = 7,
@@ -76,6 +81,7 @@ static void input_init(void) {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7, .device_address = 0x55, .scl_speed_hz = 100000,
     };
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &keyboard_config, &keyboard));
+#endif
 #endif
     const gpio_config_t button = {
         .pin_bit_mask = PIN(MENU_BUTTON), .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE,
@@ -225,7 +231,12 @@ static void epaper_worker(void *unused) {
 #endif
 
 void lilygo_init(void) {
-#if CONFIG_ESP_SDR_LILYGO_T_EMBED_SI4732
+#if CONFIG_ESP_SDR_ATS_MINI
+    output(10, 0); /* Speaker amplifier off. */
+    output(3, 1);  /* Clamp/mute analog audio. */
+    output(16, 0); /* SI4732 reset; do not pull up its unpowered I2C bus. */
+    output(15, 0); /* SI4732 LDO off. */
+#elif CONFIG_ESP_SDR_LILYGO_T_EMBED_SI4732
     output(46, 1);
     output(16, 0); /* Hold SI4732 in reset; the ESP32 is the RF source. */
     output(17, 1); /* Mute the SI4732 analog amplifier. */
@@ -261,6 +272,9 @@ void lilygo_init(void) {
 #ifdef ENCODER_A
     encoder_init();
 #endif
+#if CONFIG_ESP_SDR_ATS_MINI
+    ats_mini_lcd_init();
+#else
     output(LCD_DC, 0);
     output(LCD_CS, 1);
 #if LCD_BL >= 0
@@ -328,10 +342,13 @@ void lilygo_init(void) {
     command(0x29, NULL, 0);
     output(LCD_BL, 1);
 #endif
+#endif
 }
 
 void lilygo_display_row(unsigned y, const uint16_t *pixels) {
-#if LILYGO_EPAPER
+#if CONFIG_ESP_SDR_ATS_MINI
+    ats_mini_lcd_row(y, pixels);
+#elif LILYGO_EPAPER
     for (unsigned x = 0; x < SCREEN_WIDTH; x++) {
         uint8_t bit = 0x80u >> (x & 7);
         uint8_t *byte = &epaper_frame[y * (SCREEN_WIDTH / 8) + x / 8];

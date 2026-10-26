@@ -1,5 +1,14 @@
 menu "ESP-SDR board"
 
+    config ESP_SDR_ATS_MINI
+        bool "ATS-mini standalone spectrum display"
+        depends on IDF_TARGET_ESP32S3
+        default n
+        help
+            Enable the 320x170 parallel ST7789/GC9307 LCD and rotary encoder.
+            Reception uses the ESP32-S3 RF backend. Keep the SI4732 radio and
+            audio amplifier powered off; their antenna/audio path is not used.
+
     choice ESP_SDR_LILYGO_BOARD
         prompt "LILYGO standalone device"
         depends on IDF_TARGET_ESP32S3

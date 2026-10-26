@@ -18,6 +18,7 @@ From an **x64 Native Tools Command Prompt for Visual Studio**, run:
 python -m unittest discover -s tests -p "test_m5stack*.py" -v
 python -m unittest discover -s tests -p "test_cardputer_controls.py" -v
 python -m unittest discover -s tests -p "test_lilygo.py" -v
+python -m unittest discover -s tests -p "test_ats_mini.py" -v
 python -m unittest discover -s tests -p "test_gpio.py" -v
 python -m unittest discover -s tests -p "test_firmware_export.py" -v
 ```
@@ -26,15 +27,16 @@ python -m unittest discover -s tests -p "test_firmware_export.py" -v
 | --- | --- |
 | `test_m5stack_basic.py` | Menu order/reversal, setting bounds, five-second timeout, reset, receiver synchronization, debounce, timer wrap, PC handoff, Basic SPI overlay and waterfall controls |
 | `test_cardputer_controls.py` | Original keyboard matrix, ADV event press/release, per-key debounce, Shift reversal, four-digit frequency validation and PC handoff |
+| `test_ats_mini.py` | ATS-mini parallel pinout, ST7789/high-gamma/GC9307 IDs and fallback, delayed DMA row lifetime, radio/audio power, encoder and PC handoff |
 | `test_lilygo.py` | All seven profiles: SPI/I2C wiring, power/CS setup, scanlines, encoder/keyboard controls, PC handoff, menu hold, monochrome conversion, full/partial e-paper refresh and BUSY timeout |
 | `test_m5stack_displays.py` | Core2 AXP192/AXP2101 power setup, touch-zone boundaries and I2C failure; Core2/Cardputer/ADV/Plus2 LCD geometry, cropped spans, peak reduction, waterfall reset and one column-window update per frame |
-| `test_m5stack_spectrum.py` | Actual IQ unpacking, Hann window, FFT and quantization for M5Stack and LILYGO; positive/negative tones at every supported FFT size, in-place capture, DC resets, workspace reuse, 4 KiB default table budget, 2048-point protocol workspace and allocation recovery |
+| `test_m5stack_spectrum.py` | Actual IQ unpacking, Hann window, FFT and quantization for M5Stack, LILYGO and ATS-mini; positive/negative tones at every supported FFT size, in-place capture, DC resets, workspace reuse, 4 KiB default table budget, 2048-point protocol workspace and allocation recovery |
 | `test_m5stack_idle.py` | ESP32/S3 scheduling, 1/2/4/8/16-sample linear-power averaging against a numeric reference, failed captures, missed slots, setting changes and PC handoff |
 | `test_m5stack_density.py` | All five boards: individual FFT ingestion, transient retention, level-to-row coverage, zoom direction, timed decay, context resets, PC freeze/resume, memory release and allocation failure/retry |
 | `test_m5stack_serial.py` | CR/LF/CRLF, partial/overlong/stale lines, peer fairness, idle notification, lease expiry and explicit release |
 | `test_m5stack_ring.py` | S3 queue/twiddle allocation and FFT-init failures, retries, idempotent init, queue capacity and counter wrap |
-| `test_gpio.py` | Peripheral pin exclusions on M5Stack and LILYGO with UART enabled/disabled; excluded pins cannot cause GPIO writes |
-| `test_firmware_export.py` | All M5Stack and LILYGO profile identities, target chips and flash sizes survive artifact export |
+| `test_gpio.py` | Peripheral pin exclusions on M5Stack, LILYGO and ATS-mini with UART enabled/disabled; excluded pins cannot cause GPIO writes |
+| `test_firmware_export.py` | All M5Stack, LILYGO and ATS-mini profile identities, target chips and flash sizes survive artifact export |
 
 These tests execute production C or bounded excerpts of it, with mocked SDK I/O.
 The numerical snapshot tests use the production FFT; the older snapshot protocol

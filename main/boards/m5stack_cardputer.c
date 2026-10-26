@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#if CONFIG_ESP_SDR_LILYGO
+#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
 #include "lilygo.h"
 #elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
 #define SCREEN_WIDTH 135
@@ -96,7 +96,7 @@ static unsigned matrix_key_bit(unsigned matrix_row, unsigned matrix_col) {
 }
 #endif
 
-#if !CONFIG_ESP_SDR_LILYGO
+#if !CONFIG_ESP_SDR_LILYGO && !CONFIG_ESP_SDR_ATS_MINI
 static spi_device_handle_t lcd;
 #endif
 static m5stack_controls_t controls;
@@ -153,7 +153,7 @@ static void adv_keyboard_init(void) {
 }
 #endif
 
-#if !CONFIG_ESP_SDR_LILYGO
+#if !CONFIG_ESP_SDR_LILYGO && !CONFIG_ESP_SDR_ATS_MINI
 static void lcd_write(bool data, const void *bytes, size_t size) {
     ESP_ERROR_CHECK(gpio_set_level(LCD_DC, data));
     spi_transaction_t transaction = {.length = size * 8, .tx_buffer = bytes};
@@ -187,7 +187,7 @@ static uint16_t glyph(char c) {
     return 0;
 }
 
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2 || CONFIG_ESP_SDR_LILYGO
+#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2 || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
 #include "m5stack_menu.h"
 #endif
 
@@ -205,7 +205,7 @@ static void text_row(unsigned y, unsigned left, const char *text, uint16_t color
 }
 
 static void title_row(unsigned y) {
-#if CONFIG_ESP_SDR_LILYGO
+#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
     static const char title[] = "ESP SDR";
 #else
     static const char title[] = "ESP SDR M5";
@@ -232,7 +232,7 @@ static uint16_t waterfall_color(int delta_db) {
     return colors[delta_db <= 0 ? 0 : delta_db >= 60 ? 60 : delta_db];
 }
 
-#if !CONFIG_ESP_SDR_LILYGO
+#if !CONFIG_ESP_SDR_LILYGO && !CONFIG_ESP_SDR_ATS_MINI
 static unsigned keyboard_buttons(void) {
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
     unsigned count = tca8418_read(0x03) & 0x0f;
@@ -381,13 +381,13 @@ void m5stack_basic_init(void) {
     ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_4, 1)); /* Keep the Plus2 power rail on. */
 #endif
     waterfall = heap_caps_calloc(WATERFALL_HEIGHT, PLOT_WIDTH,
-#if CONFIG_ESP_SDR_LILYGO && CONFIG_SPIRAM
+#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) && CONFIG_SPIRAM
                                  MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 #else
                                  MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 #endif
     ESP_ERROR_CHECK(waterfall ? ESP_OK : ESP_ERR_NO_MEM);
-#if CONFIG_ESP_SDR_LILYGO
+#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
     lilygo_init();
     m5stack_basic_draw(2412, NULL, m5stack_basic_fft_points(), false, false, 0);
 #else
@@ -464,7 +464,7 @@ void m5stack_basic_init(void) {
 }
 
 unsigned m5stack_basic_poll(unsigned mhz, bool pc_control) {
-#if CONFIG_ESP_SDR_LILYGO
+#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
     mhz = lilygo_poll(&controls, mhz, pc_control);
 #elif CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
     mhz = cardputer_controls_update(mhz, keyboard_buttons(),
@@ -505,7 +505,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
     char edges[3][12], cpu[12], gain[8];
     const char *status = pc_control ? "PC" : controls.dpx_failed ? "RAM" :
                          valid ? (density ? "DPX" : "LIVE") : "WAIT";
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2 || CONFIG_ESP_SDR_LILYGO
+#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2 || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
     char menu_value[24];
     m5stack_menu_value(menu_value, sizeof(menu_value));
 #endif
@@ -566,7 +566,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             trace[x] = SPECTRUM_BOTTOM - height;
         }
     }
-#if !CONFIG_ESP_SDR_LILYGO
+#if !CONFIG_ESP_SDR_LILYGO && !CONFIG_ESP_SDR_ATS_MINI
     const uint16_t x_end = LCD_X_OFFSET + SCREEN_WIDTH - 1;
     lcd_command(0x2a, (const uint8_t[]){0, LCD_X_OFFSET, (uint8_t)(x_end >> 8), (uint8_t)x_end}, 4);
 #endif
@@ -602,7 +602,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         }
         if (y < 12)
             for (unsigned x = 4; x < 78; x++) row[x] = __builtin_bswap16(COLOR_SRDECK_YELLOW_GREEN);
-#if CONFIG_ESP_SDR_LILYGO
+#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
         if (y >= 1 && y < 11) {
             title_row(y - 1);
             text_row(y - 1, SCREEN_WIDTH - (unsigned)strlen(status) * 7 - 4, status, 0xffff);
@@ -668,7 +668,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         }
 #endif
 #endif
-#if CONFIG_ESP_SDR_LILYGO
+#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
         lilygo_display_row(y, row);
 #else
         unsigned address = y + LCD_Y_OFFSET;
@@ -679,7 +679,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         lcd_write(true, row, sizeof(row));
 #endif
     }
-#if CONFIG_ESP_SDR_LILYGO
+#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
     lilygo_display_flush();
 #endif
 }
