@@ -94,7 +94,10 @@ means the latest local capture failed, and `PC` means a serial client owns the
 receiver. At FFT sizes above 256, the strongest
 bin in each displayed frequency group is shown so narrow peaks remain visible.
 Both plots use nearly the full LCD width. In NORMAL mode the upper plot is a
-thin blue trace over a dark grid, with negative frequency offsets on the left.
+thin blue trace with a translucent blue fill beneath it, over a dark grid.
+The colors follow SRdeck: a `#2896FF` stroke and `#0050D2` fill at 120/255 opacity.
+The RGB565 renderer preblends the fill over black and grid pixels so the grid
+stays visible without an extra buffer. Negative frequency offsets are on the left.
 Its vertical grid divides the selected span into eight intervals (2 MHz each
 at a 16 MHz span). Frequency marks sit between the plots. The lower waterfall
 puts each averaged spectrum at the top and scrolls older spectra down, showing

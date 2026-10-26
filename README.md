@@ -14,7 +14,8 @@ after that, the device can run on its own.
 
 ## Features
 
-- Spectrum trace and scrolling color waterfall on the device's LCD.
+- Spectrum trace with a translucent blue fill and scrolling color waterfall on
+  the device's LCD.
 - On-device frequency tuning, step, span, FFT size and averaging controls.
 - Standalone profiles for M5Stack BASIC, Core2, Cardputer, Cardputer ADV and
   M5StickC Plus2.

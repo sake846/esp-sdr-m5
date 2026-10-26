@@ -187,12 +187,14 @@ int main(void) {
     bins[127] = 255; bins[255] = 0; bins[254] = 128; bins[0] = 64;
     m5stack_basic_draw(2412, bins, 256, false, true, 0);
     assert(rows == 480);
-    assert(pixels[SPECTRUM_TOP * 320 + 4] == 0x05ff); /* Thin trace starts at the left edge. */
-    assert(pixels[50 * 320 + 6] == 0x05ff); /* The steep peak is connected to its neighbor. */
-    assert(pixels[64 * 320 + 164] != 0x05ff); /* The floor beyond the adjoining peak remains unfilled. */
+    assert(pixels[SPECTRUM_TOP * 320 + 4] == 0x2cbf); /* Thin trace starts at the left edge. */
+    assert(pixels[50 * 320 + 6] == 0x2cbf); /* The steep peak is connected to its neighbor. */
+    assert(pixels[33 * 320 + 4] == 0x11ae); /* Grid remains visible through the blue fill. */
+    assert(pixels[33 * 320 + 5] == 0x012c); /* Same alpha fill over the black background. */
+    assert(pixels[64 * 320 + 164] != 0x2cbf); /* The floor beyond the adjoining peak remains unfilled. */
     unsigned vertical_grid_lines = 0;
     for (unsigned x = PLOT_LEFT; x < PLOT_LEFT + PLOT_WIDTH; x++)
-        if (pixels[33 * 320 + x] == 0x2104) vertical_grid_lines++;
+        if (pixels[33 * 320 + x] == 0x2104 || pixels[33 * 320 + x] == 0x11ae) vertical_grid_lines++;
     assert(vertical_grid_lines == 9); /* Eight equal intervals, 2 MHz each at 16 MHz span. */
     for (unsigned x = PLOT_LEFT; x < PLOT_LEFT + PLOT_WIDTH; x++)
         assert(pixels[SPECTRUM_BOTTOM * 320 + x] == 0x4208); /* Visible baseline across the plot. */
@@ -232,7 +234,7 @@ int main(void) {
     m5stack_basic_draw(2413, bins, 256, false, true, 0);
     bool raised = false;
     for (unsigned y = SPECTRUM_TOP; y < SPECTRUM_BOTTOM; y++)
-        if (pixels[y * 320 + PLOT_LEFT] == 0x05ff) raised = true;
+        if (pixels[y * 320 + PLOT_LEFT] == 0x2cbf) raised = true;
     assert(raised); /* A positive Y POS lifts the flat trace off the baseline. */
     controls.y_pos = 0;
     controls.wf_bright = 5; assert(waterfall_color(0) != 0);

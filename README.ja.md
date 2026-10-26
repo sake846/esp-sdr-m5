@@ -12,7 +12,7 @@ ESP32がI/Qサンプルの取得、FFT計算、画面描画を行います。
 
 ## 特徴
 
-- 本体のLCDにスペクトラム波形とスクロールするカラーウォーターフォールを表示。
+- 本体のLCDに、波形の下を半透明の青で塗りつぶしたスペクトラムと、スクロールするカラーウォーターフォールを表示。
 - 受信周波数、チューニングステップ、表示スパン、FFTサイズ、平均化回数を本体で変更。
 - M5Stack BASIC、Core2、Cardputer、Cardputer ADV、M5StickC Plus2向けのビルド設定を用意。
 - FFTサイズはBASIC・Core2・M5StickC Plus2で256〜8192点、Cardputer・Cardputer ADVで256〜4096点。

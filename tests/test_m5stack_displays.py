@@ -149,6 +149,32 @@ int main(void) {
     bins[TEST_FFT/2-2]=255;
     m5stack_basic_draw(2413,bins,TEST_FFT,false,true,0);
     assert(waterfall_count==1 && pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==0xffff);
+    controls.fft=0; controls.menu=M5_MENU_NONE;
+    memset(bins,0,sizeof(bins));
+    for(unsigned j=64;j<96;j++)bins[j]=128;
+    m5stack_basic_draw(2413,bins,256,false,true,0);
+    unsigned x=(48*PLOT_WIDTH+255)/256;
+    unsigned height=spectrum_dbfs_to_display_value(spectrum_code_to_dbfs(128),-84,80)*
+                    (SPECTRUM_BOTTOM-SPECTRUM_TOP)/255;
+    unsigned trace_y=SPECTRUM_BOTTOM-height;
+    unsigned step=TEST_WIDTH==320 ? 13 : 6;
+    unsigned grid_y=SPECTRUM_TOP+((trace_y+1-SPECTRUM_TOP+step-1)/step)*step;
+    for(unsigned d=0;d<=8;d++)assert(x!=(d*(PLOT_WIDTH-1)+4)/8);
+    assert(pixels[trace_y*TEST_WIDTH+PLOT_LEFT+x]==0x2cbf);
+    assert(pixels[(trace_y+1)*TEST_WIDTH+PLOT_LEFT+x]==0x012c);
+    assert(pixels[grid_y*TEST_WIDTH+PLOT_LEFT+x]==0x11ae);
+    assert(pixels[(trace_y-1)*TEST_WIDTH+PLOT_LEFT+x]==
+           ((trace_y-1-SPECTRUM_TOP)%step==0 ? 0x2104 : 0));
+    assert(pixels[SPECTRUM_BOTTOM*TEST_WIDTH+PLOT_LEFT+x]==0x4208);
+    m5stack_basic_draw(2413,bins,256,false,false,0);
+    assert(pixels[(trace_y+1)*TEST_WIDTH+PLOT_LEFT+x]==0);
+    assert(pixels[grid_y*TEST_WIDTH+PLOT_LEFT+x]==0x2104);
+    controls.dpx=true;
+    m5stack_basic_draw(2413,bins,256,false,true,0);
+    assert(pixels[(trace_y+1)*TEST_WIDTH+PLOT_LEFT+x]==0); /* DPX has no under-curve fill. */
+    assert(pixels[grid_y*TEST_WIDTH+PLOT_LEFT+x]==0x2104);
+    controls.dpx=false;
+    density_mode(2413,false);
 #if CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
     controls.menu = M5_MENU_AGC;
     m5stack_basic_draw(2413,bins,TEST_FFT,false,false,0);

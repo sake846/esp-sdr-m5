@@ -48,10 +48,10 @@ In a host benchmark of 1000 Basic frames, the median of three runs fell from
 The workload uses deterministic 8192-bin input and cycles all spans, frequencies
 and CPU labels. It uses MSVC `/O2` and mocked SPI; it measures host rendering
 work, not device frame rate. LCD payload size and SPI clock are unchanged.
-Those timing/hash figures used the earlier screen layout. The current benchmark
-expects hash `543597743`; the committed menu/layout version and the DPX changes
-produce the same normal-mode pixels, 962 SPI transactions and five formatting
-calls per frame.
+Those timing/hash figures used the earlier screen layout. The normal-mode hash
+was `543597743` before adding the SRdeck-style blue under-curve fill. That visual
+change updates the expected hash to `494924473`; the benchmark still checks
+962 SPI transactions and five formatting calls per frame. DPX pixels are unchanged.
 
 Run the current benchmark from a compiler-enabled shell:
 

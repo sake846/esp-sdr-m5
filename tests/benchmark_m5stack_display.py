@@ -34,7 +34,7 @@ int main(void) {
         double ms=1000.0*(clock()-start)/CLOCKS_PER_SEC;
         uint32_t hash=2166136261u;
         for(unsigned j=0;j<320*240;j++)hash=(hash^pixels[j])*16777619u;
-        assert(transactions<=962000 && formats<=5000 && hash==543597743u);
+        assert(transactions<=962000 && formats<=5000 && hash==494924473u);
         printf("{\"frames\":1000,\"host_ms\":%.3f,\"spi_transactions\":%u,\"formats\":%u,\"pixel_hash\":%u}\n",
                ms,transactions,formats,hash);
     }

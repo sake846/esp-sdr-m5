@@ -554,8 +554,10 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
                                  horizontal_grid || vertical_grid ? 0x2104 : 0;
                 if (!density && bins && valid && y != SPECTRUM_BOTTOM) {
                     unsigned current = trace[x], previous = x ? trace[x - 1] : current;
+                    /* SRdeck #2896ff stroke; #0050d2 at alpha 120/255 over black/grid. */
                     if (y >= (current < previous ? current : previous) &&
-                        y <= (current > previous ? current : previous)) color = 0x05ff;
+                        y <= (current > previous ? current : previous)) color = 0x2cbf;
+                    else if (y > current) color = color ? 0x11ae : 0x012c;
                 }
                 row[PLOT_LEFT + x] = __builtin_bswap16(color);
             }
