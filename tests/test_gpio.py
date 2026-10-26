@@ -25,6 +25,17 @@ TARGETS = {
     'ESP32S31': (62, (33, 34), (58, 59), set(range(26, 33)) | {41}),
 }
 
+for _board, _pins in {
+    'T_PAGER': set(range(0, 9)) | set(range(10, 15)) | {17, 18, 21} | set(range(33, 43)) | set(range(45, 49)),
+    'T_EMBED_SI4732': {0, 1, 2, 21} | set(range(4, 19)) | set(range(38, 49)),
+    'T_EMBED_CC1101': set(range(0, 19)) | {21} | set(range(38, 49)),
+    'T_EMBED_CC1101_PLUS': set(range(0, 19)) | {21} | set(range(38, 49)),
+    'T_DECK': set(range(0, 19)) | {21} | set(range(33, 49)),
+    'T_DECK_PRO': set(range(0, 19)) | {21} | set(range(33, 49)),
+    'T_DECK_PRO_V11': set(range(0, 19)) | {21} | set(range(33, 49)),
+}.items():
+    TARGETS['ESP32S3_LILYGO_' + _board] = (49, (19, 20), (43, 44), _pins | set(range(22, 38)))
+
 @unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
 class GpioService(unittest.TestCase):
     def test_gpio_service_on_all_targets(self):
@@ -102,15 +113,20 @@ int main(void) {
  unsigned before=calls;
  for(unsigned i=0;i<sizeof(bad)/sizeof(*bad);++i){assert(burst_gpio_command(bad[i]));assert(!strcmp(response,"ERR gpio_args\n"));}
  assert(calls==before);assert(!burst_gpio_command("FREQ 2412"));
+ unsigned pin=0;
+ char command[32],item[16];
+ /* Boards with every pad in use still reject all GPIO writes below. */
+ if(EXPECTED_MASK) {
  /* State reflects acknowledged requests, and survives subsequent queries. */
- unsigned pin=0;while(!(EXPECTED_MASK&(UINT64_C(1)<<pin)))pin++;
- char command[32],item[16];snprintf(command,sizeof(command),"GPIO %u 1",pin);
+ while(!(EXPECTED_MASK&(UINT64_C(1)<<pin)))pin++;
+ snprintf(command,sizeof(command),"GPIO %u 1",pin);
  snprintf(item,sizeof(item)," %u:1",pin);
  assert(burst_gpio_command(command));
  assert(burst_gpio_command("GPIO?"));assert(strstr(response,item));
  snprintf(command,sizeof(command),"GPIO %u 0",pin);
  fail=1;assert(burst_gpio_command(command));assert(!strcmp(response,"ERR gpio_io\n"));
  assert(burst_gpio_command("GPIO?"));assert(strstr(response,item));
+ }
  /* Every excluded onboard peripheral is rejected without touching hardware. */
  before=calls;
  for(pin=0;pin<SOC_GPIO_PIN_COUNT;pin++)if(!(EXPECTED_MASK&(UINT64_C(1)<<pin))){
@@ -145,6 +161,8 @@ int main(void) {
                         definitions = [
                             f'CONFIG_IDF_TARGET_{chip}=1',
                             *([f'CONFIG_ESP_SDR_M5STACK_{board}=1'] if board else []),
+                            *(['CONFIG_ESP_SDR_LILYGO=1', f'CONFIG_ESP_SDR_LILYGO_{target[15:]}=1']
+                              if target.startswith('ESP32S3_LILYGO_') else []),
                             f'CONFIG_ESP_SDR_UART_ENABLED={uart_enabled}',
                             f'CONFIG_ESP_SDR_UART_TX_PIN={uart[0]}', f'CONFIG_ESP_SDR_UART_RX_PIN={uart[1]}',
                             f'EXPECTED_MASK={expected}ULL']

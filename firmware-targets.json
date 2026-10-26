@@ -135,6 +135,69 @@
       "preview": true,
       "streaming": true,
       "sdkconfig": "sdkconfig.defaults.esp32s31-stream"
+    },
+    {
+      "id": "lilygo-t-pager",
+      "target": "esp32s3",
+      "label": "LILYGO T-LoRa Pager (16 MB, 480x222 LCD/encoder/keyboard, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.lilygo-t-pager"
+    },
+    {
+      "id": "lilygo-t-embed-si4732",
+      "target": "esp32s3",
+      "label": "LILYGO T-Embed SI4732 (16 MB, LCD/encoder, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.lilygo-t-embed-si4732"
+    },
+    {
+      "id": "lilygo-t-embed-cc1101",
+      "target": "esp32s3",
+      "label": "LILYGO T-Embed CC1101 (16 MB, LCD/encoder, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.lilygo-t-embed-cc1101"
+    },
+    {
+      "id": "lilygo-t-embed-cc1101-plus",
+      "target": "esp32s3",
+      "label": "LILYGO T-Embed CC1101 Plus (16 MB, LCD/encoder, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.lilygo-t-embed-cc1101-plus"
+    },
+    {
+      "id": "lilygo-t-deck",
+      "target": "esp32s3",
+      "label": "LILYGO T-Deck / T-Deck Plus (16 MB, LCD/keyboard, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.lilygo-t-deck"
+    },
+    {
+      "id": "lilygo-t-deck-pro",
+      "target": "esp32s3",
+      "label": "LILYGO T-Deck Pro V1.0 (16 MB, e-paper/keyboard, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.lilygo-t-deck-pro"
+    },
+    {
+      "id": "lilygo-t-deck-pro-v11",
+      "target": "esp32s3",
+      "label": "LILYGO T-Deck Pro V1.1 (16 MB, e-paper/keyboard, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.lilygo-t-deck-pro-v11"
     }
   ],
   "unavailable": {}

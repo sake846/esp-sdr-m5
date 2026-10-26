@@ -42,7 +42,19 @@ static uint64_t excluded_pins(void) {
 #else
 #error Define memory pin exclusions for this target before enabling GPIO control
 #endif
-#if CONFIG_ESP_SDR_M5STACK_BASIC
+#if CONFIG_ESP_SDR_LILYGO
+    /* Display, power rails and onboard radios/sensors share nearly every pad.
+     * Reserve even inactive peripherals so GPIO commands cannot power or drive them. */
+#if CONFIG_ESP_SDR_LILYGO_T_PAGER
+    mask |= PINS(0, 8) | PINS(10, 14) | PIN(17) | PIN(18) | PIN(21) | PINS(33, 42) | PINS(45, 48);
+#elif CONFIG_ESP_SDR_LILYGO_T_EMBED_SI4732
+    mask |= PINS(0, 2) | PINS(4, 18) | PIN(21) | PINS(38, 48);
+#elif CONFIG_ESP_SDR_LILYGO_T_EMBED_CC1101 || CONFIG_ESP_SDR_LILYGO_T_EMBED_CC1101_PLUS
+    mask |= PINS(0, 18) | PIN(21) | PINS(38, 48);
+#else /* T-Deck and Pro, including GPS/modem/optional audio connections. */
+    mask |= PINS(0, 18) | PIN(21) | PINS(33, 48);
+#endif
+#elif CONFIG_ESP_SDR_M5STACK_BASIC
     /* LCD, SD, speaker, buttons and the IP5306 power-management I2C bus. */
     mask |= PIN(4) | PIN(14) | PINS(18, 19) | PINS(21, 23) | PIN(25) | PIN(27) |
             PINS(32, 33) | PINS(37, 39);

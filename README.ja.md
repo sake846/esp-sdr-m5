@@ -1,12 +1,12 @@
-# ESP-SDR for M5Stack
+# ESP-SDR for M5Stack and LILYGO
 
 [English](README.md) | 日本語
 
-M5Stackの内蔵ESP32を使い、スペクトラムとウォーターフォールを本体の画面に表示します。
+M5Stack・LILYGOの内蔵ESP32を使い、スペクトラムとウォーターフォールを本体の画面に表示します。
 単体で動作するため、外付けのSDRハードウェアやPCは必要ありません。
 
 このプロジェクトは、[ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr)を
-M5Stackの画面と操作部で単体動作するように改良した派生版です。
+M5Stack・LILYGOの画面と操作部で単体動作するように改良した派生版です。
 ESP32がI/Qサンプルの取得、FFT計算、画面描画を行います。
 ビルドとファームウェアの書き込みにはPCが必要ですが、書き込み後は本体だけで使えます。
 
@@ -15,7 +15,8 @@ ESP32がI/Qサンプルの取得、FFT計算、画面描画を行います。
 - 本体のLCDに、波形の下を半透明の青で塗りつぶしたスペクトラムと、スクロールするカラーウォーターフォールを表示。
 - 受信周波数、チューニングステップ、表示スパン、FFTサイズ、平均化回数を本体で変更。
 - M5Stack BASIC、Core2、Cardputer、Cardputer ADV、M5StickC Plus2向けのビルド設定を用意。
-- FFTサイズはBASIC・Core2・M5StickC Plus2で256〜8192点、Cardputer・Cardputer ADVで256〜4096点。
+- LILYGO T-Pager、T-Embed SI4732・CC1101・CC1101 Plus、T-Deck・T-Deck Pro向けの設定を追加（実機未確認）。
+- FFTサイズはBASIC・Core2・M5StickC Plus2で256〜8192点、Cardputer・Cardputer ADV・LILYGO各機種で256〜4096点。
 - 既存のESP-SDR USB/UARTプロトコルを利用し、PCからのI/Q取得やスペクトラム表示にも対応。
 
 ## 対応機種と実機確認状況
@@ -30,6 +31,17 @@ Cardputer ADVも下記のとおり実機で動作しています。M5StickC Plus
 | Cardputer 通常版 K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **確認済み** |
 | Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | **確認済み** |
 | M5StickC Plus2 | ESP32 | 135 × 240、縦画面 | `m5stickc-plus2` | **確認済み** |
+| LILYGO T-LoRa Pager | ESP32-S3 | 480 × 222 | `lilygo-t-pager` | 未確認 |
+| T-Embed SI4732 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-si4732` | 未確認 |
+| T-Embed CC1101 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-cc1101` | 未確認 |
+| T-Embed CC1101 Plus | ESP32-S3 | 320 × 170 | `lilygo-t-embed-cc1101-plus` | 未確認 |
+| T-Deck / T-Deck Plus | ESP32-S3 | 320 × 240 | `lilygo-t-deck` | 未確認 |
+| T-Deck Pro V1.0 | ESP32-S3 | 240 × 320、電子ペーパー | `lilygo-t-deck-pro` | 未確認 |
+| T-Deck Pro V1.1 | ESP32-S3 | 240 × 320、電子ペーパー | `lilygo-t-deck-pro-v11` | 未確認 |
+
+LILYGO各機種のビルド・操作方法は[LILYGO対応ガイド](docs/lilygo.md)を参照してください。
+SI4732・CC1101などの外部無線ICは受信に使用せず、ESP32-S3の内蔵無線回路を使用します。
+T-Deck Proは白黒・低速更新の表示です。
 
 M5StickC向けの設定は、**M5StickC Plus2専用**です。
 初代M5StickCやM5StickC Plusとの互換性を示すものではありません。
@@ -69,7 +81,7 @@ git submodule update --init --recursive
 
 ### 2. 指定されたESP-IDFのインストールと有効化
 
-M5Stack向けの5プロファイルは、現在すべてESP-IDFのコミット
+M5Stack・LILYGO向けの全プロファイルは、現在すべてESP-IDFのコミット
 `25fe69f946311abdaf9ad56591f25fedbc20ac98`を使用します。
 各プロファイルで必要なリビジョンは[firmware-targets.json](firmware-targets.json)に記載しています。
 ビルドには指定のリビジョンを使用してください。

@@ -8,8 +8,8 @@ Protocol 6 advertises `RXLIMITS` in `CAPS`. Query `LIMITS?` after `INFO` for:
 - `rates`: supported nominal sample rates in samples/second.
 - `bits`: supported precision per I/Q component.
 
-M5Stack BASIC, Core2, StickC Plus2, Cardputer and Cardputer ADV start with
-software gain control at PHY gain index 30. Standalone control centers the
+M5Stack BASIC, Core2, StickC Plus2, Cardputer, Cardputer ADV and LILYGO
+standalone profiles start with software gain control at PHY gain index 30. Standalone control centers the
 largest raw 10-bit I/Q component peak around -12 dBFS (about 129/512), smoothing
 the peak across display intervals. It raises gain by one index below the -18 dBFS
 release threshold (64/512) and lowers it by one above the -6 dBFS attack threshold
@@ -18,9 +18,10 @@ estimate falls at a slower rate; gain rises only after five consecutive frames
 below the release threshold, at most one PHY index per 100 ms frame. Serial
 software AGC likewise requires five consecutive low probe captures before
 raising gain. It measures before DC removal and windowing.
-M5Stack buttons and the Cardputer keyboard do not switch gain modes during
-standalone operation. Serial `GAIN HARDWARE` and `GAIN MANUAL` commands remain
-available; `GAIN SOFTWARE` or a reboot resumes automatic control. Their analog
+Basic, Core2, StickC Plus2 and LILYGO expose AGC TYPE and RF GAIN in the local
+menu. Cardputer gain modes use serial commands. Serial `GAIN HARDWARE` and
+`GAIN MANUAL` remain available; `GAIN SOFTWARE` or a reboot resumes automatic
+control. Their analog
 receive bandwidth follows the local SPAN setting, clamped to the chip's
 supported range. Other profiles default to hardware AGC. Manual indices are
 PHY table entries, not dB values.
@@ -51,7 +52,7 @@ selecting an uncalibrated second-table entry.
 ## Bandwidth implementation
 
 `BANDWIDTH <MHz>` interpolates the chip's capacitor-code curve in
-`main/common/rx_bandwidth.h`. On M5Stack profiles it disables SPAN following
+`main/common/rx_bandwidth.h`. On M5Stack and LILYGO profiles it disables SPAN following
 until `LPF AUTO` restores it. Zero selects the widest setting, not filter
 bypass. Out-of-range requests are rejected.
 

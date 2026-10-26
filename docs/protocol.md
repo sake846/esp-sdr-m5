@@ -32,8 +32,8 @@ the firmware.
 | --- | --- |
 | `FREQ <MHz>` | Whole MHz, 100–6000 (`RANGE?`). Accepting a frequency does not guarantee PLL lock. |
 | `LIMITS?` | `LIMITS {"gain":[min,max,step],"bandwidth":[min,max,step,default]\|null,"rates":[...],"bits":[...]}` |
-| `GAIN SOFTWARE` / `GAIN HARDWARE` / `GAIN MANUAL <index>` / `GAIN?` | M5Stack standalone profiles start software gain control at PHY index 30, targeting a raw-IQ peak near -12 dBFS. Other profiles default to hardware AGC. Indices are PHY table entries, not dB. |
-| `BANDWIDTH <MHz>` | Approximate analog bandwidth; `0` selects the widest setting. On M5Stack profiles this overrides SPAN following until `LPF AUTO`. |
+| `GAIN SOFTWARE` / `GAIN HARDWARE` / `GAIN MANUAL <index>` / `GAIN?` | M5Stack and LILYGO standalone profiles start software gain control at PHY index 30, targeting a raw-IQ peak near -12 dBFS. Other profiles default to hardware AGC. Indices are PHY table entries, not dB. |
+| `BANDWIDTH <MHz>` | Approximate analog bandwidth; `0` selects the widest setting. On M5Stack and LILYGO profiles this overrides SPAN following until `LPF AUTO`. |
 | `GPIO?` / `GPIO <pin> <Z\|0\|1>` | Spare GPIO outputs, e.g. for antenna switches. See [rx-controls.md](rx-controls.md#gpio-outputs). |
 
 Details on gain, bandwidth, calibration and extended tuning are in

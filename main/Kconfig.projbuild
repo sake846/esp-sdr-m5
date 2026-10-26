@@ -1,5 +1,35 @@
 menu "ESP-SDR board"
 
+    choice ESP_SDR_LILYGO_BOARD
+        prompt "LILYGO standalone device"
+        depends on IDF_TARGET_ESP32S3
+        default ESP_SDR_LILYGO_NONE
+
+        config ESP_SDR_LILYGO_NONE
+            bool "None"
+        config ESP_SDR_LILYGO_T_PAGER
+            bool "T-LoRa Pager"
+        config ESP_SDR_LILYGO_T_EMBED_SI4732
+            bool "T-Embed SI4732"
+        config ESP_SDR_LILYGO_T_EMBED_CC1101
+            bool "T-Embed CC1101"
+        config ESP_SDR_LILYGO_T_EMBED_CC1101_PLUS
+            bool "T-Embed CC1101 Plus"
+        config ESP_SDR_LILYGO_T_DECK
+            bool "T-Deck / T-Deck Plus"
+        config ESP_SDR_LILYGO_T_DECK_PRO
+            bool "T-Deck Pro V1.0 (e-paper)"
+        config ESP_SDR_LILYGO_T_DECK_PRO_V11
+            bool "T-Deck Pro V1.1 (e-paper)"
+    endchoice
+
+    config ESP_SDR_LILYGO
+        bool
+        default y if ESP_SDR_LILYGO_T_PAGER || ESP_SDR_LILYGO_T_EMBED_SI4732 || ESP_SDR_LILYGO_T_EMBED_CC1101 || ESP_SDR_LILYGO_T_EMBED_CC1101_PLUS || ESP_SDR_LILYGO_T_DECK || ESP_SDR_LILYGO_T_DECK_PRO || ESP_SDR_LILYGO_T_DECK_PRO_V11
+        help
+            Uses the ESP32-S3 RF backend, onboard display and controls.
+            External SI4732/CC1101/LoRa radios are not used for reception.
+
     config ESP_SDR_M5STACK_BASIC
         bool "M5Stack Basic standalone spectrum display"
         depends on IDF_TARGET_ESP32

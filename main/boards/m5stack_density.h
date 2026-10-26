@@ -28,7 +28,12 @@ static void density_mode(unsigned mhz, bool pc_control) {
         /* Zoomed pixels sharing one FFT bin also share one history column. */
         if (density && density_width != width) { free(density); density = NULL; }
         if (!density) {
-            density = heap_caps_calloc(64, width, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+            density = heap_caps_calloc(64, width,
+#if CONFIG_ESP_SDR_LILYGO && CONFIG_SPIRAM
+                                       MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+#else
+                                       MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+#endif
             density_width = width;
             controls.dpx_failed = density == NULL;
             if (!density) controls.dpx = false;

@@ -32,7 +32,9 @@ static void m5stack_menu_value(char *value, size_t size) {
         else snprintf(value, size, "DCAP %d", controls.filter);
         break;
     case M5_MENU_ABOUT:
-#if CONFIG_ESP_SDR_M5STACK_CORE2
+#if CONFIG_ESP_SDR_LILYGO
+        snprintf(value, size, "%s", controls.about ? LILYGO_NAME : "ESP SDR");
+#elif CONFIG_ESP_SDR_M5STACK_CORE2
         snprintf(value, size, "%s", controls.about ? "CORE2" : "ESP SDR M5");
 #elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
         snprintf(value, size, "%s", controls.about ? "STICKC PLUS2" : "ESP SDR M5");

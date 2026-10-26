@@ -24,7 +24,7 @@ typedef struct {
 static const unsigned m5stack_steps[] = {1, 5, 20, 100};
 static const unsigned m5stack_rates[] = {6, 6, 6, 6, 1, 0};
 static const unsigned m5stack_spans[] = {2, 4, 8, 16, 40, 80};
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || CONFIG_ESP_SDR_LILYGO
 static const unsigned m5stack_fft_sizes[] = {256, 512, 1024, 2048, 4096};
 #else
 static const unsigned m5stack_fft_sizes[] = {256, 512, 1024, 2048, 4096, 8192};

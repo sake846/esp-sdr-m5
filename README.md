@@ -1,13 +1,13 @@
-# ESP-SDR for M5Stack
+# ESP-SDR for M5Stack and LILYGO
 
 English | [日本語](README.ja.md)
 
-Turn an M5Stack device into a standalone spectrum and waterfall display using
+Turn an M5Stack or LILYGO device into a standalone spectrum and waterfall display using
 its built-in ESP32 radio. No external SDR hardware or computer is needed during
 standalone operation.
 
 This project is a fork of [ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr),
-adapted to run ESP-SDR directly on M5Stack devices with their own screens and
+adapted to run ESP-SDR directly on M5Stack and LILYGO devices with their own screens and
 controls. The ESP32 captures I/Q samples, computes FFTs and draws the results
 on the built-in display. A computer is needed to build and flash the firmware;
 after that, the device can run on its own.
@@ -19,8 +19,10 @@ after that, the device can run on its own.
 - On-device frequency tuning, step, span, FFT size and averaging controls.
 - Standalone profiles for M5Stack BASIC, Core2, Cardputer, Cardputer ADV and
   M5StickC Plus2.
+- LILYGO T-Pager, T-Embed SI4732 / CC1101 / CC1101 Plus, T-Deck and
+  T-Deck Pro profiles (not yet hardware-verified).
 - FFT sizes from 256 to 8192 points on BASIC, Core2 and M5StickC Plus2, or up to
-  4096 points on Cardputer and Cardputer ADV.
+  4096 points on Cardputer, Cardputer ADV and LILYGO devices.
 - Optional PC connection through the existing ESP-SDR USB/UART protocol for
   I/Q capture and spectrum viewing.
 
@@ -37,6 +39,17 @@ running below. M5StickC Plus2 has also been verified on real hardware.
 | Cardputer, original K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **Verified** |
 | Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | **Verified** |
 | M5StickC Plus2 | ESP32 | 135 × 240, portrait | `m5stickc-plus2` | **Verified** |
+| LILYGO T-LoRa Pager | ESP32-S3 | 480 × 222 | `lilygo-t-pager` | Unverified |
+| T-Embed SI4732 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-si4732` | Unverified |
+| T-Embed CC1101 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-cc1101` | Unverified |
+| T-Embed CC1101 Plus | ESP32-S3 | 320 × 170 | `lilygo-t-embed-cc1101-plus` | Unverified |
+| T-Deck / T-Deck Plus | ESP32-S3 | 320 × 240 | `lilygo-t-deck` | Unverified |
+| T-Deck Pro V1.0 | ESP32-S3 | 240 × 320, e-paper | `lilygo-t-deck-pro` | Unverified |
+| T-Deck Pro V1.1 | ESP32-S3 | 240 × 320, e-paper | `lilygo-t-deck-pro-v11` | Unverified |
+
+See the [LILYGO guide](docs/lilygo.md) for build commands and controls.
+These profiles receive through the ESP32-S3 radio; onboard SI4732/CC1101/LoRa
+chips are not used. T-Deck Pro uses a slower monochrome e-paper display.
 
 The M5StickC profile specifically targets **M5StickC Plus2**. It does not imply
 compatibility with the original M5StickC or M5StickC Plus. Other devices and
@@ -77,7 +90,7 @@ git submodule update --init --recursive
 
 ### 2. Install and activate the pinned ESP-IDF
 
-All five M5Stack profiles currently use ESP-IDF commit
+All M5Stack and LILYGO profiles currently use ESP-IDF commit
 `25fe69f946311abdaf9ad56591f25fedbc20ac98`. The required revision for each
 profile is recorded in [firmware-targets.json](firmware-targets.json). Use that
 revision when building these profiles.

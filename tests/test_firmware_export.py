@@ -80,6 +80,9 @@ class FirmwareExport(unittest.TestCase):
                     ('m5stack-cardputer', 'esp32s3', '8MB'),
                     ('m5stack-cardputer-adv', 'esp32s3', '8MB'),
                     ('m5stickc-plus2', 'esp32', '8MB')]
+        profiles += [('lilygo-' + board, 'esp32s3', '16MB') for board in [
+            't-pager', 't-embed-si4732', 't-embed-cc1101', 't-embed-cc1101-plus',
+            't-deck', 't-deck-pro', 't-deck-pro-v11']]
         for profile, target, flash in profiles:
             with self.subTest(profile=profile):
                 (self.build / 'config/sdkconfig.json').write_text(json.dumps({'IDF_TARGET': target}))

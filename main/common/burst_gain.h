@@ -19,7 +19,7 @@ extern void force_rx_gain(unsigned, unsigned, unsigned);
 #endif
 #include "burst_gain_min.h"
 typedef enum { GAIN_MANUAL, GAIN_SOFTWARE, GAIN_HARDWARE } burst_gain_mode_t;
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || CONFIG_ESP_SDR_LILYGO
 static burst_gain_mode_t gain_mode = GAIN_SOFTWARE;
 static unsigned gain_code = 30;
 #else
@@ -94,7 +94,7 @@ static bool gain_command(const char *line) {
     }
     if (!strcmp(line, "GAIN HARDWARE")) {
         gain_mode = GAIN_HARDWARE;
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || CONFIG_ESP_SDR_LILYGO
     } else if (!strcmp(line, "GAIN SOFTWARE")) {
         gain_mode = GAIN_SOFTWARE;
 #endif
