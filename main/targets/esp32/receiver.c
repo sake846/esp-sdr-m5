@@ -382,6 +382,19 @@ void burst_serial_idle(bool leased) {
         rx_ready = false;
         prepare_rx();
     }
+    unsigned agc = hardware_agc ? M5_AGC_HARDWARE : software_agc ? M5_AGC_SOFTWARE : M5_AGC_MANUAL;
+    if (m5stack_basic_sync_rx(&agc, &gain_code, gain_max, &rx_filter, &rx_filter_span_follow)) {
+        hardware_agc = agc == M5_AGC_HARDWARE;
+        software_agc = agc == M5_AGC_SOFTWARE;
+        apply_gain();
+        spectrum_snapshot_reset_dc();
+        average_count = average_slot = 0;
+        average_start = 0;
+        frame_work_us = 0;
+        frame_iq_peak = 0;
+        agc_peak_ready = false;
+        agc_release_streak = 0;
+    }
     if (software_agc != agc_was_enabled) {
         agc_was_enabled = software_agc;
         agc_peak_ready = false;

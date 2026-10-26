@@ -31,7 +31,7 @@
 #define LCD_MADCTL 0x08
 #define PLOT_LEFT 4
 #define PLOT_WIDTH 127
-#define SPECTRUM_TOP 38
+#define SPECTRUM_TOP 14
 #define SPECTRUM_BOTTOM 79
 #define FREQUENCY_TOP 82
 #define WATERFALL_TOP 94
@@ -52,7 +52,7 @@
 #define LCD_MADCTL 0x6c
 #define PLOT_LEFT 4
 #define PLOT_WIDTH 232
-#define SPECTRUM_TOP 24
+#define SPECTRUM_TOP 12
 #define SPECTRUM_BOTTOM 47
 #define FREQUENCY_TOP 49
 #define WATERFALL_TOP 60
@@ -101,6 +101,7 @@ static uint16_t row[SCREEN_WIDTH] __attribute__((aligned(4)));
 static spectrum_dbfs_t (*waterfall)[PLOT_WIDTH];
 static spectrum_dbfs_t waterfall_floor[WATERFALL_HEIGHT];
 static unsigned waterfall_head, waterfall_count, waterfall_mhz, waterfall_span, waterfall_fft;
+static unsigned waterfall_frame;
 static bool waterfall_tuned;
 static spectrum_noise_floor_t noise_floor_avg;
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
@@ -177,6 +178,10 @@ static uint16_t glyph(char c) {
     return 0;
 }
 
+#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+#include "m5stack_menu.h"
+#endif
+
 static void text_row(unsigned y, unsigned left, const char *text, uint16_t color) {
     if (y >= 10) return;
     unsigned source_y = y / 2;
@@ -209,6 +214,7 @@ static uint16_t waterfall_blend(uint16_t from, uint16_t to, unsigned step, unsig
 }
 
 static uint16_t waterfall_color(int delta_db) {
+    delta_db = delta_db * controls.wf_contrast / 100 + controls.wf_bright;
     if (delta_db <= 0) return 0x0000;
     if (delta_db < 10) return waterfall_blend(0x0000, 0x001f, delta_db, 10);
     if (delta_db < 20) return waterfall_blend(0x001f, 0x07ff, delta_db - 10, 10);
@@ -362,9 +368,7 @@ static unsigned cardputer_controls_update(unsigned mhz, unsigned matrix_keys, ui
 #endif
 
 void m5stack_basic_init(void) {
-    controls.rate = 3;
-    controls.fft = 2; /* Default to 1024 points. */
-    controls.average = 4; /* Default to sixteen spectra per 100 ms interval. */
+    m5stack_controls_defaults(&controls);
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
     const gpio_config_t hold = {.pin_bit_mask = PIN(4), .mode = GPIO_MODE_OUTPUT};
     ESP_ERROR_CHECK(gpio_config(&hold));
@@ -453,6 +457,11 @@ unsigned m5stack_basic_poll(unsigned mhz, bool pc_control) {
 #endif
 }
 
+bool m5stack_basic_sync_rx(unsigned *agc, unsigned *gain, unsigned gain_max,
+                           int *filter, bool *follow_span) {
+    return m5stack_controls_sync_rx(&controls, agc, gain, gain_max, filter, follow_span);
+}
+
 unsigned m5stack_basic_rate(void) {
     return m5stack_rates[controls.rate];
 }
@@ -471,11 +480,12 @@ unsigned m5stack_basic_average_count(void) {
 
 void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, bool pc_control,
                         bool valid, unsigned cpu_percent) {
-    char settings[40], edges[3][12], cpu[12], gain[8];
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-    char details[24];
-#endif
+    char edges[3][12], cpu[12], gain[8];
     const char *status = pc_control ? "PC" : valid ? "LIVE" : "WAIT";
+#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+    char menu_value[24];
+    m5stack_menu_value(menu_value, sizeof(menu_value));
+#endif
     spectrum_dbfs_t display_bins[PLOT_WIDTH];
     uint8_t trace[PLOT_WIDTH];
     spectrum_dbfs_t noise_floor = SPECTRUM_DBFS_MIN;
@@ -484,17 +494,10 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         waterfall_mhz = mhz;
         waterfall_span = span;
         waterfall_fft = fft_points;
-        waterfall_head = waterfall_count = 0;
+        waterfall_head = waterfall_count = waterfall_frame = 0;
         noise_floor_avg = (spectrum_noise_floor_t){0};
         waterfall_tuned = true;
     }
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-    snprintf(settings, sizeof(settings), "STP %uM SPN %uM", m5stack_steps[controls.step], span);
-    snprintf(details, sizeof(details), "FFT %u AVE %u", fft_points, m5stack_basic_average_count());
-#else
-    snprintf(settings, sizeof(settings), "STP %uM SPN %uM FFT %u AVE %u", m5stack_steps[controls.step], span,
-             fft_points, m5stack_basic_average_count());
-#endif
     snprintf(edges[0], sizeof(edges[0]), "%u", mhz - span / 2);
     snprintf(edges[1], sizeof(edges[1]), "%u", mhz);
     snprintf(edges[2], sizeof(edges[2]), "%u", mhz + span / 2);
@@ -522,13 +525,13 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             }
         }
         noise_floor = spectrum_noise_floor_update(&noise_floor_avg, frame_minimum);
-        int graph_minimum = noise_floor;
+        int graph_minimum = noise_floor - controls.y_pos;
         for (unsigned x = 0; x < PLOT_WIDTH; x++) {
             unsigned height = (spectrum_dbfs_to_display_value(display_bins[x], graph_minimum, 80) *
                                (SPECTRUM_BOTTOM - SPECTRUM_TOP)) / 255;
             trace[x] = SPECTRUM_BOTTOM - height;
         }
-        if (!pc_control) {
+        if (!pc_control && waterfall_frame++ % m5stack_wf_intervals[controls.wf_speed] == 0) {
             waterfall_head = (waterfall_head + 1) % WATERFALL_HEIGHT;
             memcpy(waterfall[waterfall_head], display_bins, sizeof(display_bins));
             waterfall_floor[waterfall_head] = noise_floor;
@@ -573,23 +576,21 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             text_row(y - 1, gain_left, gain, 0xffff);
             text_row(y - 1, status_left, status, pc_control ? 0xffe0 : 0xffff);
         }
-        if (y >= 14 && y < 24) text_row(y - 14, 4, settings, 0xffff);
-        if (y >= 26 && y < 36) text_row(y - 26, 4, details, 0xffff);
         if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 10) {
             text_row(y - FREQUENCY_TOP, PLOT_LEFT, edges[0], 0xffff);
             text_row(y - FREQUENCY_TOP, SCREEN_WIDTH / 2 - (unsigned)strlen(edges[1]) * 7 / 2, edges[1], 0xffff);
             text_row(y - FREQUENCY_TOP, SCREEN_WIDTH - (unsigned)strlen(edges[2]) * 7 - 3, edges[2], 0xffff);
         }
-        if (y >= 218 && y < 228) {
-            text_row(y - 218, 4, "TUNE-", COLOR_SRDECK_YELLOW_GREEN);
-            text_row(y - 218, 53, "STEP", COLOR_SRDECK_YELLOW_GREEN);
-            text_row(y - 218, 96, "TUNE+", COLOR_SRDECK_YELLOW_GREEN);
+        if (y >= 224 && y < 234) {
+            text_row(y - 224, controls.menu == M5_MENU_RESET ? 0 : controls.menu ? 18 : 4,
+                     controls.menu == M5_MENU_RESET ? "CANCEL" : controls.menu ? "-" : "TUNE-",
+                     COLOR_SRDECK_YELLOW_GREEN);
+            text_row(y - 224, 53, "MENU", COLOR_SRDECK_YELLOW_GREEN);
+            text_row(y - 224, controls.menu && controls.menu != M5_MENU_RESET ? 110 : 96,
+                     controls.menu == M5_MENU_RESET ? "RESET" : controls.menu ? "+" : "TUNE+",
+                     COLOR_SRDECK_YELLOW_GREEN);
         }
-        if (y >= 230 && y < 240) {
-            text_row(y - 230, 4, "SPAN", COLOR_SRDECK_YELLOW_GREEN);
-            text_row(y - 230, 53, "FFT", COLOR_SRDECK_YELLOW_GREEN);
-            text_row(y - 230, 96, "AVE", COLOR_SRDECK_YELLOW_GREEN);
-        }
+        if (!pc_control && controls.menu) m5stack_menu_row(y, menu_value);
 #else
         if (y >= 1 && y < 11) title_row(y - 1);
         if (y < 10) {
@@ -599,7 +600,6 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             text_row(y, SCREEN_WIDTH / 2 - (unsigned)strlen(gain) * 7 / 2, gain, 0xffff);
             text_row(y, cpu_left, cpu, 0xffff);
         }
-        if (y >= 12 && y < 22) text_row(y - 12, 4, settings, 0xffff);
         if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 10) {
             text_row(y - FREQUENCY_TOP, 4, edges[0], 0xffff);
             const char *center = frequency_input_length ? frequency_input : edges[1];

@@ -41,27 +41,46 @@ averaging and software gain control targeting a raw IQ peak of -12 dBFS. It
 starts from PHY gain index 30. Each display update averages FFT results captured
 during a nominal 100 ms interval; LCD drawing adds a little to refresh time.
 
-| Button | Action |
-| --- | --- |
-| A, short press | Decrease the center frequency by the selected step |
-| A, hold for 0.6 seconds | Cycle span |
-| B, short press | Cycle the step: 1, 5, 20, 100 MHz |
-| B, hold for 0.6 seconds | Cycle FFT size |
-| C | Increase the center frequency by the selected step |
-| C, hold for 0.6 seconds | Cycle averaging count |
+The normal button hints are `TUNE-`, `MENU`, `TUNE+`. Left/right tune on
+release. Press the center button to open the menu or advance one item; hold it
+for 0.6 seconds to move back one item (once per hold). Left/right decrease or
+increase the selected value. Five seconds without input returns to tuning.
+The selected item and its value appear in a panel at the center of the screen,
+with the value in larger text. Menu navigation wraps between the first and last
+items; numeric settings stop at their limits.
 
-Short A/C presses tune only after the button is released. On button-only
-profiles, FFT and AVE start at 1024 and 16 and can be changed with the center
-and right button long presses. M5Stack profiles use software AGC in standalone
-operation; serial gain commands can explicitly override it. Gain changes stay
-within the calibrated PHY range. The CPU
+| Menu item, in order | Values / action |
+| --- | --- |
+| FREQ STEP | 1, 5, 20, 100 MHz |
+| FREQ SPAN | 2, 4, 8, 16, 40, 80 MHz |
+| Y POS | Trace offset −40 to +40 dB, in 5 dB steps; positive raises the trace |
+| WF BRIGHT | Waterfall offset −30 to +30 dB, in 5 dB steps |
+| WF CONTRAST | 25–200%, in 25% steps; default 100% |
+| WF SPEED | 1/10×, 1/5×, 1/2×, 1×; default one waterfall row per valid display update |
+| FFT NUM | 256, 512, 1024, 2048, 4096, 8192; default 1024 |
+| FFT AVERAGE | 1, 2, 4, 8, 16; default 16 |
+| AGC TYPE | MANUAL, SOFTWARE (default), HARDWARE; cycles in either direction |
+| RF GAIN | Calibrated PHY gain index; changing it selects MANUAL mode |
+| FILTER | AUTO (follow span, default), WIDE (DAC 0), DAC 1–127; larger codes narrow the filter |
+| ABOUT | Left/right switch between the firmware name and board name |
+| RESET | Right restores startup frequency and settings; left exits |
+
+RESET returns to 2412 MHz, STEP 1 MHz, SPAN 16 MHz, FFT 1024, AVE 16,
+zero Y POS/brightness offsets, 100% contrast, 1× waterfall speed, SOFTWARE AGC
+starting at gain index 30 (limited to the calibrated range), and AUTO filter.
+Settings are kept in RAM and return to defaults on reboot.
+
+M5Stack profiles start with software AGC in standalone operation; serial gain
+commands can explicitly override it. Gain changes stay within the calibrated
+PHY range. The CPU
 percentage estimates time spent capturing, calculating FFTs and drawing the
 LCD during each integration/update interval; it is a local display workload
 estimate, not a system-wide idle-task measurement.
 
 The center frequency and plot span appear above the plots; frequencies below
-them are in MHz. The CPU estimate is at the upper right, and the settings line
-shows the step, span, FFT size and selected average count. The selected number
+them are in MHz. The CPU estimate is at the upper right. The Basic and Core2
+omit the settings line below the title and extend the spectrum graph upward
+into that space. The selected number
 of snapshots is scheduled at evenly spaced positions within each 100 ms
 interval and averaged in the power domain. If a capture runs late, missed
 positions are skipped rather than bunched together, so the actual number may be

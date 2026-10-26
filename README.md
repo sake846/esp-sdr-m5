@@ -260,19 +260,22 @@ starts from PHY gain index 30.
 
 Core2 uses three touch zones corresponding to A/B/C.
 
-| Control | Short press | Hold for 0.6 seconds |
+| Control | Normal operation | Menu operation |
 | --- | --- | --- |
-| A | Tune down by the selected step | Cycle span |
-| B | Cycle tuning step | Cycle FFT size |
-| C | Tune up by the selected step | Cycle averaging count |
+| A (left) | TUNE- | Decrease value |
+| B (center) | Open MENU | Next item; hold 0.6 seconds for previous item |
+| C (right) | TUNE+ | Increase value |
+
+Five seconds without input returns to tuning. The selected value appears in
+larger text at screen center. Items are FREQ STEP, FREQ SPAN, Y POS, WF BRIGHT,
+WF CONTRAST, WF SPEED, FFT NUM, FFT AVERAGE, AGC TYPE, RF GAIN, FILTER, ABOUT,
+RESET. In RESET, right restores startup settings and left exits.
+See [menu values and defaults](docs/m5stack-basic.md#standalone-operation).
 
 ### M5StickC Plus2
 
-| Button | Short press | Hold for 0.6 seconds |
-| --- | --- | --- |
-| C (left side) | Tune down by the selected step | Cycle span |
-| A (center) | Cycle tuning step | Cycle FFT size |
-| B (right side) | Tune up by the selected step | Cycle averaging count |
+The same menu uses C (left side) for TUNE-/decrease, A (center) for MENU,
+and B (right side) for TUNE+/increase.
 
 ### Cardputer and Cardputer ADV
 
@@ -290,11 +293,10 @@ Core2 uses three touch zones corresponding to A/B/C.
 
 Tuning steps are 1, 5, 20 and 100 MHz. Spans are 2, 4, 8, 16, 40 and 80 MHz;
 the 2/4/8 MHz views zoom into a 16 MS/s capture. Averaging counts are 1, 2, 4,
-8 and 16. FFT and AVE start at 1024 and 16; button-only profiles change them
-with the center and right button long presses. All M5Stack profiles use
-software AGC in standalone operation; their buttons and Cardputer keyboard do
-not switch gain modes. A serial `GAIN HARDWARE` or `GAIN MANUAL` command can
-override it; send `GAIN SOFTWARE` or reboot to resume automatic control.
+8 and 16. FFT and AVE start at 1024 and 16. All M5Stack profiles start with
+software AGC. Three-button profiles offer AGC TYPE and RF GAIN in the menu;
+Cardputer gain modes are controlled through serial commands. `GAIN HARDWARE`
+or `GAIN MANUAL` overrides software AGC; `GAIN SOFTWARE` resumes it.
 
 ## Optional PC connection
 

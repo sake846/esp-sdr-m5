@@ -14,6 +14,28 @@ class StandaloneLoop(unittest.TestCase):
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include "software_agc.h"
+#include "m5stack_basic_controls.h"
+static unsigned gain_code = 30, gain_applies;
+static m5stack_controls_t ui;
+static int rx_filter = -1;
+static bool rx_filter_span_follow = true;
+#if TEST_S3
+#define GAIN_SOFTWARE M5_AGC_SOFTWARE
+#define GAIN_MIN 0
+static unsigned gain_mode = M5_AGC_MANUAL;
+static unsigned gain_max(void) { return 72; }
+static void gain_reconfigure(void) { gain_applies++; }
+#else
+static unsigned gain_max = 72;
+static bool hardware_agc, software_agc;
+static void apply_gain(void) { gain_applies++; }
+#endif
+static bool m5stack_basic_sync_rx(unsigned *agc, unsigned *gain, unsigned maximum,
+                                 int *filter, bool *follow) {
+    return m5stack_controls_sync_rx(&ui, agc, gain, maximum, filter, follow);
+}
+static void m5stack_basic_set_gain_index(unsigned gain) { assert(gain <= 72); }
 #define M5_LOCAL_FFT_MAX 8192
 #define M5_LOCAL_AVERAGE_MAX 16
 static int64_t now = 10000;
@@ -47,8 +69,9 @@ static bool spectrum_snapshot(unsigned r, unsigned n,
     successful++;
     return true;
 }
-static bool spectrum_snapshot_inplace(unsigned r, unsigned n,
-    bool (*acquire)(unsigned,unsigned,const uint32_t**,unsigned*), uint8_t *bins, int16_t *workspace) {
+static bool spectrum_snapshot_inplace_peak(unsigned r, unsigned n,
+    bool (*acquire)(unsigned,unsigned,const uint32_t**,unsigned*), uint8_t *bins, int16_t *workspace, unsigned *peak) {
+    *peak = 0;
     assert(workspace == iq_buffer); return spectrum_snapshot(r, n, acquire, bins);
 }
 static void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned n,
@@ -117,6 +140,22 @@ int main(void) {
         at(start+130000, false); verify_average();
     }
     assert(prepared == 1);
+#if !TEST_S3
+    target = 2; start = begin_window(); at(start+25000, false);
+    reset_before = resets;
+    ui.menu = M5_MENU_GAIN;
+    m5stack_menu_adjust(&ui, frequency_mhz, 1);
+    at(start+30000, false);
+    assert(gain_code == 31 && !hardware_agc && !software_agc && gain_applies == 1);
+    assert(resets == reset_before + 1);
+    captures = successful = 0; memset(expected_power, 0, sizeof(expected_power));
+    at(start+55000, false); at(start+105000, false); at(start+130000, false);
+    assert(captures == 2); verify_average(); /* Old gain samples were discarded. */
+    ui.menu = M5_MENU_FILTER;
+    m5stack_menu_adjust(&ui, frequency_mhz, 1);
+    at(start+135000, false);
+    assert(!rx_filter_span_follow && rx_filter == 0);
+#endif
     return 0;
 }
 '''
@@ -125,4 +164,4 @@ int main(void) {
                 source = (ROOT / f'main/targets/{chip}/receiver.c').read_text()
                 start = source.index('void burst_serial_idle(bool leased) {')
                 function = source[start:source.index('\n}', start) + 2]
-                compile_run(stub + function + check)
+                compile_run(stub + function + check, [f"TEST_S3={int(chip == 'esp32s3')}"])

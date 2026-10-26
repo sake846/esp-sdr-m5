@@ -125,8 +125,9 @@ int main(void) {
     for (unsigned j = 0; j < 19; j++) {
         down[positions[j][0]][positions[j][1]] = true;
         events[0] = positions[j][2]; count = 1; cursor = 0;
-        assert(keyboard_buttons() == (1u << j));
-        assert(keyboard_buttons() == (1u << j)); /* State survives empty FIFO. */
+        unsigned bit = 1u << (j < 8 ? j : j + 1); /* Bit 8 is unused; digits start at 9. */
+        assert(keyboard_buttons() == bit);
+        assert(keyboard_buttons() == bit); /* State survives empty FIFO. */
         events[0] |= 0x80; cursor = 0;
         down[positions[j][0]][positions[j][1]] = false;
         assert(keyboard_buttons() == 0);

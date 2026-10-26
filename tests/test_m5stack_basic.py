@@ -28,45 +28,82 @@ static void hold(unsigned key) {
     tick(0, 1, false); tick(0, 30, false);
 }
 int main(void) {
+    m5stack_controls_defaults(&s);
+    s.gain_max = 72;
     tick(1, 1, false); tick(0, 10, false); tick(0, 30, false);
-    assert(mhz == 2412); /* Contact bounce is not a press. */
+    assert(mhz == 2412 && s.menu == M5_MENU_NONE);
     press(1); assert(mhz == 2411);
     press(4); assert(mhz == 2412);
-    press(2); assert(s.step == 1);
-    press(4); assert(mhz == 2417);
-    press(2); assert(s.step == 2);
-    press(1); assert(mhz == 2397);
-    press(2); assert(s.step == 3);
-    press(4); assert(mhz == 2497); /* Fourth tuning step is 100 MHz. */
-    press(2); assert(s.step == 0);
-    tick(2, 1, false); tick(2, 30, false); tick(2, 600, false);
-    assert(s.fft == 1 && s.rate == 0 && s.step == 0);
-    tick(2, 1000, false); assert(s.fft == 1);
-    tick(0, 1, false); tick(0, 30, false); assert(s.step == 0);
-    for (unsigned j = 1; j <= 6; j++) {
-        hold(1); assert(s.rate == j % 6 && mhz == 2497);
+    press(2); assert(s.menu == M5_MENU_STEP && s.step == 0);
+    press(4); assert(s.step == 1 && mhz == 2412);
+    press(1); assert(s.step == 0);
+    press(1); assert(s.step == 0); /* Values stop at the lower bound. */
+    const m5stack_menu_t order[] = {M5_MENU_SPAN, M5_MENU_Y_POS, M5_MENU_WF_BRIGHT,
+        M5_MENU_WF_CONTRAST, M5_MENU_WF_SPEED, M5_MENU_FFT, M5_MENU_AVERAGE,
+        M5_MENU_AGC, M5_MENU_GAIN, M5_MENU_FILTER, M5_MENU_ABOUT, M5_MENU_RESET, M5_MENU_STEP};
+    for (unsigned j = 0; j < sizeof(order)/sizeof(order[0]); j++) {
+        press(2); assert(s.menu == order[j]);
     }
-    for (unsigned j = 1; j <= 5; j++) {
-        hold(4); assert(s.average == j % 5 && mhz == 2497);
-    }
-    for (unsigned j = 2; j <= 6; j++) {
-        hold(2); assert(s.fft == j % 6 && s.step == 0);
-    }
-    assert(m5stack_spans[0] == 2 && m5stack_spans[5] == 80);
-    assert(m5stack_rates[3] == 6 && m5stack_rates[4] == 1 && m5stack_rates[5] == 0);
-    assert(m5stack_fft_sizes[5] == 8192 && m5stack_average_counts[4] == 16);
+    hold(2); assert(s.menu == M5_MENU_RESET); /* One reverse step, no release action. */
+    hold(2); assert(s.menu == M5_MENU_ABOUT);
+    press(4); assert(s.about == 1); press(1); assert(s.about == 0);
+    s.menu = M5_MENU_SPAN; press(4); assert(s.rate == 4); press(1); assert(s.rate == 3);
+    s.menu = M5_MENU_Y_POS; press(4); assert(s.y_pos == 5); press(1); assert(s.y_pos == 0);
+    s.menu = M5_MENU_WF_BRIGHT; press(1); assert(s.wf_bright == -5);
+    s.menu = M5_MENU_WF_CONTRAST; press(4); assert(s.wf_contrast == 125);
+    s.menu = M5_MENU_WF_SPEED; press(1); assert(s.wf_speed == 2);
+    s.menu = M5_MENU_FFT; press(4); assert(s.fft == 3);
+    s.menu = M5_MENU_AVERAGE; press(1); assert(s.average == 3);
+    s.menu = M5_MENU_AGC; press(4); assert(s.agc == M5_AGC_HARDWARE);
+    press(4); assert(s.agc == M5_AGC_MANUAL); press(1); assert(s.agc == M5_AGC_HARDWARE);
+    unsigned agc = M5_AGC_SOFTWARE, gain = 35; int filter = 80; bool follow = true;
+    assert(m5stack_controls_sync_rx(&s, &agc, &gain, 72, &filter, &follow));
+    assert(agc == M5_AGC_HARDWARE && gain == 35 && follow && s.filter == -1);
+    s.menu = M5_MENU_GAIN; press(4);
+    assert(m5stack_controls_sync_rx(&s, &agc, &gain, 72, &filter, &follow));
+    assert(agc == M5_AGC_MANUAL && gain == 36);
+    s.gain = 72; press(4); assert(s.gain == 72);
+    s.gain = 0; press(1); assert(s.gain == 0);
+    s.menu = M5_MENU_FILTER; press(4); assert(s.filter == 0);
+    assert(m5stack_controls_sync_rx(&s, &agc, &gain, 72, &filter, &follow));
+    assert(filter == 0 && !follow);
+    press(1); assert(s.filter == -1);
+    m5stack_controls_sync_rx(&s, &agc, &gain, 72, &filter, &follow); assert(follow);
+    gain = 42; agc = M5_AGC_SOFTWARE; filter = 73; follow = false;
+    assert(!m5stack_controls_sync_rx(&s, &agc, &gain, 72, &filter, &follow));
+    assert(s.gain == 42 && s.agc == agc && s.filter == 73); /* PC state remains authoritative. */
+    s.menu = M5_MENU_RESET; press(4);
+    assert(s.reset_done && mhz == 2412 && s.menu == M5_MENU_RESET);
+    assert(s.rate == 3 && s.step == 0 && s.fft == 2 && s.average == 4);
+    assert(s.y_pos == 0 && s.wf_bright == 0 && s.wf_contrast == 100 && s.wf_speed == 3);
+    m5stack_controls_sync_rx(&s, &agc, &gain, 20, &filter, &follow);
+    assert(agc == M5_AGC_SOFTWARE && gain == 20 && follow); /* Reset respects calibrated bounds. */
+    press(1); assert(s.menu == M5_MENU_NONE);
+    hold(1); assert(mhz == 2411 && s.rate == 3); /* Side holds tune once on release. */
+    hold(4); assert(mhz == 2412 && s.average == 4);
+    press(2); tick(0, 4999, false); assert(s.menu == M5_MENU_STEP);
+    tick(0, 1, false); assert(s.menu == M5_MENU_NONE);
+    press(2); tick(4, 4999, false); tick(4, 30, false);
+    tick(4, 6000, false); assert(s.menu == M5_MENU_STEP); /* Held input prevents timeout. */
+    tick(0, 1, false); tick(0, 30, false); assert(s.step == 1);
+    tick(0, 4999, false); assert(s.menu == M5_MENU_STEP);
+    tick(0, 1, false); assert(s.menu == M5_MENU_NONE);
+    press(2); unsigned old_step = s.step;
+    tick(4, 5000, false); tick(4, 30, false);
+    tick(0, 1, false); tick(0, 30, false);
+    assert(s.menu == M5_MENU_NONE && s.step == old_step && mhz == 2417);
+    /* A new input after a polling gap cannot keep an expired menu alive. */
     mhz = RX_FREQ_MIN; press(1); assert(mhz == RX_FREQ_MIN);
     mhz = RX_FREQ_MAX; press(4); assert(mhz == RX_FREQ_MAX);
-    tick(7, 100, true); tick(7, 1000, true);
-    assert(mhz == RX_FREQ_MAX && s.rate == 0 && s.step == 0);
+    press(2); tick(7, 100, true); tick(7, 1000, true);
+    assert(s.menu == M5_MENU_NONE);
     tick(7, 1000, false); tick(0, 1, false); tick(0, 30, false);
-    assert(mhz == RX_FREQ_MAX && s.rate == 0 && s.step == 0);
-    /* A button held across a PC lease cannot become a local action. */
-    press(1); assert(mhz == RX_FREQ_MAX - 1);
+    assert(mhz == RX_FREQ_MAX && s.menu == M5_MENU_NONE && s.step == 1);
     now = UINT32_MAX - 10;
-    tick(4, 0, false); tick(4, 30, false);
-    tick(0, 1, false); tick(0, 30, false);
-    assert(mhz == RX_FREQ_MAX); /* Debouncing survives timer wraparound. */
+    press(2); assert(s.menu == M5_MENU_STEP); /* Debounce crosses timer wrap. */
+    now = UINT32_MAX - 100; s.last_input = now;
+    press(4); tick(0, 4999, false); assert(s.menu == M5_MENU_STEP);
+    tick(0, 1, false); assert(s.menu == M5_MENU_NONE); /* Timeout also crosses wrap. */
     return 0;
 }
 '''
@@ -142,12 +179,12 @@ int main(void) {
     assert(inputs == ((UINT64_C(1) << 37) | (UINT64_C(1) << 38) | (UINT64_C(1) << 39)));
     assert(rows == 240 && m5stack_basic_rate() == 6);
     assert(m5stack_basic_poll(2412, false) == 2412);
-    bins[128] = 255; bins[0] = 0; bins[1] = 128; bins[255] = 64;
+    bins[127] = 255; bins[255] = 0; bins[254] = 128; bins[0] = 64;
     m5stack_basic_draw(2412, bins, 256, false, true, 0);
     assert(rows == 480);
     assert(pixels[32 * 320 + 4] == 0x05ff); /* Thin trace starts at the left edge. */
     assert(pixels[50 * 320 + 6] == 0x05ff); /* The steep peak is connected to its neighbor. */
-    assert(pixels[64 * 320 + 160] != 0x05ff); /* Center bin is displayed without interpolation. */
+    assert(pixels[64 * 320 + 164] != 0x05ff); /* The floor beyond the adjoining peak remains unfilled. */
     unsigned vertical_grid_lines = 0;
     for (unsigned x = PLOT_LEFT; x < PLOT_LEFT + PLOT_WIDTH; x++)
         if (pixels[33 * 320 + x] == 0x2104) vertical_grid_lines++;
@@ -155,9 +192,9 @@ int main(void) {
     for (unsigned x = PLOT_LEFT; x < PLOT_LEFT + PLOT_WIDTH; x++)
         assert(pixels[SPECTRUM_BOTTOM * 320 + x] == 0x4208); /* Visible baseline across the plot. */
     assert(pixels[FREQUENCY_TOP * 320 + 4] == 0xffff); /* Frequency axis between plots. */
-    assert(pixels[BUTTON_HINT_TOP * 320 + 13] == 0xb726);
-    assert(pixels[BUTTON_HINT_TOP * 320 + 128] == 0xb726);
-    assert(pixels[BUTTON_HINT_TOP * 320 + 231] == 0xb726); /* Hints stay over the buttons. */
+    assert(pixels[BUTTON_HINT_TOP * 320 + 34] == 0xb726);
+    assert(pixels[BUTTON_HINT_TOP * 320 + 144] == 0xb726);
+    assert(pixels[BUTTON_HINT_TOP * 320 + 248] == 0xb726); /* Hints stay over the buttons. */
     assert(pixels[97 * 320 + 4] == 0xffff); /* Newest waterfall row. */
     assert(pixels[97 * 320 + 160] == waterfall_color(0));
     memset(bins, 0, sizeof(bins));
@@ -180,11 +217,35 @@ int main(void) {
         m5stack_basic_draw(2413, bins, 256, false, true, 0);
     }
     unsigned latest_peak = (64 + (WATERFALL_HEIGHT - 1) * 4) & 255;
-    unsigned latest_x = PLOT_LEFT + ((((latest_peak + 128) & 255) * PLOT_WIDTH + 255) / 256);
-    unsigned oldest_x = PLOT_LEFT + ((192 * PLOT_WIDTH + 255) / 256);
+    unsigned latest_x = PLOT_LEFT + ((((127 - latest_peak) & 255) * PLOT_WIDTH + 255) / 256);
+    unsigned oldest_x = PLOT_LEFT + ((63 * PLOT_WIDTH + 255) / 256);
     assert(rows == 1200 + WATERFALL_HEIGHT * 240);
     assert(pixels[WATERFALL_TOP * 320 + latest_x] == 0xffff); /* Newest moving peak. */
     assert(pixels[(WATERFALL_TOP + WATERFALL_HEIGHT - 1) * 320 + oldest_x] == 0xffff);
+    memset(bins, 0, sizeof(bins));
+    controls.y_pos = 40;
+    m5stack_basic_draw(2413, bins, 256, false, true, 0);
+    bool raised = false;
+    for (unsigned y = SPECTRUM_TOP; y < SPECTRUM_BOTTOM; y++)
+        if (pixels[y * 320 + PLOT_LEFT] == 0x05ff) raised = true;
+    assert(raised); /* A positive Y POS lifts the flat trace off the baseline. */
+    controls.y_pos = 0;
+    controls.wf_bright = 5; assert(waterfall_color(0) != 0);
+    controls.wf_bright = 0; controls.wf_contrast = 200;
+    assert(waterfall_color(20) == 0xffe0);
+    controls.wf_contrast = 100;
+    waterfall_frame = 0; controls.wf_speed = 0;
+    unsigned before_head = waterfall_head;
+    for (unsigned frame = 0; frame < 10; frame++) m5stack_basic_draw(2413, bins, 256, false, true, 0);
+    assert(waterfall_head == (before_head + 1) % WATERFALL_HEIGHT);
+    for (controls.menu = M5_MENU_STEP; controls.menu <= M5_MENU_RESET; controls.menu++) {
+        m5stack_basic_draw(2413, bins, 256, false, false, 0);
+        assert(pixels[86 * 320 + 32] == COLOR_SRDECK_YELLOW_GREEN);
+        assert(pixels[120 * 320 + 33] == 0x0861);
+    }
+    controls.menu = M5_MENU_WF_BRIGHT;
+    controls.wf_bright = 10;
+    m5stack_basic_draw(2413, bins, 256, false, true, 0);
     const char *preview = getenv("M5STACK_PREVIEW");
     if (preview) {
         FILE *f = fopen(preview, "wb");

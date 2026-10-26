@@ -23,7 +23,7 @@ python -m unittest discover -s tests -p "test_firmware_export.py" -v
 
 | Test | Regression coverage |
 | --- | --- |
-| `test_m5stack_basic.py` | Debounce, all short/long button actions, bounds, timer wrap, PC handoff, Basic SPI rendering and waterfall history |
+| `test_m5stack_basic.py` | Menu order/reversal, setting bounds, five-second timeout, reset, receiver synchronization, debounce, timer wrap, PC handoff, Basic SPI overlay and waterfall controls |
 | `test_cardputer_controls.py` | Original keyboard matrix, ADV event press/release, per-key debounce, Shift reversal, four-digit frequency validation and PC handoff |
 | `test_m5stack_displays.py` | Core2 AXP192/AXP2101 power setup, touch-zone boundaries and I2C failure; Core2/Cardputer/ADV/Plus2 LCD geometry, cropped spans, peak reduction, waterfall reset and one column-window update per frame |
 | `test_m5stack_spectrum.py` | Actual IQ unpacking, Hann window, FFT and quantization for all five boards; positive/negative tones at every supported FFT size, in-place capture, DC resets, workspace reuse, 4 KiB default table budget, 2048-point protocol workspace and allocation recovery |

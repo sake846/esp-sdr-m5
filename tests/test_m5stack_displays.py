@@ -109,7 +109,7 @@ int main(void) {
     pmu[3]=TEST_PMU;
     m5stack_basic_init();
     assert(rows==TEST_HEIGHT && column_windows==1 && m5stack_basic_rate()==6);
-    assert(m5stack_basic_fft_points()==1024 && m5stack_basic_average_count()==8);
+    assert(m5stack_basic_fft_points()==1024 && m5stack_basic_average_count()==16);
 #if CONFIG_ESP_SDR_M5STACK_CORE2
     assert(levels[4]==1);
     if(TEST_PMU==0x4a){assert((pmu[0x90]&0x1a)==0x1a && pmu[0x96]==28);}
@@ -127,7 +127,7 @@ int main(void) {
     assert(levels[38]==1 && madctl==0x6c);
 #endif
     uint8_t bins[8192]={0};
-    bins[128]=255;
+    bins[127]=255;
     m5stack_basic_draw(2412,bins,256,false,true,0);
     assert(rows==2*TEST_HEIGHT && column_windows==2 && waterfall_count==1);
     assert(pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==0xffff);
@@ -140,15 +140,22 @@ int main(void) {
     m5stack_basic_draw(2413,bins,256,false,true,0);
     assert(waterfall_count==1 && pixels[(WATERFALL_TOP+1)*TEST_WIDTH+PLOT_LEFT]==0);
     /* A 2 MHz view crops the central 32 bins of the 16 MHz acquisition. */
-    controls.rate=0;bins[128]=255;bins[240]=200;
+    controls.rate=0;bins[127]=255;bins[15]=200;
     m5stack_basic_draw(2413,bins,256,false,true,0);
     assert(waterfall_count==1);
     assert(pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==waterfall_color(60));
     /* Peak reduction preserves a narrow signal in an 8192/4096-bin spectrum. */
     memset(bins,0,sizeof(bins));controls.rate=3;
-    bins[TEST_FFT/2+1]=255;
+    bins[TEST_FFT/2-2]=255;
     m5stack_basic_draw(2413,bins,TEST_FFT,false,true,0);
     assert(waterfall_count==1 && pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==0xffff);
+#if CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+    controls.menu = M5_MENU_AGC;
+    m5stack_basic_draw(2413,bins,TEST_FFT,false,false,0);
+    unsigned margin = TEST_WIDTH > 200 ? 32 : 4;
+    assert(pixels[(TEST_HEIGHT/2-34)*TEST_WIDTH+margin] == COLOR_SRDECK_YELLOW_GREEN);
+    assert(pixels[(TEST_HEIGHT/2)*TEST_WIDTH+margin+1] == 0x0861);
+#endif
 #if !CONFIG_ESP_SDR_M5STACK_CORE2
     free(waterfall);
 #endif

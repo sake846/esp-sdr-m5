@@ -10,11 +10,11 @@ Core2 uses the ESP32 receiver backend, its 320×240 LCD and three touch zones
 along the bottom of the display. The firmware detects the AXP192 or AXP2101
 power controller and configures the LCD, backlight and shared LCD/touch reset.
 The display touch zones map to the Basic A/B/C controls. The USB connection
-uses the onboard USB-UART bridge at 2,000,000 baud. A hold cycles SPAN, B hold
-cycles FFT, and C hold cycles AVE; short presses tune down, change STEP, and
-tune up, respectively. Since the touchscreen reports one touch point at a
-time, resume software gain control after a serial manual adjustment by
-rebooting or sending `GAIN SOFTWARE` over USB.
+uses the onboard USB-UART bridge at 2,000,000 baud. The normal controls are
+A: TUNE-, B: MENU, C: TUNE+. B advances the menu; holding B for 0.6 seconds
+moves back one item. A/C adjust the selected value. Five seconds without input
+returns to tuning. The [Basic menu](m5stack-basic.md#standalone-operation)
+includes display settings, AGC, RF gain, filter, About and Reset.
 
 ```powershell
 idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 `
@@ -34,7 +34,8 @@ stays enabled during standalone operation; serial gain commands can explicitly
 override it. The standalone defaults are FFT 1024, AVE 16 and gain index 30.
 The local FFT menu goes up to 4096 points and uses internal RAM.
 Its screen uses a compact spectrum trace and waterfall layout. The USB
-connection uses native USB Serial/JTAG.
+connection uses native USB Serial/JTAG. The settings line is omitted so the
+spectrum graph can extend upward.
 
 ```powershell
 idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 `
@@ -60,10 +61,12 @@ idf.py -B build-m5stack-cardputer-adv -p COMx flash
 ## M5StickC Plus2
 
 M5StickC Plus2 uses the ESP32 backend, its portrait 135×240 ST7789 display and
-the built-in A/B/C buttons. Button C (GPIO35, left side) tunes down and
-cycles SPAN when held. Button A (GPIO37, center) cycles STEP with a short press
-and FFT size when held. Button B (GPIO39, right side) tunes up and cycles AVE
-when held. The firmware asserts GPIO4 early to keep the power rail on. USB serial uses its
+the built-in A/B/C buttons. Button C (GPIO35, left side) tunes down,
+A (GPIO37, center) opens/advances the menu, and B (GPIO39, right side) tunes up.
+In the menu, C/B adjust the value and holding A for 0.6 seconds moves back one
+item. Five seconds without input returns to tuning. The firmware asserts GPIO4
+early to keep the power rail on. Both settings lines are omitted, and the
+spectrum graph extends upward to just below the title. USB serial uses its
 onboard USB-UART bridge at 2,000,000 baud.
 
 ```powershell
@@ -73,8 +76,8 @@ idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 `
 idf.py -B build-m5stickc-plus2 -p COMx flash
 ```
 
-The builds retain the frequency, STEP, SPAN, FFT and AVE behavior described
-in [M5Stack Basic](m5stack-basic.md). Release artifacts can be built with
+The three-button builds share the [M5Stack Basic menu](m5stack-basic.md).
+Cardputer builds use the keyboard controls listed above. Release artifacts can be built with
 `python tools/build_firmware.py --profile m5stack-core2 --version VERSION` or
 `python tools/build_firmware.py --profile m5stack-cardputer --version VERSION`,
 `--profile m5stack-cardputer-adv` or `--profile m5stickc-plus2`.
