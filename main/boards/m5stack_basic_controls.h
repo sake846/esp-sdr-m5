@@ -24,7 +24,7 @@ typedef struct {
 static const unsigned m5stack_steps[] = {1, 5, 20, 100};
 static const unsigned m5stack_rates[] = {6, 6, 6, 6, 1, 0};
 static const unsigned m5stack_spans[] = {2, 4, 8, 16, 40, 80};
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || (CONFIG_ESP_SDR_M5UNIFIED && CONFIG_IDF_TARGET_ESP32S3)
 static const unsigned m5stack_fft_sizes[] = {256, 512, 1024, 2048, 4096};
 #else
 static const unsigned m5stack_fft_sizes[] = {256, 512, 1024, 2048, 4096, 8192};
@@ -136,7 +136,12 @@ static inline unsigned m5stack_controls_update(m5stack_controls_t *s, unsigned m
         }
         return mhz;
     }
-    if (!s->raw && !s->stable && (uint32_t)(now - s->last_input) >= 5000) s->menu = M5_MENU_NONE;
+#if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
+    const unsigned menu_timeout = 120000; /* Keep the menu visible across slow color refreshes. */
+#else
+    const unsigned menu_timeout = 5000;
+#endif
+    if (!s->raw && !s->stable && (uint32_t)(now - s->last_input) >= menu_timeout) s->menu = M5_MENU_NONE;
     if (pressed || s->raw || s->stable) s->last_input = now;
     for (unsigned j = 0; j < 3; j++) {
         unsigned bit = 1u << j;

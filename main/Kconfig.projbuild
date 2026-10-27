@@ -18,6 +18,8 @@ menu "ESP-SDR board"
             bool "None"
         config ESP_SDR_LILYGO_T_PAGER
             bool "T-LoRa Pager"
+        config ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
+            bool "T-Display S3 Pro"
         config ESP_SDR_LILYGO_T_EMBED_SI4732
             bool "T-Embed SI4732"
         config ESP_SDR_LILYGO_T_EMBED_CC1101
@@ -34,7 +36,7 @@ menu "ESP-SDR board"
 
     config ESP_SDR_LILYGO
         bool
-        default y if ESP_SDR_LILYGO_T_PAGER || ESP_SDR_LILYGO_T_EMBED_SI4732 || ESP_SDR_LILYGO_T_EMBED_CC1101 || ESP_SDR_LILYGO_T_EMBED_CC1101_PLUS || ESP_SDR_LILYGO_T_DECK || ESP_SDR_LILYGO_T_DECK_PRO || ESP_SDR_LILYGO_T_DECK_PRO_V11
+        default y if ESP_SDR_LILYGO_T_PAGER || ESP_SDR_LILYGO_T_DISPLAY_S3_PRO || ESP_SDR_LILYGO_T_EMBED_SI4732 || ESP_SDR_LILYGO_T_EMBED_CC1101 || ESP_SDR_LILYGO_T_EMBED_CC1101_PLUS || ESP_SDR_LILYGO_T_DECK || ESP_SDR_LILYGO_T_DECK_PRO || ESP_SDR_LILYGO_T_DECK_PRO_V11
         help
             Uses the ESP32-S3 RF backend, onboard display and controls.
             External SI4732/CC1101/LoRa radios are not used for reception.
@@ -79,6 +81,51 @@ menu "ESP-SDR board"
         help
             Enable the 135x240 ST7789 display and A/B/C buttons on the
             M5StickC Plus2. Hold GPIO4 high to keep the power rail enabled.
+
+    choice ESP_SDR_M5UNIFIED_BOARD
+        prompt "Additional M5Stack standalone device (build with ESP_SDR_M5UNIFIED=ON)"
+        depends on IDF_TARGET_ESP32 || IDF_TARGET_ESP32S3
+        default ESP_SDR_M5UNIFIED_NONE
+
+        config ESP_SDR_M5UNIFIED_NONE
+            bool "None"
+        config ESP_SDR_M5STACK_CORES3
+            bool "CoreS3"
+            depends on IDF_TARGET_ESP32S3
+        config ESP_SDR_M5STACK_DIN_METER
+            bool "DinMeter"
+            depends on IDF_TARGET_ESP32S3
+        config ESP_SDR_M5STACK_STICKS3
+            bool "M5StickS3"
+            depends on IDF_TARGET_ESP32S3
+        config ESP_SDR_M5STACK_STICKC_PLUS
+            bool "M5StickC Plus"
+            depends on IDF_TARGET_ESP32
+        config ESP_SDR_M5STACK_STICKC
+            bool "M5StickC"
+            depends on IDF_TARGET_ESP32
+        config ESP_SDR_M5STACK_PAPER_COLOR
+            bool "PaperColor"
+            depends on IDF_TARGET_ESP32S3
+        config ESP_SDR_M5STACK_PAPERS3
+            bool "PaperS3"
+            depends on IDF_TARGET_ESP32S3
+    endchoice
+
+    config ESP_SDR_M5UNIFIED
+        bool
+        default y if ESP_SDR_M5STACK_CORES3 || ESP_SDR_M5STACK_DIN_METER || ESP_SDR_M5STACK_STICKS3 || ESP_SDR_M5STACK_STICKC_PLUS || ESP_SDR_M5STACK_STICKC || ESP_SDR_M5STACK_PAPER_COLOR || ESP_SDR_M5STACK_PAPERS3
+
+    config ESP_SDR_M5GFX_BOARD
+        int
+        default 10 if ESP_SDR_M5STACK_CORES3
+        default 13 if ESP_SDR_M5STACK_DIN_METER
+        default 26 if ESP_SDR_M5STACK_STICKS3
+        default 4 if ESP_SDR_M5STACK_STICKC_PLUS
+        default 3 if ESP_SDR_M5STACK_STICKC
+        default 28 if ESP_SDR_M5STACK_PAPER_COLOR
+        default 19 if ESP_SDR_M5STACK_PAPERS3
+        default 0
 
     config ESP_SDR_M5STACK_LCD_ILI9341
         bool "Early Basic with ILI9341 LCD"

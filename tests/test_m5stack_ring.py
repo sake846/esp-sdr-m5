@@ -1,4 +1,4 @@
-"""The S3 ring allocates its own queue/twiddles and recovers from failures."""
+"""The S3 ring allocates its queue/FFT workspace and recovers from failures."""
 import unittest
 
 from host_test import COMPILER, ROOT, compile_run
@@ -27,18 +27,18 @@ class RingWorkspace(unittest.TestCase):
 #define TXQ_SIZE 16384u
 static uint8_t *txq;
 static uint32_t txq_head, txq_tail;
-static int16_t *ring_twiddles;
+static int16_t *ring_twiddles, *fft_buf;
 static bool dsp_ready;
 static unsigned allocations, starts, tables, failure = FAIL_STAGE;
 static void *heap_caps_malloc(size_t n, unsigned caps) {
     assert(caps==3); allocations++; return failure==1 ? NULL : malloc(n);
 }
 static void *heap_caps_aligned_alloc(size_t alignment, size_t n, unsigned caps) {
-    assert(alignment==16 && n==2048*sizeof(int16_t) && caps==3);
-    allocations++; return failure==2 ? NULL : malloc(n);
+    assert(alignment==16 && (n==2048*sizeof(int16_t) || n==4096*sizeof(int16_t)) && caps==3);
+    allocations++; return failure==(n==2048*sizeof(int16_t) ? 2u : 3u) ? NULL : malloc(n);
 }
 static int dsps_fft2r_init_sc16(int16_t *w, unsigned n) {
-    assert(w==ring_twiddles && n==2048); return failure==3 ? -1 : 0;
+    assert(w==ring_twiddles && n==2048); return failure==4 ? -1 : 0;
 }
 static void log_tables_init(void) { tables++; }
 static void c1_start(void) { starts++; }
@@ -49,7 +49,7 @@ int main(void) {
     assert(!txq_push(data,1) && txq_head==0);
     assert(!ring_capture_init() && !dsp_ready && starts==0);
     failure=0;assert(ring_capture_init() && dsp_ready && starts==1);
-    assert(allocations==(FAIL_STAGE==3 ? 2u : 3u));
+    assert(allocations==(FAIL_STAGE==4 ? 3u : 4u));
     unsigned before=allocations;
     assert(ring_capture_init() && allocations==before && starts==1 && tables==2);
     assert(txq_push(data,TXQ_SIZE));
@@ -58,11 +58,11 @@ int main(void) {
     txq_head=txq_tail=UINT32_MAX-3;
     assert(txq_push(data,16) && txq_head==12);
     for(unsigned j=0;j<16;j++)assert(txq[(UINT32_MAX-3+j)&(TXQ_SIZE-1)]==data[j]);
-    free(txq);free(ring_twiddles);
+    free(txq);free(ring_twiddles);free(fft_buf);
     return 0;
 }
 '''
-        for failure in [1, 2, 3]:
+        for failure in [1, 2, 3, 4]:
             with self.subTest(failure=failure):
                 compile_run(stub + '\n'.join(functions) + check,
                             ['CONFIG_IDF_TARGET_ESP32S3=1', f'FAIL_STAGE={failure}'])

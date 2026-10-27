@@ -17,13 +17,13 @@ after that, the device can run on its own.
 - Spectrum trace with a translucent blue fill and scrolling color waterfall on
   the device's LCD.
 - On-device frequency tuning, step, span, FFT size and averaging controls.
-- Standalone profiles for M5Stack BASIC, Core2, Cardputer, Cardputer ADV and
-  M5StickC Plus2.
-- LILYGO T-Pager, T-Embed SI4732 / CC1101 / CC1101 Plus, T-Deck and
+- Standalone profiles for M5Stack BASIC, Core2, CoreS3, Cardputer / ADV, DinMeter,
+  StickS3, M5StickC / Plus / Plus2, PaperColor and PaperS3.
+- LILYGO T-Display S3 Pro, T-Pager, T-Embed SI4732 / CC1101 / CC1101 Plus, T-Deck and
   T-Deck Pro profiles (not yet hardware-verified).
 - ATS-mini parallel LCD and rotary encoder profile (not yet hardware-verified).
-- FFT sizes from 256 to 8192 points on BASIC, Core2 and M5StickC Plus2, or up to
-  4096 points on Cardputer, Cardputer ADV, LILYGO and ATS-mini devices.
+- FFT sizes from 256 to 8192 points on ESP32 devices, or up to 4096 points on
+  ESP32-S3 devices.
 - Optional PC connection through the existing ESP-SDR USB/UART protocol for
   I/Q capture and spectrum viewing.
 
@@ -40,6 +40,14 @@ running below. M5StickC Plus2 has also been verified on real hardware.
 | Cardputer, original K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **Verified** |
 | Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | **Verified** |
 | M5StickC Plus2 | ESP32 | 135 × 240, portrait | `m5stickc-plus2` | **Verified** |
+| M5Stack CoreS3 | ESP32-S3 | 320 × 240 | `m5stack-cores3` | Unverified |
+| M5Stack DinMeter | ESP32-S3 | 240 × 135, landscape | `m5stack-din-meter` | Unverified |
+| M5StickS3 | ESP32-S3 | 240 × 135, landscape | `m5sticks3` | Unverified |
+| M5StickC Plus | ESP32 | 240 × 135, landscape | `m5stickc-plus` | Unverified |
+| M5StickC | ESP32 | 160 × 80, landscape | `m5stickc` | Unverified |
+| M5Stack PaperColor | ESP32-S3 | 600 × 400, color e-paper | `m5stack-paper-color` | Unverified |
+| M5Stack PaperS3 | ESP32-S3 | 960 × 540, grayscale e-paper | `m5stack-papers3` | Unverified |
+| LILYGO T-Display S3 Pro | ESP32-S3 | 480 × 222 | `lilygo-t-display-s3-pro` | Unverified |
 | LILYGO T-LoRa Pager | ESP32-S3 | 480 × 222 | `lilygo-t-pager` | Unverified |
 | T-Embed SI4732 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-si4732` | Unverified |
 | T-Embed CC1101 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-cc1101` | Unverified |
@@ -54,9 +62,15 @@ These profiles receive through the ESP32-S3 radio; onboard SI4732/CC1101/LoRa
 chips are not used. T-Deck Pro uses a slower monochrome e-paper display.
 See the [ATS-mini guide](docs/ats-mini.md) for its build commands, display variants and controls.
 
-The M5StickC profile specifically targets **M5StickC Plus2**. It does not imply
-compatibility with the original M5StickC or M5StickC Plus. Other devices and
-chip profiles inherited from upstream have not been hardware-verified in this
+See the [additional M5Stack guide](docs/m5stack-additional.md) for CoreS3, DinMeter,
+StickS3, M5StickC / Plus, PaperColor and PaperS3 builds and controls. Use the separate
+M5StickC, Plus and Plus2 profiles for their respective hardware.
+
+Tab5 is unavailable in this release: its ESP32-P4 has no RF backend, and the
+onboard ESP32-C6 needs dedicated receiver firmware plus a transfer path to the P4.
+See the [official Tab5 specifications](https://docs.m5stack.com/en/core/Tab5).
+
+Other devices and chip profiles inherited from upstream have not been hardware-verified in this
 fork.
 
 ## Operating photos

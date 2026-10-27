@@ -338,7 +338,11 @@ static int16_t window_q15[RING_SPEC_NFFT_MAX];
 static int16_t win2[2 * RING_SPEC_NFFT_MAX] __attribute__((aligned(16)));
 void s3_unpack_iq10_win(const uint32_t *src, int16_t *dst, const int16_t *win2, unsigned groups8);
 #endif
+#if CONFIG_IDF_TARGET_ESP32S3
+static int16_t *fft_buf;
+#else
 static int16_t fft_buf[2 * RING_SPEC_NFFT_MAX] __attribute__((aligned(16)));
+#endif
 /* Indexed by FFT output slot (bit-reversed order); emit maps slot -> bin.
  * mean: float power sum; max-hold: uint32 power per FFT slot (same storage). */
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -367,7 +371,10 @@ bool ring_capture_init(void) {
     if (!ring_twiddles)
         ring_twiddles = heap_caps_aligned_alloc(16, RING_SPEC_NFFT_MAX * sizeof(int16_t),
                                                 MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    dsp_ready = txq && ring_twiddles && dsps_fft2r_init_sc16(ring_twiddles, RING_SPEC_NFFT_MAX) == ESP_OK;
+    if (!fft_buf)
+        fft_buf = heap_caps_aligned_alloc(16, 2 * RING_SPEC_NFFT_MAX * sizeof(int16_t),
+                                          MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    dsp_ready = txq && ring_twiddles && fft_buf && dsps_fft2r_init_sc16(ring_twiddles, RING_SPEC_NFFT_MAX) == ESP_OK;
     log_tables_init();
     if (dsp_ready) c1_start();
 #endif

@@ -5,6 +5,7 @@ import unittest
 from host_test import COMPILER, ROOT, compile_run
 
 BOARDS = [
+    ('T_DISPLAY_S3_PRO', 480, 222, 17, 18, 39, 9, 0, 49, 5, 6),
     ('T_PAGER', 480, 222, 34, 35, 38, 37, 0, 49, 3, 2),
     ('T_EMBED_SI4732', 320, 170, 11, 12, 10, 13, 0, 35, 18, 8),
     ('T_EMBED_CC1101', 320, 170, 9, 11, 41, 16, 0, 35, 8, 18),
@@ -88,6 +89,7 @@ static int i2c_master_transmit(i2c_master_dev_handle_t d,const uint8_t *p,size_t
  assert(n==2);registers[d][p[0]]=p[1];return 0;
 }
 static int i2c_master_transmit_receive(i2c_master_dev_handle_t d,const uint8_t *p,size_t n,uint8_t *out,size_t size,int t){
+ if(d==0x6a){assert(n==1 && size==1);*out=registers[d][*p];return 0;}
  assert(d==0x34 && n==1 && size==1);
  if(*p==3)*out=event_count;
  else {assert(*p==4 && event_count);*out=event_fifo[--event_count];}return 0;
@@ -130,9 +132,13 @@ static void vTaskSuspend(void *t){longjmp(worker_exit,2);}
 
 CHECK = r'''
 int main(void){
+ registers[0x6a][3]=registers[0x6a][7]=0xff;
  m5stack_basic_init();
  assert(m5stack_basic_fft_points()==1024);
-#if CONFIG_ESP_SDR_LILYGO_T_PAGER
+#if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
+ assert((registers[0x6a][3]&0x30)==0 && (registers[0x6a][7]&0x30)==0);
+ assert(levels[14] && levels[46] && levels[13] && madctl==0x68);
+#elif CONFIG_ESP_SDR_LILYGO_T_PAGER
  assert(registers[0x20][2]==0x84 && registers[0x20][3]==1);
  assert(registers[0x34][0x1d]==0x0f && registers[0x34][0x1f]==3);
  assert(levels[21] && levels[36] && levels[39] && madctl==0xe8);
@@ -228,7 +234,7 @@ class LilygoProfiles(unittest.TestCase):
             with self.subTest(board=board):
                 names = ['WIDTH', 'HEIGHT', 'MOSI', 'SCLK', 'CS', 'DC', 'X', 'Y', 'SDA', 'SCL']
                 compile_run(STUB+sources+CHECK, ['CONFIG_ESP_SDR_LILYGO=1',
-                    f'CONFIG_ESP_SDR_LILYGO_{board}=1', f'TEST_EPAPER={int("PRO" in board)}',
+                    f'CONFIG_ESP_SDR_LILYGO_{board}=1', f'TEST_EPAPER={int(board.startswith("T_DECK_PRO"))}',
                     f'CONFIG_SPIRAM={int("PRO" in board or board == "T_PAGER")}',
                     *(f'TEST_{k}={v}' for k,v in zip(names,values))])
 

@@ -29,7 +29,7 @@ static void density_mode(unsigned mhz, bool pc_control) {
         if (density && density_width != width) { free(density); density = NULL; }
         if (!density) {
             density = heap_caps_calloc(64, width,
-#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) && CONFIG_SPIRAM
+#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI || CONFIG_ESP_SDR_M5UNIFIED) && CONFIG_SPIRAM
                                        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 #else
                                        MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);

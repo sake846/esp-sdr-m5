@@ -207,7 +207,88 @@
       "allow_larger_flash": true,
       "preview": false,
       "sdkconfig": "sdkconfig.defaults.ats-mini"
+    },
+    {
+      "id": "m5stack-cores3",
+      "target": "esp32s3",
+      "label": "M5Stack CoreS3 (16 MB, LCD/touch, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.m5stack-cores3",
+      "m5unified": true
+    },
+    {
+      "id": "m5stack-din-meter",
+      "target": "esp32s3",
+      "label": "M5Stack DinMeter (8 MB, LCD/encoder, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.m5stack-din-meter",
+      "m5unified": true
+    },
+    {
+      "id": "m5sticks3",
+      "target": "esp32s3",
+      "label": "M5StickS3 (8 MB, LCD/buttons, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.m5sticks3",
+      "m5unified": true
+    },
+    {
+      "id": "m5stickc-plus",
+      "target": "esp32",
+      "label": "M5StickC Plus (4 MB, LCD/buttons, UART)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.m5stickc-plus",
+      "m5unified": true
+    },
+    {
+      "id": "m5stickc",
+      "target": "esp32",
+      "label": "M5StickC (4 MB, LCD/buttons, UART)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.m5stickc",
+      "m5unified": true
+    },
+    {
+      "id": "m5stack-paper-color",
+      "target": "esp32s3",
+      "label": "M5Stack PaperColor (16 MB, color e-paper/buttons, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.m5stack-paper-color",
+      "m5unified": true
+    },
+    {
+      "id": "m5stack-papers3",
+      "target": "esp32s3",
+      "label": "M5Stack PaperS3 (16 MB, grayscale e-paper/touch, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.m5stack-papers3",
+      "m5unified": true
+    },
+    {
+      "id": "lilygo-t-display-s3-pro",
+      "target": "esp32s3",
+      "label": "LILYGO T-Display S3 Pro (16 MB, LCD/buttons, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.lilygo-t-display-s3-pro"
     }
   ],
-  "unavailable": {}
+  "unavailable": {
+    "m5stack-tab5": "ESP32-P4 has no RF backend. The onboard ESP32-C6 requires dedicated receiver firmware and an SDIO transfer path to the P4; the stock Wi-Fi coprocessor firmware does not expose ESP-SDR I/Q capture."
+  }
 }

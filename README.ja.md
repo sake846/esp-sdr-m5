@@ -14,10 +14,10 @@ ESP32がI/Qサンプルの取得、FFT計算、画面描画を行います。
 
 - 本体のLCDに、波形の下を半透明の青で塗りつぶしたスペクトラムと、スクロールするカラーウォーターフォールを表示。
 - 受信周波数、チューニングステップ、表示スパン、FFTサイズ、平均化回数を本体で変更。
-- M5Stack BASIC、Core2、Cardputer、Cardputer ADV、M5StickC Plus2向けのビルド設定を用意。
-- LILYGO T-Pager、T-Embed SI4732・CC1101・CC1101 Plus、T-Deck・T-Deck Pro向けの設定を追加（実機未確認）。
+- M5Stack BASIC・Core2・CoreS3、Cardputer・ADV、DinMeter、StickS3、M5StickC・Plus・Plus2、PaperColor・PaperS3向けの設定を用意。
+- LILYGO T-Display S3 Pro、T-Pager、T-Embed SI4732・CC1101・CC1101 Plus、T-Deck・T-Deck Pro向けの設定を追加（実機未確認）。
 - ATS-mini向けに並列LCDとダイヤルの設定を用意（実機未確認）。
-- FFTサイズはBASIC・Core2・M5StickC Plus2で256〜8192点、Cardputer・Cardputer ADV・LILYGO各機種・ATS-miniで256〜4096点。
+- FFTサイズはESP32機種で256〜8192点、ESP32-S3機種で256〜4096点。
 - 既存のESP-SDR USB/UARTプロトコルを利用し、PCからのI/Q取得やスペクトラム表示にも対応。
 
 ## 対応機種と実機確認状況
@@ -32,6 +32,14 @@ Cardputer ADVも下記のとおり実機で動作しています。M5StickC Plus
 | Cardputer 通常版 K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **確認済み** |
 | Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | **確認済み** |
 | M5StickC Plus2 | ESP32 | 135 × 240、縦画面 | `m5stickc-plus2` | **確認済み** |
+| M5Stack CoreS3 | ESP32-S3 | 320 × 240 | `m5stack-cores3` | 未確認 |
+| M5Stack DinMeter | ESP32-S3 | 240 × 135, 横画面 | `m5stack-din-meter` | 未確認 |
+| M5StickS3 | ESP32-S3 | 240 × 135, 横画面 | `m5sticks3` | 未確認 |
+| M5StickC Plus | ESP32 | 240 × 135, 横画面 | `m5stickc-plus` | 未確認 |
+| M5StickC | ESP32 | 160 × 80, 横画面 | `m5stickc` | 未確認 |
+| M5Stack PaperColor | ESP32-S3 | 600 × 400, カラー電子ペーパー | `m5stack-paper-color` | 未確認 |
+| M5Stack PaperS3 | ESP32-S3 | 960 × 540, 白黒電子ペーパー | `m5stack-papers3` | 未確認 |
+| LILYGO T-Display S3 Pro | ESP32-S3 | 480 × 222 | `lilygo-t-display-s3-pro` | 未確認 |
 | LILYGO T-LoRa Pager | ESP32-S3 | 480 × 222 | `lilygo-t-pager` | 未確認 |
 | T-Embed SI4732 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-si4732` | 未確認 |
 | T-Embed CC1101 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-cc1101` | 未確認 |
@@ -46,8 +54,12 @@ SI4732・CC1101などの外部無線ICは受信に使用せず、ESP32-S3の内�
 T-Deck Proは白黒・低速更新の表示です。
 ATS-miniのビルド・操作方法は[ATS-mini対応ガイド](docs/ats-mini.md)を参照してください。
 
-M5StickC向けの設定は、**M5StickC Plus2専用**です。
-初代M5StickCやM5StickC Plusとの互換性を示すものではありません。
+CoreS3・DinMeter・StickS3・M5StickC／Plus・PaperColor・PaperS3のビルドと操作は、
+[追加M5Stack機種のガイド](docs/m5stack-additional.md)を参照してください。
+M5StickC・Plus・Plus2には、それぞれ専用のプロファイルを使用します。
+
+Tab5は今回は未対応です。ESP32-P4用の受信処理がなく、内蔵ESP32-C6への専用ファームウェアと
+P4への転送処理が必要です。[公式仕様](https://docs.m5stack.com/en/core/Tab5)も参照してください。
 上流から引き継いだその他のデバイス・チップ向け設定も、この派生版では実機確認していません。
 
 ## 動作画面
@@ -68,7 +80,7 @@ M5StickC向けの設定は、**M5StickC Plus2専用**です。
 
 ### 1. リポジトリの取得
 
-GitとPythonをインストールし、ESP-DSPサブモジュールを含めてリポジトリを取得してください。
+GitとPythonをインストールし、ESP-DSP・M5GFX・M5Unifiedのサブモジュールを含めてリポジトリを取得してください。
 以下のコマンドはshとPowerShellの両方で使えます。
 
 ```sh

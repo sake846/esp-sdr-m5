@@ -3,6 +3,22 @@
 
 #if CONFIG_ESP_SDR_ATS_MINI
 #include "ats_mini.h"
+#elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
+#define SCREEN_WIDTH 480
+#define SCREEN_HEIGHT 222
+#define LCD_MOSI 17
+#define LCD_SCLK 18
+#define LCD_CS 39
+#define LCD_DC 9
+#define LCD_RST 47
+#define LCD_BL 48
+#define LCD_X_OFFSET 0
+#define LCD_Y_OFFSET 49
+#define LCD_MADCTL 0x68
+#define BOARD_SDA 5
+#define BOARD_SCL 6
+#define MENU_BUTTON 12
+#define LILYGO_NAME "T DISPLAY S3 PRO"
 #elif CONFIG_ESP_SDR_LILYGO_T_PAGER
 #define SCREEN_WIDTH 480
 #define SCREEN_HEIGHT 222

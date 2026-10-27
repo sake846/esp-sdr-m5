@@ -27,6 +27,7 @@ TARGETS = {
 }
 
 for _board, _pins in {
+    'T_DISPLAY_S3_PRO': set(range(0, 19)) | {21} | set(range(38, 43)) | set(range(45, 49)),
     'T_PAGER': set(range(0, 9)) | set(range(10, 15)) | {17, 18, 21} | set(range(33, 43)) | set(range(45, 49)),
     'T_EMBED_SI4732': {0, 1, 2, 21} | set(range(4, 19)) | set(range(38, 49)),
     'T_EMBED_CC1101': set(range(0, 19)) | {21} | set(range(38, 49)),
@@ -36,6 +37,18 @@ for _board, _pins in {
     'T_DECK_PRO_V11': set(range(0, 19)) | {21} | set(range(33, 49)),
 }.items():
     TARGETS['ESP32S3_LILYGO_' + _board] = (49, (19, 20), (43, 44), _pins | set(range(22, 38)))
+
+for _board, _chip, _pins in [
+    ('CORES3', 'ESP32S3', {0, 3, 4} | set(range(11, 17)) | set(range(38, 43)) | set(range(45, 49))),
+    ('DIN_METER', 'ESP32S3', {0, 21, 46} | set(range(3, 13)) | set(range(40, 43))),
+    ('STICKS3', 'ESP32S3', {0, 21} | set(range(11, 19)) | set(range(38, 43)) | set(range(45, 49))),
+    ('PAPER_COLOR', 'ESP32S3', {0, 1, 2, 3, 7, 21} | set(range(9, 16)) | set(range(38, 49))),
+    ('PAPERS3', 'ESP32S3', {0, 3, 21} | set(range(5, 19)) | set(range(38, 49))),
+    ('STICKC', 'ESP32', {0, 2, 5, 18} | set(range(13, 18)) | set(range(21, 24)) | set(range(34, 40))),
+    ('STICKC_PLUS', 'ESP32', {0, 2, 5, 18} | set(range(13, 18)) | set(range(21, 24)) | set(range(34, 40))),
+]:
+    _count, _usb, _uart, _memory = TARGETS[_chip]
+    TARGETS[_chip + '_M5UNIFIED_' + _board] = (_count, _usb, _uart, _memory | _pins)
 
 @unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
 class GpioService(unittest.TestCase):
@@ -155,6 +168,8 @@ int main(void) {
                                  'ESP32_STICKC_PLUS2': 'STICKC_PLUS2',
                                  'ESP32S3_CARDPUTER': 'CARDPUTER',
                                  'ESP32S3_CARDPUTER_ADV': 'CARDPUTER_ADV'}.get(target)
+                        if '_M5UNIFIED_' in target:
+                            board = target.split('_M5UNIFIED_')[1]
                         invalid = {p for p in excluded if (chip=='ESP32' and p>=34) or (chip=='ESP32S2' and p==46) or (chip=='ESP32S3' and p in range(22,26)) or (chip=='ESP32S31' and p==41)}
                         with (tmp/'soc/soc_caps.h').open('a') as f:
                             if invalid:

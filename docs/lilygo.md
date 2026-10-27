@@ -13,6 +13,7 @@ SI4732・CC1101・nRF24・LoRaモジュールでの受信や、AM/FM/SWの音声
 
 | Device / 機種 | Display / 画面 | Profile / プロファイル |
 | --- | --- | --- |
+| T-Display S3 Pro | ST7796U, 480 × 222 | `lilygo-t-display-s3-pro` |
 | T-LoRa Pager (T-Pager) | ST7796U, 480 × 222 | `lilygo-t-pager` |
 | T-Embed SI4732 | ST7789, 320 × 170 | `lilygo-t-embed-si4732` |
 | T-Embed CC1101 | ST7789, 320 × 170 | `lilygo-t-embed-cc1101` |
@@ -23,14 +24,14 @@ SI4732・CC1101・nRF24・LoRaモジュールでの受信や、AM/FM/SWの音声
 
 All profiles select 16 MB flash and native USB Serial/JTAG, with UART disabled
 to avoid driving onboard GPS/audio/radio connections. Pager and Pro use their
-QSPI PSRAM for display history/images; RF and FFT buffers stay in internal SRAM.
+QSPI PSRAM for display history/images; T-Display S3 Pro uses OPI PSRAM; RF and FFT buffers stay in internal SRAM.
 The other profiles do not require PSRAM. These devices have **not been tested on physical hardware**.
 T-Deck Pro MAX is a separate board and is not covered by the Pro profiles.
 
 全プロファイルで16 MBフラッシュとネイティブUSB Serial/JTAGを使用します。
 基板上のGPS・音声・無線モジュールとの競合を避けるためUARTは無効です。
 PagerとProは画面履歴・画像をQSPI PSRAMに置き、受信・FFT用の内蔵SRAMを確保します。
-その他のプロファイルではPSRAMを使用しません。**いずれも実機での動作は未確認です。**
+T-Display S3 ProはOPI PSRAMを使用し、その他のプロファイルではPSRAMを使用しません。**いずれも実機での動作は未確認です。**
 T-Deck Pro MAXは別基板のため、上記のPro用プロファイルには含みません。
 
 ## Build and flash / ビルド・書き込み
@@ -56,6 +57,10 @@ these profiles to the existing CI build/export matrix automatically.
 
 ## Controls / 操作
 
+- T-Display S3 Pro: BOOT (GPIO0) decreases, GPIO12 selects the next setting,
+  GPIO16 increases. Hold GPIO12 to return to tuning. SY6970 charging and its
+  watchdog are disabled for battery-free USB operation; SD is deselected and
+  the optional camera is held powered down. Touch is not used.
 - Pager and T-Embed: turn the encoder to tune or change the selected setting;
   click it to move through the settings, hold it to return to tuning.
 - Pager, T-Deck and Pro keyboards: `A`/`D` (also `H`/`L`) decrease/increase,
@@ -63,6 +68,10 @@ these profiles to the existing CI build/export matrix automatically.
 - The BOOT button also acts as the menu button on T-Deck and Pro.
 - The menu closes after five seconds without input. PC control takes priority
   and discards local key/encoder events during its serial lease.
+
+T-Display S3 ProはBOOT（GPIO0）で値を減らし、GPIO12で次の設定、GPIO16で値を増やします。
+GPIO12の長押しで周波数操作へ戻ります。USB給電で電池がなくても使えるよう、SY6970の充電と
+ウォッチドッグを無効にします。SDを非選択にし、カメラは停止します。タッチ操作は使用しません。
 
 PagerとT-Embedは、ダイヤルを回して周波数や選択中の設定値を変更します。
 ダイヤルの短押しで設定項目を送り、長押しで周波数操作へ戻ります。
@@ -106,3 +115,5 @@ V1.1は画面リセットにGPIO16を使用します。リセット端子がな�
   [keyboard map](https://github.com/Xinyuan-LilyGO/T-Deck-Pro/blob/master/examples/factory/peri_keypad.cpp)
 - [Pro QSPI PSRAM configuration](https://github.com/Xinyuan-LilyGO/T-Deck-Pro/blob/master/boards/T-Deck-Pro.json)
 - [GxEPD2 UC8253 initialization and update sequence, Jean-Marc Zingg, GPLv3](https://github.com/ZinggJM/GxEPD2/blob/master/src/gdeq/GxEPD2_310_GDEQ031T10.cpp)
+
+T-Display S3 Pro wiring and panel initialization follow the [official repository](https://github.com/Xinyuan-LilyGO/T-Display-S3-Pro).

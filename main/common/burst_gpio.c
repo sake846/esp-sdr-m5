@@ -42,7 +42,25 @@ static uint64_t excluded_pins(void) {
 #else
 #error Define memory pin exclusions for this target before enabling GPIO control
 #endif
-#if CONFIG_ESP_SDR_ATS_MINI
+#if CONFIG_ESP_SDR_M5STACK_CORES3
+    /* LCD/SD, system I2C, camera, microphone and amplifier. */
+    mask |= PIN(0) | PIN(3) | PIN(4) | PINS(11, 16) | PINS(38, 42) | PINS(45, 48);
+#elif CONFIG_ESP_SDR_M5STACK_DIN_METER
+    /* LCD, RTC, buzzer, encoder/button, battery ADC and power hold. */
+    mask |= PIN(0) | PINS(3, 12) | PIN(21) | PINS(40, 42) | PIN(46);
+#elif CONFIG_ESP_SDR_M5STACK_STICKS3
+    /* LCD, buttons, M5PM1/IMU, audio and infrared. */
+    mask |= PIN(0) | PINS(11, 18) | PIN(21) | PINS(38, 42) | PINS(45, 48);
+#elif CONFIG_ESP_SDR_M5STACK_STICKC || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS
+    /* LCD, LED/IR, buttons, PMIC/IMU/RTC, microphone and Plus buzzer. */
+    mask |= PIN(0) | PIN(2) | PIN(5) | PINS(13, 15) | PIN(18) | PINS(21, 23) | PINS(34, 39);
+#elif CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
+    /* E-paper/SD, M5PM1/RTC, keys, LEDs, audio and infrared. */
+    mask |= PIN(0) | PINS(1, 3) | PIN(7) | PINS(9, 15) | PIN(21) | PINS(38, 48);
+#elif CONFIG_ESP_SDR_M5STACK_PAPERS3
+    /* Parallel e-paper, touch/RTC, SD, battery/USB detect, buzzer and power control. */
+    mask |= PIN(0) | PIN(3) | PINS(5, 18) | PIN(21) | PINS(38, 48);
+#elif CONFIG_ESP_SDR_ATS_MINI
     /* BOOT, encoder, battery ADC, parallel LCD, SI4732 power/I2C and audio. */
     mask |= PINS(0, 10) | PINS(15, 18) | PIN(21) | PINS(38, 42) | PINS(45, 48);
 #elif CONFIG_ESP_SDR_LILYGO
@@ -50,6 +68,9 @@ static uint64_t excluded_pins(void) {
      * Reserve even inactive peripherals so GPIO commands cannot power or drive them. */
 #if CONFIG_ESP_SDR_LILYGO_T_PAGER
     mask |= PINS(0, 8) | PINS(10, 14) | PIN(17) | PIN(18) | PIN(21) | PINS(33, 42) | PINS(45, 48);
+#elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
+    /* Include optional camera connections and touch/charger/sensor interrupts. */
+    mask |= PINS(0, 18) | PIN(21) | PINS(38, 42) | PINS(45, 48);
 #elif CONFIG_ESP_SDR_LILYGO_T_EMBED_SI4732
     mask |= PINS(0, 2) | PINS(4, 18) | PIN(21) | PINS(38, 48);
 #elif CONFIG_ESP_SDR_LILYGO_T_EMBED_CC1101 || CONFIG_ESP_SDR_LILYGO_T_EMBED_CC1101_PLUS

@@ -50,6 +50,20 @@ static void input_init(void) {
     };
     i2c_master_bus_handle_t bus;
     ESP_ERROR_CHECK(i2c_new_master_bus(&config, &bus));
+#if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
+    i2c_master_dev_handle_t pmu;
+    const i2c_device_config_t pmu_config = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7, .device_address = 0x6a, .scl_speed_hz = 400000,
+    };
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &pmu_config, &pmu));
+    /* SY6970: battery-free USB operation requires charging off; disable its watchdog. */
+    const uint8_t registers[] = {0x03, 0x07};
+    for (unsigned i = 0; i < sizeof(registers); i++) {
+        uint8_t value;
+        ESP_ERROR_CHECK(i2c_master_transmit_receive(pmu, &registers[i], 1, &value, 1, 20));
+        reg_write(pmu, registers[i], value & ~0x30);
+    }
+#endif
 #if CONFIG_ESP_SDR_LILYGO_T_PAGER
     i2c_master_dev_handle_t expander;
     const i2c_device_config_t io_config = {
@@ -84,7 +98,11 @@ static void input_init(void) {
 #endif
 #endif
     const gpio_config_t button = {
-        .pin_bit_mask = PIN(MENU_BUTTON), .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pin_bit_mask = PIN(MENU_BUTTON)
+#if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
+                      | PIN(0) | PIN(16)
+#endif
+        , .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE,
     };
     ESP_ERROR_CHECK(gpio_config(&button));
 }
@@ -120,7 +138,11 @@ static void encoder_init(void) {
 unsigned lilygo_poll(m5stack_controls_t *s, unsigned mhz, bool pc_control) {
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
     bool was_long = s->b_long;
-    mhz = m5stack_controls_update(s, mhz, gpio_get_level(MENU_BUTTON) ? 0 : 2, now, pc_control);
+    unsigned buttons = gpio_get_level(MENU_BUTTON) ? 0 : 2;
+#if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
+    buttons |= (gpio_get_level(0) ? 0 : 1) | (gpio_get_level(16) ? 0 : 4);
+#endif
+    mhz = m5stack_controls_update(s, mhz, buttons, now, pc_control);
     if (!pc_control && !was_long && s->b_long && (s->stable & 2)) s->menu = M5_MENU_NONE;
 #ifdef ENCODER_A
     portENTER_CRITICAL(&encoder_lock);
@@ -260,6 +282,10 @@ void lilygo_init(void) {
     output(36, 1);
     output(39, 1);
     output(47, 1);
+#elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
+    output(14, 1); /* SD CS, shared SPI bus. */
+    output(46, 1); /* Optional camera power down. */
+    output(13, 1); /* Release touch reset. */
 #else
     output(3, 1); /* LoRa CS. */
     output(48, 1); /* SD CS. */
@@ -312,7 +338,7 @@ void lilygo_init(void) {
     vTaskDelay(pdMS_TO_TICKS(150));
     command(0x11, NULL, 0);
     vTaskDelay(pdMS_TO_TICKS(120));
-#if CONFIG_ESP_SDR_LILYGO_T_PAGER
+#if CONFIG_ESP_SDR_LILYGO_T_PAGER || CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
     command(0xf0, (const uint8_t[]){0xc3}, 1);
     command(0xf0, (const uint8_t[]){0x96}, 1);
     command(0xb4, (const uint8_t[]){0x01}, 1);
