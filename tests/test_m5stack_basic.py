@@ -198,10 +198,16 @@ int main(void) {
     assert(vertical_grid_lines == 9); /* Eight equal intervals, 2 MHz each at 16 MHz span. */
     for (unsigned x = PLOT_LEFT; x < PLOT_LEFT + PLOT_WIDTH; x++)
         assert(pixels[SPECTRUM_BOTTOM * 320 + x] == 0x4208); /* Visible baseline across the plot. */
-    assert(pixels[FREQUENCY_TOP * 320 + 4] == 0xffff); /* Frequency axis between plots. */
-    assert(pixels[BUTTON_HINT_TOP * 320 + 34] == 0xb726);
-    assert(pixels[BUTTON_HINT_TOP * 320 + 144] == 0xb726);
-    assert(pixels[BUTTON_HINT_TOP * 320 + 248] == 0xb726); /* Hints stay over the buttons. */
+    for (unsigned column=0; column<3; column++) {
+        unsigned frequency_ink=0, hint_ink=0;
+        for (unsigned y=0; y<12; y++)
+            for (unsigned x=column*320/3; x<(column+1)*320/3; x++) {
+                frequency_ink+=pixels[(FREQUENCY_TOP+y)*320+x]==0xffff;
+                hint_ink+=pixels[(BUTTON_HINT_TOP+y)*320+x]==COLOR_SRDECK_YELLOW_GREEN;
+            }
+        assert(frequency_ink>20); /* All three frequency labels remain between plots. */
+        assert(hint_ink>20); /* Hints stay over their respective buttons. */
+    }
     assert(pixels[97 * 320 + 4] == 0xffff); /* Newest waterfall row. */
     assert(pixels[97 * 320 + 160] == waterfall_color(0));
     memset(bins, 0, sizeof(bins));

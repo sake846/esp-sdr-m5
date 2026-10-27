@@ -1,6 +1,8 @@
 #pragma once
 
-/* Shared scanline overlay, using each display's row buffer and 3x5 glyphs. */
+#include "m5stack_font.h"
+
+/* Shared scanline overlay, using each display's row buffer. */
 static const char *const m5stack_menu_names[] = {
     "", "FREQ STEP", "FREQ SPAN", "Y POS", "WF BRIGHT", "WF CONTRAST", "WF SPEED",
     "FFT NUM", "FFT AVERAGE", "SPEC MODE", "AGC TYPE", "RF GAIN", "FILTER", "ABOUT", "RESET",
@@ -49,17 +51,16 @@ static void m5stack_menu_value(char *value, size_t size) {
     }
 }
 
-static void m5stack_menu_text_row(unsigned y, unsigned top, const char *text, unsigned scale,
-                                  uint16_t color) {
-    if (y < top || y >= top + 5 * scale) return;
-    unsigned width = (unsigned)strlen(text) * 4 * scale - scale;
-    unsigned left = (SCREEN_WIDTH - width) / 2;
-    unsigned shift = 12 - 3 * ((y - top) / scale);
-    for (; *text; text++, left += 4 * scale) {
-        unsigned pixels = (glyph(*text) >> shift) & 7;
-        for (unsigned x = 0; x < 3 * scale; x++)
-            if (pixels & (4u >> (x / scale))) row[left + x] = __builtin_bswap16(color);
+static void m5stack_menu_value_row(unsigned y, const char *text, unsigned margin) {
+    const GFXfont *font = &FreeSansBold12pt7b;
+    unsigned width = m5stack_text_width(text, font);
+    if (width > SCREEN_WIDTH - 2 * margin - 4) {
+        font = &FreeSansBold9pt7b;
+        width = m5stack_text_width(text, font);
     }
+    int left = ((int)SCREEN_WIDTH - (int)width) / 2;
+    int baseline = SCREEN_HEIGHT / 2 + 19;
+    m5stack_text_row(y, left, baseline, text, font, COLOR_SRDECK_YELLOW_GREEN, margin + 1);
 }
 
 static void m5stack_menu_row(unsigned y, const char *value) {
@@ -69,8 +70,7 @@ static void m5stack_menu_row(unsigned y, const char *value) {
     for (unsigned x = margin; x < SCREEN_WIDTH - margin; x++)
         row[x] = __builtin_bswap16(y == top || y == bottom || x == margin ||
                                    x == SCREEN_WIDTH - margin - 1 ? COLOR_SRDECK_YELLOW_GREEN : 0x0861);
-    unsigned scale = SCREEN_WIDTH > 200 ? 4 : 3;
-    while ((strlen(value) * 4 - 1) * scale > SCREEN_WIDTH - 2 * margin - 8) scale--;
-    m5stack_menu_text_row(y, SCREEN_HEIGHT / 2 - 23, m5stack_menu_names[controls.menu], 2, 0xffff);
-    m5stack_menu_text_row(y, SCREEN_HEIGHT / 2 - 1, value, scale, COLOR_SRDECK_YELLOW_GREEN);
+    const char *name = m5stack_menu_names[controls.menu];
+    text_row(y - (SCREEN_HEIGHT / 2 - 23), ((int)SCREEN_WIDTH - (int)text_width(name)) / 2, name, 0xffff);
+    m5stack_menu_value_row(y, value, margin);
 }

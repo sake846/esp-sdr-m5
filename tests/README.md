@@ -27,6 +27,7 @@ python -m unittest discover -s tests -p "test_firmware_export.py" -v
 | Test | Regression coverage |
 | --- | --- |
 | `test_m5stack_basic.py` | Menu order/reversal, setting bounds, five-second timeout, reset, receiver synchronization, debounce, timer wrap, PC handoff, Basic SPI overlay and waterfall controls |
+| `test_m5stack_menu.py` | Native menu and status fonts, long values on 135–480 pixel displays, proportional widths, compact reset hints, empty/unsupported text and scanline clipping |
 | `test_cardputer_controls.py` | Original keyboard matrix, ADV event press/release, per-key debounce, Shift reversal, four-digit frequency validation and PC handoff |
 | `test_ats_mini.py` | ATS-mini parallel pinout, ST7789/high-gamma/GC9307 IDs and fallback, delayed DMA row lifetime, radio/audio power, encoder and PC handoff |
 | `test_lilygo.py` | All eight profiles: SPI/I2C wiring, SY6970 charge/watchdog control, power/CS setup, scanlines, encoder/keyboard controls, PC handoff, menu hold, monochrome conversion, full/partial e-paper refresh and BUSY timeout |

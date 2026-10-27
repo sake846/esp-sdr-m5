@@ -287,63 +287,7 @@ unsigned m5stack_basic_average_count(void) {
     return m5stack_average_counts[controls.average];
 }
 
-/* Original 3x5 glyphs, each row encoded in three bits, top row first. */
-static uint16_t glyph(char c) {
-    static const uint16_t digits[] = {
-        0x7b6f, 0x2492, 0x73e7, 0x73cf, 0x5bc9, 0x79cf, 0x79ef, 0x7249, 0x7bef, 0x7bcf,
-    };
-    static const uint16_t letters[] = {
-        0x2bed, 0x6bae, 0x7927, 0x6b6e, 0x79a7, 0x79a4, 0x796f, 0x5bed, 0x7497,
-        0x124e, 0x5bad, 0x4927, 0x5fed, 0x5ffd, 0x7b6f, 0x7be4, 0x7b7b, 0x7bed,
-        0x79cf, 0x7492, 0x5b6f, 0x5b6a, 0x5bfd, 0x5aad, 0x5a92, 0x72a7,
-    };
-    if (c >= '0' && c <= '9') return digits[c - '0'];
-    if (c >= 'A' && c <= 'Z') return letters[c - 'A'];
-    if (c == '%') return 0x52a5;
-    if (c == '-') return 0x01c0;
-    if (c == '+') return 0x05d0;
-    if (c == '/') return 0x12a4;
-    return 0;
-}
-
 #include "m5stack_menu.h"
-
-static void text_row(unsigned y, unsigned left, unsigned top, const char *text, unsigned scale,
-                     uint16_t color) {
-    if (y < top || y >= top + 5 * scale) return;
-    unsigned shift = 12 - 3 * ((y - top) / scale);
-    for (; *text && left + 3 * scale <= 320; text++, left += 4 * scale) {
-        unsigned pixels = (glyph(*text) >> shift) & 7;
-        for (unsigned x = 0; x < 3 * scale; x++)
-            if (pixels & (4u >> (x / scale))) row[left + x] = __builtin_bswap16(color);
-    }
-}
-
-static uint8_t title_glyph_row(char c, unsigned y) {
-    static const uint8_t e[7] = {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f};
-    static const uint8_t s[7] = {0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e};
-    static const uint8_t p[7] = {0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10};
-    static const uint8_t d[7] = {0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e};
-    static const uint8_t r[7] = {0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11};
-    static const uint8_t m[7] = {0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11};
-    static const uint8_t five[7] = {0x1f, 0x10, 0x10, 0x1e, 0x01, 0x01, 0x1e};
-    static const uint8_t dash[7] = {0, 0, 0, 0x1f, 0, 0, 0};
-    const uint8_t *rows = c == 'E' ? e : c == 'S' ? s : c == 'P' ? p : c == 'D' ? d :
-                         c == 'R' ? r : c == 'M' ? m : c == '5' ? five : c == '-' ? dash : NULL;
-    return rows ? rows[y] : 0;
-}
-
-static void title_row(unsigned y) {
-    static const char title[] = "ESP SDR M5";
-    if (y == 0 || y > 10) return;
-    for (unsigned letter = 0; title[letter]; letter++)
-        for (unsigned x = 0; x < 8; x++) {
-            unsigned glyph_x = (x * 2 + 1) * 5 / 16;
-            unsigned glyph_y = ((y - 1) * 2 + 1) * 7 / 20;
-            if (title_glyph_row(title[letter], glyph_y) & (1u << (4 - glyph_x)))
-                row[8 + letter * 9 + x] = __builtin_bswap16(0x0000);
-        }
-}
 
 void m5stack_basic_set_gain_index(unsigned gain_index) {
     display_gain_index = gain_index;
@@ -390,10 +334,12 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
     snprintf(edges[2], sizeof(edges[2]), "%u", mhz + span / 2);
     snprintf(cpu, sizeof(cpu), "CPU %u%%", cpu_percent);
     snprintf(gain, sizeof(gain), "%u", display_gain_index);
-    unsigned cpu_left = 318 - (unsigned)strlen(cpu) * 8;
+    unsigned cpu_left = 318 - text_width(cpu);
     const char *status = pc_control ? "PC" : controls.dpx_failed ? "RAM" :
                          valid ? (density ? "DPX" : "LIVE") : "WAIT";
-    unsigned status_left = cpu_left - (unsigned)strlen(status) * 8 - 8;
+    unsigned status_left = cpu_left - text_width(status) - 8;
+    const char *left_hint = controls.menu == M5_MENU_RESET ? "CANCEL" : controls.menu ? "-" : "TUNE-";
+    const char *right_hint = controls.menu == M5_MENU_RESET ? "RESET" : controls.menu ? "+" : "TUNE+";
     if (bins && valid) {
         for (unsigned plot_x = 0; plot_x < PLOT_WIDTH; plot_x++)
             display_bins[plot_x] = SPECTRUM_DBFS_MIN;
@@ -467,22 +413,18 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             }
         }
         if (y < 12)
-            for (unsigned x = 4; x < 12 + (sizeof(title) - 1) * 9; x++)
+            for (unsigned x = 4; x < 12 + text_width(title); x++)
                 row[x] = __builtin_bswap16(COLOR_SRDECK_YELLOW_GREEN);
-        title_row(y);
-        text_row(y, 160 - (unsigned)strlen(gain) * 4, 3, gain, 2, 0xffff);
-        text_row(y, cpu_left, 3, cpu, 2, 0xffff);
-        text_row(y, status_left, 3, status, 2, pc_control ? 0xffe0 : 0xffff);
-        text_row(y, 4, FREQUENCY_TOP, edges[0], 2, 0xffff);
-        text_row(y, 144, FREQUENCY_TOP, edges[1], 2, 0xffff);
-        text_row(y, 284, FREQUENCY_TOP, edges[2], 2, 0xffff);
-        text_row(y, controls.menu == M5_MENU_RESET ? 30 : controls.menu ? 50 : 34, BUTTON_HINT_TOP,
-                 controls.menu == M5_MENU_RESET ? "CANCEL" : controls.menu ? "-" : "TUNE-",
-                 2, COLOR_SRDECK_YELLOW_GREEN);
-        text_row(y, 144, BUTTON_HINT_TOP, "MENU", 2, COLOR_SRDECK_YELLOW_GREEN);
-        text_row(y, controls.menu && controls.menu != M5_MENU_RESET ? 264 : 248, BUTTON_HINT_TOP,
-                 controls.menu == M5_MENU_RESET ? "RESET" : controls.menu ? "+" : "TUNE+",
-                 2, COLOR_SRDECK_YELLOW_GREEN);
+        text_row(y - 1, 8, title, 0x0000);
+        text_row(y - 3, 160 - text_width(gain) / 2, gain, 0xffff);
+        text_row(y - 3, cpu_left, cpu, 0xffff);
+        text_row(y - 3, status_left, status, pc_control ? 0xffe0 : 0xffff);
+        text_row(y - FREQUENCY_TOP, 4, edges[0], 0xffff);
+        text_row(y - FREQUENCY_TOP, 160 - text_width(edges[1]) / 2, edges[1], 0xffff);
+        text_row(y - FREQUENCY_TOP, 316 - text_width(edges[2]), edges[2], 0xffff);
+        text_row(y - BUTTON_HINT_TOP, 53 - text_width(left_hint) / 2, left_hint, COLOR_SRDECK_YELLOW_GREEN);
+        text_row(y - BUTTON_HINT_TOP, 160 - text_width("MENU") / 2, "MENU", COLOR_SRDECK_YELLOW_GREEN);
+        text_row(y - BUTTON_HINT_TOP, 267 - text_width(right_hint) / 2, right_hint, COLOR_SRDECK_YELLOW_GREEN);
         if (!pc_control && controls.menu) m5stack_menu_row(y, menu_value);
         const uint8_t address[] = {0, y, 0, y};
         lcd_command(0x2b, address, 4);
