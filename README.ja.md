@@ -2,65 +2,67 @@
 
 [English](README.md) | 日本語
 
-M5Stack・LILYGO・ATS-miniの内蔵ESP32を使い、スペクトラムとウォーターフォールを本体の画面に表示します。
-単体で動作するため、外付けのSDRハードウェアやPCは必要ありません。
+M5Stack・LILYGO・ATS-miniの内蔵ESP32を使い、スペクトラムとウォーターフォールを本体の画面に表示します。外付けSDR機器やPCを接続せず、単体で動作します。
 
-このプロジェクトは、[ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr)を
-M5Stack・LILYGO・ATS-miniの画面と操作部で単体動作するように改良した派生版です。
-ESP32がI/Qサンプルの取得、FFT計算、画面描画を行います。
-ビルドとファームウェアの書き込みにはPCが必要ですが、書き込み後は本体だけで使えます。
+[ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr)をベースに、各機種の画面と操作部で動作するようにした派生版です。ファームウェアのビルドと書き込みにはPCが必要ですが、書き込み後は本体だけで使えます。
 
 ## 特徴
 
-- 本体のLCDに、波形の下を半透明の青で塗りつぶしたスペクトラムと、スクロールするカラーウォーターフォールを表示。
-- 受信周波数、チューニングステップ、表示スパン、FFTサイズ、平均化回数を本体で変更。
-- M5Stack BASIC・Core2・CoreS3、Cardputer・ADV、DinMeter、StickS3、M5StickC・Plus・Plus2、PaperColor・PaperS3向けの設定を用意。
-- LILYGO T-Display S3 Pro、T-Pager、T-Embed SI4732・CC1101・CC1101 Plus、T-Deck・T-Deck Pro向けの設定を追加（実機未確認）。
-- ATS-mini向けに並列LCDとダイヤルの設定を用意（実機未確認）。
-- FFTサイズはESP32機種で256〜8192点、ESP32-S3機種で256〜4096点。
-- 既存のESP-SDR USB/UARTプロトコルを利用し、PCからのI/Q取得やスペクトラム表示にも対応。
+- 本体画面にスペクトラムとスクロール式ウォーターフォールを表示。
+- 周波数、表示スパン、FFTサイズ、平均化、ゲインを本体で操作。
+- M5Stack・LILYGO・ATS-mini向けのプロファイルを用意。
+- ESP-SDRのUSB/UARTプロトコルを使ったPC接続にも対応し、I/Q取得やスペクトラム表示が可能。
+- ESP32・ESP32-S3プロファイルで256〜4096点のFFTに対応。
 
-## 対応機種と実機確認状況
+## はじめに
 
-**M5Stack BASIC、Core2、通常版Cardputer（K132、非ADV）は実機での動作を確認済みです**。
-Cardputer ADVも下記のとおり実機で動作しています。M5StickC Plus2も実機での動作を確認済みです。
+1. 下の一覧で機種と実機での動作確認状況を確認します。
+2. [ビルド環境ガイド](docs/build-setup.ja.md)に従ってGit・Python・指定ESP-IDFを準備します。
+3. 機種別ガイドでビルドコマンド、操作方法、ハードウェア固有の注意を確認します。
 
-| 機種 | チップ | 画面 | ビルドプロファイル | 実機確認状況 |
+各プロファイルで必要なESP-IDFのリビジョンは
+[firmware-targets.json](firmware-targets.json)に記載しています。
+ビルド方法と機種ごとの操作説明は、それぞれのガイドを参照してください。
+
+単体起動時は中心周波数2440 MHz、周波数ステップ10 MHz、スパン80 MHz、FFT 1024点、
+平均化16回です。M5Stack機種はソフトウェアAGCで起動します。
+共通するメニューと表示設定は[M5Stack機種別ガイド](docs/m5stack.md#standalone-operation)を参照してください。
+
+## 対応機種
+
+M5Stack BASIC・Core2・Cardputer通常版K132・Cardputer ADV・M5StickC Plus2は、このプロジェクトで実機動作を確認しています。それ以外のプロファイルは未確認です。
+
+| 機種 | チップ | 画面 | プロファイル | 実機確認 |
 | --- | --- | --- | --- | --- |
-| M5Stack BASIC | ESP32 | 320 × 240 | `m5stack-basic` | **確認済み** |
-| M5Stack Core2 | ESP32 | 320 × 240 | `m5stack-core2` | **確認済み** |
-| Cardputer 通常版 K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **確認済み** |
-| Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | **確認済み** |
-| M5StickC Plus2 | ESP32 | 135 × 240、縦画面 | `m5stickc-plus2` | **確認済み** |
-| M5Stack CoreS3 | ESP32-S3 | 320 × 240 | `m5stack-cores3` | 未確認 |
-| M5Stack DinMeter | ESP32-S3 | 240 × 135, 横画面 | `m5stack-din-meter` | 未確認 |
-| M5StickS3 | ESP32-S3 | 240 × 135, 横画面 | `m5sticks3` | 未確認 |
-| M5StickC Plus | ESP32 | 240 × 135, 横画面 | `m5stickc-plus` | 未確認 |
-| M5StickC | ESP32 | 160 × 80, 横画面 | `m5stickc` | 未確認 |
-| M5Stack PaperColor | ESP32-S3 | 600 × 400, カラー電子ペーパー | `m5stack-paper-color` | 未確認 |
-| M5Stack PaperS3 | ESP32-S3 | 960 × 540, 白黒電子ペーパー | `m5stack-papers3` | 未確認 |
-| LILYGO T-Display S3 Pro | ESP32-S3 | 480 × 222 | `lilygo-t-display-s3-pro` | 未確認 |
-| LILYGO T-LoRa Pager | ESP32-S3 | 480 × 222 | `lilygo-t-pager` | 未確認 |
-| T-Embed SI4732 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-si4732` | 未確認 |
-| T-Embed CC1101 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-cc1101` | 未確認 |
-| T-Embed CC1101 Plus | ESP32-S3 | 320 × 170 | `lilygo-t-embed-cc1101-plus` | 未確認 |
-| T-Deck / T-Deck Plus | ESP32-S3 | 320 × 240 | `lilygo-t-deck` | 未確認 |
-| T-Deck Pro V1.0 | ESP32-S3 | 240 × 320、電子ペーパー | `lilygo-t-deck-pro` | 未確認 |
-| T-Deck Pro V1.1 | ESP32-S3 | 240 × 320、電子ペーパー | `lilygo-t-deck-pro-v11` | 未確認 |
-| ATS-mini | ESP32-S3 | 320 × 170、並列LCD | `ats-mini` | 未確認 |
+| [M5Stack BASIC](docs/m5stack.md#m5stack-basic) | ESP32 | 320 × 240 | m5stack-basic | **確認済み** |
+| [M5Stack Core2](docs/m5stack.md#core2) | ESP32 | 320 × 240 | m5stack-core2 | **確認済み** |
+| [M5Stack CoreS3](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 320 × 240 | m5stack-cores3 | 未確認 |
+| [M5Stack DinMeter](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 240 × 135、横画面 | m5stack-din-meter | 未確認 |
+| [Cardputer 通常版 K132](docs/m5stack.md#cardputer-k132) | ESP32-S3 | 240 × 135 | m5stack-cardputer | **確認済み** |
+| [Cardputer ADV](docs/m5stack.md#cardputer-adv) | ESP32-S3 | 240 × 135 | m5stack-cardputer-adv | **確認済み** |
+| [M5StickC](docs/m5stack.md#additional-m5stack-devices) | ESP32 | 160 × 80、横画面 | m5stickc | 未確認 |
+| [M5StickC Plus](docs/m5stack.md#additional-m5stack-devices) | ESP32 | 240 × 135、横画面 | m5stickc-plus | 未確認 |
+| [M5StickC Plus2](docs/m5stack.md#m5stickc-plus2) | ESP32 | 135 × 240、縦画面 | m5stickc-plus2 | **確認済み** |
+| [M5StickS3](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 240 × 135、横画面 | m5sticks3 | 未確認 |
+| [M5Stack PaperColor](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 600 × 400、カラー電子ペーパー | m5stack-paper-color | 未確認 |
+| [M5Stack PaperS3](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 960 × 540、白黒電子ペーパー | m5stack-papers3 | 未確認 |
+| [LILYGO T-Display S3 Pro](docs/lilygo.md) | ESP32-S3 | 480 × 222 | lilygo-t-display-s3-pro | 未確認 |
+| [LILYGO T-LoRa Pager](docs/lilygo.md) | ESP32-S3 | 480 × 222 | lilygo-t-pager | 未確認 |
+| [LILYGO T-Embed SI4732](docs/lilygo.md) | ESP32-S3 | 320 × 170 | lilygo-t-embed-si4732 | 未確認 |
+| [LILYGO T-Embed CC1101](docs/lilygo.md) | ESP32-S3 | 320 × 170 | lilygo-t-embed-cc1101 | 未確認 |
+| [LILYGO T-Embed CC1101 Plus](docs/lilygo.md) | ESP32-S3 | 320 × 170 | lilygo-t-embed-cc1101-plus | 未確認 |
+| [LILYGO T-Deck / T-Deck Plus](docs/lilygo.md) | ESP32-S3 | 320 × 240 | lilygo-t-deck | 未確認 |
+| [LILYGO T-Deck Pro V1.0](docs/lilygo.md) | ESP32-S3 | 240 × 320、電子ペーパー | lilygo-t-deck-pro | 未確認 |
+| [LILYGO T-Deck Pro V1.1](docs/lilygo.md) | ESP32-S3 | 240 × 320、電子ペーパー | lilygo-t-deck-pro-v11 | 未確認 |
+| [ATS-mini](docs/ats-mini.md) | ESP32-S3 | 320 × 170、並列LCD | ats-mini | 未確認 |
 
-LILYGO各機種のビルド・操作方法は[LILYGO対応ガイド](docs/lilygo.md)を参照してください。
-SI4732・CC1101などの外部無線ICは受信に使用せず、ESP32-S3の内蔵無線回路を使用します。
-T-Deck Proは白黒・低速更新の表示です。
-ATS-miniのビルド・操作方法は[ATS-mini対応ガイド](docs/ats-mini.md)を参照してください。
+## 機種別ガイド
 
-CoreS3・DinMeter・StickS3・M5StickC／Plus・PaperColor・PaperS3のビルドと操作は、
-[追加M5Stack機種のガイド](docs/m5stack-additional.md)を参照してください。
-M5StickC・Plus・Plus2には、それぞれ専用のプロファイルを使用します。
+- [M5Stack機種別ガイド](docs/m5stack.md)
+- [LILYGO機種](docs/lilygo.md)
+- [ATS-mini](docs/ats-mini.md)
 
-Tab5は今回は未対応です。ESP32-P4用の受信処理がなく、内蔵ESP32-C6への専用ファームウェアと
-P4への転送処理が必要です。[公式仕様](https://docs.m5stack.com/en/core/Tab5)も参照してください。
-上流から引き継いだその他のデバイス・チップ向け設定も、この派生版では実機確認していません。
+T-Deck Proは白黒電子ペーパーのため、画面更新が低速です。LILYGO機種はESP32-S3内蔵無線回路で受信し、基板上のSI4732・CC1101・LoRa無線モジュールは使用しません。詳しくは[LILYGOガイド](docs/lilygo.md)を参照してください。Tab5は今回は未対応です。画面・アプリ側のESP32-P4用受信処理がなく、内蔵ESP32-C6には専用受信ファームウェアとP4へのデータ転送経路が必要です。
 
 ## 動作画面
 
@@ -76,308 +78,25 @@ P4への転送処理が必要です。[公式仕様](https://docs.m5stack.com/en
 
 ![M5StickC Plus2のスペクトラム・ウォーターフォール表示](docs/m5stickc-plus2-screen.png)
 
-## ビルド環境の準備
-
-### 1. リポジトリの取得
-
-GitとPythonをインストールし、ESP-DSP・M5GFX・M5Unifiedのサブモジュールを含めてリポジトリを取得してください。
-以下のコマンドはshとPowerShellの両方で使えます。
-
-```sh
-git clone --recursive https://github.com/sake846/esp-sdr-m5.git
-cd esp-sdr-m5
-```
-
-サブモジュールを含めずに取得済みの場合は、次のコマンドを実行してください。
-
-```sh
-git submodule update --init --recursive
-```
-
-### 2. 指定されたESP-IDFのインストールと有効化
-
-M5Stack・LILYGO・ATS-mini向けの全プロファイルは、現在すべてESP-IDFのコミット
-`25fe69f946311abdaf9ad56591f25fedbc20ac98`を使用します。
-各プロファイルで必要なリビジョンは[firmware-targets.json](firmware-targets.json)に記載しています。
-ビルドには指定のリビジョンを使用してください。
-
-先に、利用するOSに応じたESP-IDFの前提ツールをインストールしてください。
-WindowsではPython 3.12を使い、PythonとGitにPATHを通してください。
-詳しくは[Windows開発環境のセットアップ](docs/windows-development-setup.md)を参照してください。
-
-以下から利用するシェルのコマンドを選び、`esp-sdr-m5`ディレクトリで実行してください。
-どちらもリポジトリと同じ親ディレクトリに指定のSDKをインストールし、最後にリポジトリのルートへ戻ります。
-
-**sh（Linux/macOS、BashまたはZsh）**
-
-```sh
-cd ..
-git clone https://github.com/espressif/esp-idf.git esp-idf-esp-sdr
-cd esp-idf-esp-sdr
-git checkout 25fe69f946311abdaf9ad56591f25fedbc20ac98
-git submodule update --init --recursive
-./install.sh esp32,esp32s3
-. ./export.sh
-cd ../esp-sdr-m5
-```
-
-**PowerShell（Windows）**
-
-```powershell
-Set-Location ..
-git clone https://github.com/espressif/esp-idf.git esp-idf-esp-sdr
-Set-Location esp-idf-esp-sdr
-git checkout 25fe69f946311abdaf9ad56591f25fedbc20ac98
-git submodule update --init --recursive
-.\install.ps1 'esp32,esp32s3'
-. .\export.ps1
-Set-Location ..\esp-sdr-m5
-```
-
-新しいターミナルを開くたびに、`idf.py`の実行前にESP-IDF環境を有効化してください。
-リポジトリのルートで、利用するシェルのコマンドを実行します。
-
-**sh**
-
-```sh
-. ../esp-idf-esp-sdr/export.sh
-```
-
-**PowerShell**
-
-```powershell
-. ..\esp-idf-esp-sdr\export.ps1
-```
-
-## 機種ごとのビルド・書き込み
-
-データ通信に対応したUSBケーブルで本体を接続し、ESP-IDF環境を有効化したターミナルで、
-機種とシェルに合ったコマンドをリポジトリのルートから実行してください。
-shの例ではバックスラッシュ（`\`）で行を継続します。PowerShellのビルド例は
-コピーして実行しやすいように1行にしています。
-
-`PORT`は本体のシリアルポート名に置き換えてください。
-Windowsでは`COM5`、Linuxでは`/dev/ttyUSB0`や`/dev/ttyACM0`、
-macOSでは`/dev/cu.usbmodem...`などです。
-以下の例のように、プロファイルごとにビルドディレクトリを分けてください。
-
-### M5Stack BASIC
-
-**sh**
-
-```sh
-idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 \
-  -DSDKCONFIG=build-m5stack-basic/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic build
-idf.py -B build-m5stack-basic -p COMx flash
-```
-
-**PowerShell**
-
-```powershell
-idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stack-basic/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic' build
-idf.py -B build-m5stack-basic -p COMx flash
-```
-
-この設定は4 MBのフラッシュを使用し、新しい16 MBモデルのBASICにも書き込めます。
-標準のLCDドライバーはILI9342Cです。
-ILI9341を搭載した初期のBASICでは、`idf.py -B build-m5stack-basic menuconfig`を実行し、
-**ESP-SDR board > Early Basic with ILI9341 LCD**を有効にしてから、再度ビルド・書き込みを行ってください。
-
-### M5Stack Core2
-
-**sh**
-
-```sh
-idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 \
-  -DSDKCONFIG=build-m5stack-core2/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2 build
-idf.py -B build-m5stack-core2 -p COMx flash
-```
-
-**PowerShell**
-
-```powershell
-idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stack-core2/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2' build
-idf.py -B build-m5stack-core2 -p COMx flash
-```
-
-Core2のLCDと画面下部の3つのタッチ領域を使用します。
-電源管理ICはAXP192とAXP2101に対応する実装を含みます。
-
-### Cardputer 通常版 K132
-
-**sh**
-
-```sh
-idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 \
-  -DSDKCONFIG=build-m5stack-cardputer/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer build
-idf.py -B build-m5stack-cardputer -p COMx flash
-```
-
-**PowerShell**
-
-```powershell
-idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 -DSDKCONFIG=build-m5stack-cardputer/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer' build
-idf.py -B build-m5stack-cardputer -p COMx flash
-```
-
-通常版のCardputerにはこのプロファイルを使用してください。
-内蔵キーボードのマトリクスと、ネイティブUSB Serial/JTAGを使用します。
-
-### Cardputer ADV
-
-**sh**
-
-```sh
-idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 \
-  -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv build
-idf.py -B build-m5stack-cardputer-adv -p COMx flash
-```
-
-**PowerShell**
-
-```powershell
-idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv' build
-idf.py -B build-m5stack-cardputer-adv -p COMx flash
-```
-
-ADVのキーボードはTCA8418 I²Cコントローラーを使用するため、専用プロファイルが必要です。
-通常版Cardputerのプロファイルで代用しないでください。
-
-### M5StickC Plus2
-
-**sh**
-
-```sh
-idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 \
-  -DSDKCONFIG=build-m5stickc-plus2/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2 build
-idf.py -B build-m5stickc-plus2 -p COMx flash
-```
-
-**PowerShell**
-
-```powershell
-idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stickc-plus2/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2' build
-idf.py -B build-m5stickc-plus2 -p COMx flash
-```
-
-縦向きのLCDと、本体のA/B/Cボタンを使用します。
-
-書き込み後に本体の電源を入れるかリセットすると、単体表示を開始します。
-初期設定は中心周波数2412 MHz、表示スパン16 MHz、FFTサイズ1024点、平均化回数16回です。
-ソフトウェアAGCはFFT前のIQピークを-12 dBFSに近づけ、ゲインインデックス30から調整します。
-
-## 本体での操作
-
-### BASIC・Core2
-
-Core2では、A/B/Cに対応する画面上の3つのタッチ領域を使います。
-
-| 操作部 | 通常時 | メニュー表示中 |
-| --- | --- | --- |
-| A（左） | TUNE-：周波数を下げる | 設定値を下げる |
-| B（中央） | MENUを開く | 次の項目へ進む。0.6秒長押しで1項目戻る |
-| C（右） | TUNE+：周波数を上げる | 設定値を上げる |
-
-無入力が5秒続くと通常操作に戻ります。設定値は画面中央に大きめに表示します。
-メニューの順番は、FREQ STEP、FREQ SPAN、Y POS、WF BRIGHT、WF CONTRAST、
-WF SPEED、FFT NUM、FFT AVERAGE、SPEC MODE、AGC TYPE、RF GAIN、FILTER、ABOUT、RESETです。
-先頭と末尾の項目は循環します。RESETでは右ボタンで周波数と設定を初期値に戻し、左ボタンで終了します。
-
-Y POSはスペクトラムの上下位置、WF BRIGHT・WF CONTRAST・WF SPEEDはウォーターフォールの
-明るさ・コントラスト・スクロール速度です。RF GAINを変更すると手動ゲインに切り替わります。
-FILTERはAUTO（SPANに追従）、WIDE（DAC 0）、DAC 1〜127を選べます。
-ABOUTでは左右ボタンでファームウェア名と機種名を切り替えます。
-設定はRAMに保持され、再起動すると初期値に戻ります。
-[設定範囲と初期値](docs/m5stack-basic.md#standalone-operation)も参照してください。
-
-### M5StickC Plus2
-
-同じメニューを、C（左側）：TUNE-／値を下げる、A（中央）：MENU、
-B（右側）：TUNE+／値を上げる、の割り当てで操作します。
-
-### Cardputer・Cardputer ADV
-
-| キー | 動作 |
-| --- | --- |
-| `,` | 選択中のステップ分、周波数を下げる |
-| `.`または`/` | 選択中のステップ分、周波数を上げる |
-| `0`〜`9` | 4桁の数字で周波数をMHz単位で入力する。例：`2412` |
-| `T` | チューニングステップを切り替える |
-| `P` | 表示スパンを切り替える |
-| `F` | FFTサイズを切り替える |
-| `A` | 平均化回数を切り替える |
-| `Shift` + `Space` | 通常スペクトラム／DPX風の密度表示を切り替える |
-| `Shift` + `T`、`P`、`F`、`A` | 該当する設定を逆順に切り替える |
-| `Space` | キーボード操作のヘルプを表示・非表示にする |
-
-チューニングステップは1・5・20・100 MHz、表示スパンは2・4・8・16・40・80 MHzです。
-2・4・8 MHzの表示は、16 MS/sで取得したサンプルの中央部分を拡大します。
-平均化回数は1・2・4・8・16回から選べ、初期値は16回です。FFTの初期値は1024点です。
-M5Stack各機種は起動時にソフトウェアAGCを使います。3ボタン機種はメニューのAGC TYPEと
-RF GAINで変更できます。Cardputerのゲインモードはシリアルコマンドで変更します。
-`GAIN HARDWARE`または`GAIN MANUAL`で切り替え、`GAIN SOFTWARE`でソフトウェアAGCへ戻せます。
-
-SPEC MODEのDPXは、平均化前の各FFTで取得できたレベルを色と残光で示します。
-初期値はNORMALです。下段のウォーターフォールは引き続き平均化した結果を表示します。
-DPX用の追加RAMは最大でBASIC・Core2が約20 KB、Cardputer系が約15 KB、Plus2が約8 KBです。
-拡大表示などで同じFFTビンを複数列に表示するときは履歴を共有し、RAM使用量を減らします。
-確保に失敗すると通常表示へ戻り、状態欄にRAMと表示します。
-色は出現の多さの目安で、出現確率を表す値ではありません。取得していない時間帯の信号は表示できません。
-ゲイン変更時は履歴が消えるため、信号を比較するときは手動ゲインが適しています。
-
-## PCとの接続
-
-単体動作にはPCは不要です。シリアルプロトコルを使う場合はUSBでPCに接続し、
-[ESP-SDRブラウザービューアー](https://espargos.net/espsdr/app/)などの対応クライアントを開いてください。
-BASIC・Core2・M5StickC Plus2は本体のUSB-UARTブリッジを**2,000,000 baud**で使用し、
-CardputerシリーズはネイティブUSB Serial/JTAGを使用します。
-
-PCからのコマンドが優先され、その間は本体の操作とサンプル取得を一時停止します。
-`RELEASE`コマンドを受け取るか、5秒間コマンドがなければ単体動作に戻ります。
-詳しくは[プロトコル仕様](docs/protocol.md)を参照してください。
-
 ## 受信・表示の制限
 
-- これらのM5Stack向けプロファイルは、主に**2.4 GHz付近**を受信します。
-  実験的なチューニングで約1.85 GHzまで下げられますが、設定可能な100〜6000 MHzの
-  全域で受信できるわけではありません。[受信設定](docs/rx-controls.md)も参照してください。
-- 単体表示では断続的にサンプルを取得するため、取得と取得の間に空白期間があります。
-- 本体表示ではレベルを符号付き整数dBFS（1 dB単位に丸め）で扱います。アンテナ入力のdBmには校正していません。
-- スペクトラム表示とI/Q取得のための受信専用ファームウェアです。音声復調には対応していません。
+- 主な受信帯域は**2.4 GHz付近**です。実験的に約1.85 GHzまで設定できますが、100〜6000 MHzの設定範囲全体で受信できるわけではありません。[受信設定](docs/rx-controls.md)を参照してください。
+- 本体画面は間隔を空けたスナップショット受信を使います。
+- 表示レベルは符号付き整数dBFS（1 dB単位）で、アンテナ入力電力をdBmで校正した値ではありません。
+- 受信専用ファームウェアです。スペクトラム表示とI/Q取得に対応しますが、音声復調は行いません。
 
-## 関連ドキュメント
+## ドキュメント一覧
 
-- [M5Stack BASICの表示・ハードウェアに関する説明](docs/m5stack-basic.md)
-- [Core2・Cardputer・M5StickC Plus2のハードウェアに関する説明](docs/m5stack-core2-cardputer.md)
-- [スペクトラム処理](docs/spectrum.md)
-- [ESP-SDRが無線サンプルを取得する仕組み](docs/how-it-works.md)
-- [ファームウェアのプロファイルとESP-IDFの指定リビジョン](firmware-targets.json)
+機種別ガイド、ビルド環境、受信処理、シリアルプロトコル、実装説明は[ドキュメント一覧](docs/README.md)から目的別に探せます。
 
 ## 上流プロジェクトと謝辞
 
-無線サンプルの取得機構と元のESP-SDRファームウェアは、
-[ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr)によるものです。
-この派生版では、M5Stackの画面表示と本体操作による単体動作に重点を置いています。
-元のプロジェクトの幅広いチップ対応や研究については、
-[上流リポジトリ](https://github.com/ESPARGOS/esp-sdr)と
-[プロジェクト概要](https://espargos.net/espsdr/)を参照してください。
+無線サンプル取得機構とESP-SDRの基本ファームウェアは[ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr)に由来します。この派生版ではM5Stack・LILYGO・ATS-miniの画面表示と操作に重点を置いています。[上流リポジトリ](https://github.com/ESPARGOS/esp-sdr)と[プロジェクト概要](https://espargos.net/espsdr/)も参照してください。
 
-[Florian Euchner](https://github.com/Jeija)、
-[Zoltan Doczi](https://github.com/zodoczi)、[14sea](https://github.com/14sea)をはじめとする
-上流の貢献者に感謝します。また、低周波数側のチューニングの参考となった5/6 LOの調査を行った
-[h0m3us3r](https://github.com/h0m3us3r/eSpDR)にも感謝します。
+上流の貢献者である[Florian Euchner](https://github.com/Jeija)、[Zoltan Doczi](https://github.com/zodoczi)、[14sea](https://github.com/14sea)、および低周波チューニングの検討に役立つ情報を公開した[h0m3us3r](https://github.com/h0m3us3r/eSpDR)に感謝します。
 
 ## ライセンス
 
-ESP-SDRのライセンスは**GPL-3.0-or-later**です。[LICENSE](LICENSE)を参照してください。
-改変版を配布する場合は、GPLに従ってソースコードを提供する必要があります。
+ESP-SDRは**GPL-3.0-or-later**で公開しています。[LICENSE](LICENSE)を参照してください。改変版を配布する場合は、GPLに従ってソースコードも公開する必要があります。
 
-第三者のコードには、それぞれのライセンスが適用されます。
-これには、`platform/esp32s2/esp_usb_cdc_rom_console/`内のApache-2.0ライセンスのESP-IDFコード、
-[ESP-DSPコンポーネント](components/esp-dsp/LICENSE)、およびESP-DSP由来のFFTカーネル
-`main/targets/esp32s3/s3_fft_rnd.S`と`main/targets/esp32s31/burst/s31_fft_rnd.S`が含まれます。
+サードパーティーのコードには個別のライセンスが適用されます。ESP-IDF由来のApache-2.0コードはplatform/esp32s2/esp_usb_cdc_rom_console/、[ESP-DSP](components/esp-dsp/LICENSE)、および同コンポーネント由来のFFTカーネルはmain/targets/esp32s3/s3_fft_rnd.Sとmain/targets/esp32s31/burst/s31_fft_rnd.Sにあります。

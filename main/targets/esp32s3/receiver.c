@@ -81,7 +81,7 @@ static void s3_tune(unsigned mhz) {
 static bool frequency_valid(unsigned mhz) {
     return mhz >= S3_FREQ_MIN && mhz <= S3_FREQ_MAX;
 }
-static unsigned frequency_mhz = 2412;
+static unsigned frequency_mhz = 2440;
 static bool rx_ready;
 static bool software_agc_probing;
 #ifdef S3_RF_PROBE

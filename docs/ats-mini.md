@@ -58,11 +58,13 @@ SI4732とアンプの電源を無効にし、SI4732のリセットをLowに保�
 
 ## Build and flash / ビルド・書き込み
 
-Activate the pinned ESP-IDF revision from the README, then run from the project
-root. Replace `PORT` with the USB serial port. These commands work in sh and
+Activate the pinned ESP-IDF revision using the
+[build setup guide](build-setup.md), then run from the project root. Replace
+`PORT` with the USB serial port. These commands work in sh and
 PowerShell. Keep a separate build directory for this board.
 
-READMEの手順で指定リビジョンのESP-IDFを有効にしてから、リポジトリのルートで実行します。
+まず[ビルド環境ガイド](build-setup.ja.md)で指定リビジョンのESP-IDFを有効にしてから、
+リポジトリのルートで実行します。
 `PORT`はUSBシリアルポート名に置き換えてください。shとPowerShellで同じコマンドを使えます。
 
 ```sh

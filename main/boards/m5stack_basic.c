@@ -248,7 +248,7 @@ void m5stack_basic_init(void) {
         vTaskDelay(pdMS_TO_TICKS(120));
     }
 #endif
-    m5stack_basic_draw(2412, NULL, m5stack_basic_fft_points(), false, false, 0);
+    m5stack_basic_draw(2440, NULL, m5stack_basic_fft_points(), false, false, 0);
     lcd_command(0x29, NULL, 0);
 #if !CONFIG_ESP_SDR_M5STACK_CORE2
     ESP_ERROR_CHECK(gpio_set_level(LCD_BL, 1));

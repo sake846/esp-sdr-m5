@@ -178,8 +178,8 @@ int main(void){
 #endif
  unsigned mhz=2412;controls.menu=M5_MENU_NONE;
 #ifdef ENCODER_A
- encoder_count=8;mhz=lilygo_poll(&controls,mhz,false);assert(mhz==2414);
- encoder_count=-4;mhz=lilygo_poll(&controls,mhz,true);assert(mhz==2414 && !encoder_count);
+ encoder_count=8;mhz=lilygo_poll(&controls,mhz,false);assert(mhz==2432);
+ encoder_count=-4;mhz=lilygo_poll(&controls,mhz,true);assert(mhz==2432 && !encoder_count);
 #endif
  if(keyboard){
 #if CONFIG_ESP_SDR_LILYGO_T_DECK
@@ -187,7 +187,7 @@ int main(void){
 #else
    event_fifo[0]=0x80|20;event_count=1; /* A: row 1, physical column 9. */
 #endif
-   now+=20;unsigned previous=mhz;mhz=lilygo_poll(&controls,mhz,false);assert(mhz==previous-1);
+   now+=20;unsigned previous=mhz;mhz=lilygo_poll(&controls,mhz,false);assert(mhz==previous-10);
 #if CONFIG_ESP_SDR_LILYGO_T_DECK
    deck_key='d';
 #else
@@ -251,7 +251,7 @@ int main(void){
  assert(lilygo_key(&s,RX_FREQ_MIN,'a',false)==RX_FREQ_MIN);
  assert(lilygo_key(&s,RX_FREQ_MAX,'d',false)==RX_FREQ_MAX);
  lilygo_key(&s,2412,' ',false);assert(s.menu==M5_MENU_STEP);
- lilygo_key(&s,2412,'D',false);assert(s.step==1);
+ lilygo_key(&s,2412,'D',false);assert(s.step==3);
  lilygo_key(&s,2412,'q',true);assert(s.menu==M5_MENU_STEP);
  lilygo_key(&s,2412,'q',false);assert(s.menu==M5_MENU_NONE);
  assert(lilygo_tca_key(0x80|20)=='a' && lilygo_tca_key(0x80|18)=='d');

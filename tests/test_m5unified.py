@@ -61,11 +61,11 @@ int main(void) {
           __builtin_bswap16(COLOR_SRDECK_YELLOW_GREEN));
  }
  controls.menu=M5_MENU_NONE;
- unsigned mhz=input(2412,1); mhz=input(mhz,0); assert(mhz==2411);
+ unsigned mhz=input(2412,1); mhz=input(mhz,0); assert(mhz==2402);
  mhz=input(mhz,4); mhz=input(mhz,0); assert(mhz==2412);
  mhz=input(mhz,2); mhz=input(mhz,0); assert(controls.menu==M5_MENU_STEP);
  controls.menu=M5_MENU_NONE;
- encoder_steps=2; now+=1; assert(m5stack_basic_poll(2412,false)==2414);
+ encoder_steps=2; now+=1; assert(m5stack_basic_poll(2412,false)==2432);
  encoder_steps=-8; buttons=5; assert(m5stack_basic_poll(2412,true)==2412 && !encoder_steps);
  buttons=0; now+=40; m5stack_basic_poll(2412,false);
  now+=31; assert(m5stack_basic_poll(2412,false)==2412);

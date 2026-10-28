@@ -11,7 +11,7 @@ class BasicControls(unittest.TestCase):
 #include <assert.h>
 #include "m5stack_basic_controls.h"
 static m5stack_controls_t s;
-static unsigned mhz = 2412;
+static unsigned mhz = 2440;
 static uint32_t now;
 static void tick(unsigned keys, unsigned elapsed, bool pc) {
     now += elapsed;
@@ -29,13 +29,18 @@ static void hold(unsigned key) {
 }
 int main(void) {
     m5stack_controls_defaults(&s);
+    assert(m5stack_steps[s.step] == 10 && m5stack_spans[s.rate] == 80);
+    assert(sizeof(m5stack_fft_sizes) / sizeof(m5stack_fft_sizes[0]) == 5);
+    assert(m5stack_fft_sizes[4] == 4096);
     s.gain_max = 72;
     tick(1, 1, false); tick(0, 10, false); tick(0, 30, false);
-    assert(mhz == 2412 && s.menu == M5_MENU_NONE);
-    press(1); assert(mhz == 2411);
-    press(4); assert(mhz == 2412);
-    press(2); assert(s.menu == M5_MENU_STEP && s.step == 0);
-    press(4); assert(s.step == 1 && mhz == 2412);
+    assert(mhz == 2440 && s.menu == M5_MENU_NONE);
+    press(1); assert(mhz == 2430);
+    press(4); assert(mhz == 2440);
+    press(2); assert(s.menu == M5_MENU_STEP && s.step == 2);
+    press(4); assert(s.step == 3 && mhz == 2440);
+    press(1); assert(s.step == 2);
+    press(1); assert(s.step == 1);
     press(1); assert(s.step == 0);
     press(1); assert(s.step == 0); /* Values stop at the lower bound. */
     const m5stack_menu_t order[] = {M5_MENU_SPAN, M5_MENU_Y_POS, M5_MENU_WF_BRIGHT,
@@ -47,12 +52,13 @@ int main(void) {
     hold(2); assert(s.menu == M5_MENU_RESET); /* One reverse step, no release action. */
     hold(2); assert(s.menu == M5_MENU_ABOUT);
     press(4); assert(s.about == 1); press(1); assert(s.about == 0);
-    s.menu = M5_MENU_SPAN; press(4); assert(s.rate == 4); press(1); assert(s.rate == 3);
+    s.menu = M5_MENU_SPAN; press(4); assert(s.rate == 5); press(1); assert(s.rate == 4);
     s.menu = M5_MENU_Y_POS; press(4); assert(s.y_pos == 5); press(1); assert(s.y_pos == 0);
     s.menu = M5_MENU_WF_BRIGHT; press(1); assert(s.wf_bright == -5);
     s.menu = M5_MENU_WF_CONTRAST; press(4); assert(s.wf_contrast == 125);
     s.menu = M5_MENU_WF_SPEED; press(1); assert(s.wf_speed == 2);
     s.menu = M5_MENU_FFT; press(4); assert(s.fft == 3);
+    press(4); press(4); assert(s.fft == 4 && m5stack_fft_sizes[s.fft] == 4096);
     s.menu = M5_MENU_AVERAGE; press(1); assert(s.average == 3);
     s.menu = M5_MENU_SPECTRUM; press(4); assert(s.dpx); press(1); assert(!s.dpx);
     s.menu = M5_MENU_AGC; press(4); assert(s.agc == M5_AGC_HARDWARE);
@@ -74,33 +80,33 @@ int main(void) {
     assert(!m5stack_controls_sync_rx(&s, &agc, &gain, 72, &filter, &follow));
     assert(s.gain == 42 && s.agc == agc && s.filter == 73); /* PC state remains authoritative. */
     s.menu = M5_MENU_RESET; press(4);
-    assert(s.reset_done && mhz == 2412 && s.menu == M5_MENU_RESET);
-    assert(s.rate == 3 && s.step == 0 && s.fft == 2 && s.average == 4);
+    assert(s.reset_done && mhz == 2440 && s.menu == M5_MENU_RESET);
+    assert(s.rate == 5 && s.step == 2 && s.fft == 2 && s.average == 4);
     assert(s.y_pos == 0 && s.wf_bright == 0 && s.wf_contrast == 100 && s.wf_speed == 3);
     assert(!s.dpx && !s.dpx_failed);
     m5stack_controls_sync_rx(&s, &agc, &gain, 20, &filter, &follow);
     assert(agc == M5_AGC_SOFTWARE && gain == 20 && follow); /* Reset respects calibrated bounds. */
     press(1); assert(s.menu == M5_MENU_NONE);
-    hold(1); assert(mhz == 2411 && s.rate == 3); /* Side holds tune once on release. */
-    hold(4); assert(mhz == 2412 && s.average == 4);
+    hold(1); assert(mhz == 2430 && s.rate == 5); /* Side holds tune once on release. */
+    hold(4); assert(mhz == 2440 && s.average == 4);
     press(2); tick(0, 4999, false); assert(s.menu == M5_MENU_STEP);
     tick(0, 1, false); assert(s.menu == M5_MENU_NONE);
     press(2); tick(4, 4999, false); tick(4, 30, false);
     tick(4, 6000, false); assert(s.menu == M5_MENU_STEP); /* Held input prevents timeout. */
-    tick(0, 1, false); tick(0, 30, false); assert(s.step == 1);
+    tick(0, 1, false); tick(0, 30, false); assert(s.step == 3);
     tick(0, 4999, false); assert(s.menu == M5_MENU_STEP);
     tick(0, 1, false); assert(s.menu == M5_MENU_NONE);
     press(2); unsigned old_step = s.step;
     tick(4, 5000, false); tick(4, 30, false);
     tick(0, 1, false); tick(0, 30, false);
-    assert(s.menu == M5_MENU_NONE && s.step == old_step && mhz == 2417);
+    assert(s.menu == M5_MENU_NONE && s.step == old_step && mhz == 2460);
     /* A new input after a polling gap cannot keep an expired menu alive. */
     mhz = RX_FREQ_MIN; press(1); assert(mhz == RX_FREQ_MIN);
     mhz = RX_FREQ_MAX; press(4); assert(mhz == RX_FREQ_MAX);
     press(2); tick(7, 100, true); tick(7, 1000, true);
     assert(s.menu == M5_MENU_NONE);
     tick(7, 1000, false); tick(0, 1, false); tick(0, 30, false);
-    assert(mhz == RX_FREQ_MAX && s.menu == M5_MENU_NONE && s.step == 1);
+    assert(mhz == RX_FREQ_MAX && s.menu == M5_MENU_NONE && s.step == 3);
     now = UINT32_MAX - 10;
     press(2); assert(s.menu == M5_MENU_STEP); /* Debounce crosses timer wrap. */
     now = UINT32_MAX - 100; s.last_input = now;
@@ -182,7 +188,7 @@ int main(void) {
     m5stack_basic_init();
     assert(levels[4] == 1 && levels[25] == 0 && levels[32] == 1 && levels[33] == 1);
     assert(inputs == ((UINT64_C(1) << 37) | (UINT64_C(1) << 38) | (UINT64_C(1) << 39)));
-    assert(rows == 240 && m5stack_basic_rate() == 6);
+    assert(rows == 240 && m5stack_basic_rate() == 0 && m5stack_basic_span() == 80);
     assert(m5stack_basic_poll(2412, false) == 2412);
     bins[127] = 255; bins[255] = 0; bins[254] = 128; bins[0] = 64;
     m5stack_basic_draw(2412, bins, 256, false, true, 0);
@@ -195,7 +201,7 @@ int main(void) {
     unsigned vertical_grid_lines = 0;
     for (unsigned x = PLOT_LEFT; x < PLOT_LEFT + PLOT_WIDTH; x++)
         if (pixels[33 * 320 + x] == 0x2104 || pixels[33 * 320 + x] == 0x11ae) vertical_grid_lines++;
-    assert(vertical_grid_lines == 9); /* Eight equal intervals, 2 MHz each at 16 MHz span. */
+    assert(vertical_grid_lines == 9); /* Eight equal intervals, 10 MHz each at 80 MHz span. */
     for (unsigned x = PLOT_LEFT; x < PLOT_LEFT + PLOT_WIDTH; x++)
         assert(pixels[SPECTRUM_BOTTOM * 320 + x] == 0x4208); /* Visible baseline across the plot. */
     for (unsigned column=0; column<3; column++) {

@@ -108,7 +108,8 @@ CHECK = r'''
 int main(void) {
     pmu[3]=TEST_PMU;
     m5stack_basic_init();
-    assert(rows==TEST_HEIGHT && column_windows==1 && m5stack_basic_rate()==6);
+    assert(rows==TEST_HEIGHT && column_windows==1 && m5stack_basic_rate()==0);
+    assert(m5stack_basic_span()==80 && m5stack_steps[controls.step]==10);
     assert(m5stack_basic_fft_points()==1024 && m5stack_basic_average_count()==16);
 #if CONFIG_ESP_SDR_M5STACK_CORE2
     assert(levels[4]==1);
@@ -144,7 +145,7 @@ int main(void) {
     m5stack_basic_draw(2413,bins,256,false,true,0);
     assert(waterfall_count==1);
     assert(pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==waterfall_color(60));
-    /* Peak reduction preserves a narrow signal in an 8192/4096-bin spectrum. */
+    /* Peak reduction preserves a narrow signal in a 4096-bin spectrum. */
     memset(bins,0,sizeof(bins));controls.rate=3;
     bins[TEST_FFT/2-2]=255;
     m5stack_basic_draw(2413,bins,TEST_FFT,false,true,0);
@@ -194,11 +195,11 @@ int main(void) {
 class BoardDisplays(unittest.TestCase):
     def test_core2_power_touch_and_compact_display_geometry_and_history(self):
         profiles = [
-            ('CORE2', 320, 240, 0, 0, 15, 5, 23, 18, 3, 21, 22, 0x03, 8192),
-            ('CORE2', 320, 240, 0, 0, 15, 5, 23, 18, 3, 21, 22, 0x4a, 8192),
+            ('CORE2', 320, 240, 0, 0, 15, 5, 23, 18, 3, 21, 22, 0x03, 4096),
+            ('CORE2', 320, 240, 0, 0, 15, 5, 23, 18, 3, 21, 22, 0x4a, 4096),
             ('CARDPUTER', 240, 135, 40, 53, 34, 37, 35, 36, 3, 8, 9, 0, 4096),
             ('CARDPUTER_ADV', 240, 135, 40, 53, 34, 37, 35, 36, 3, 8, 9, 0, 4096),
-            ('STICKC_PLUS2', 135, 240, 52, 40, 14, 5, 15, 13, 2, 0, 0, 0, 8192),
+            ('STICKC_PLUS2', 135, 240, 52, 40, 14, 5, 15, 13, 2, 0, 0, 0, 4096),
         ]
         for profile, *values in profiles:
             with self.subTest(profile=profile, pmu=values[-2]):

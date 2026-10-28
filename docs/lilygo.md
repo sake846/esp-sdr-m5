@@ -36,11 +36,12 @@ T-Deck Pro MAXは別基板のため、上記のPro用プロファイルには含
 
 ## Build and flash / ビルド・書き込み
 
-Activate the pinned ESP-IDF revision described in the main README. Replace the
+Activate the pinned ESP-IDF revision using the
+[build setup guide](build-setup.md). Replace the
 profile below with the appropriate entry from the table; replace `PORT` with
 the USB serial port. The commands work in PowerShell and sh.
 
-READMEの手順で指定リビジョンのESP-IDFを有効化してください。
+まず[ビルド環境ガイド](build-setup.ja.md)で指定リビジョンのESP-IDFを有効化してください。
 以下のプロファイル名を上表から選び、`PORT`を本体のUSBシリアルポート名に置き換えます。
 PowerShellとshで同じコマンドを使用できます。
 

@@ -13,9 +13,9 @@ OUT = ROOT / 'artifacts/dpx-benchmark'
 OUT.mkdir(parents=True, exist_ok=True)
 RUN = 'current'
 PROFILES = [
-    ('BASIC', 320, 240, 0, 0, 27, 14, 23, 18, 3, 0, 0, 0, 8192),
+    ('BASIC', 320, 240, 0, 0, 27, 14, 23, 18, 3, 0, 0, 0, 4096),
     ('CARDPUTER', 240, 135, 40, 53, 34, 37, 35, 36, 3, 8, 9, 0, 4096),
-    ('STICKC_PLUS2', 135, 240, 52, 40, 14, 5, 15, 13, 2, 0, 0, 0, 8192),
+    ('STICKC_PLUS2', 135, 240, 52, 40, 14, 5, 15, 13, 2, 0, 0, 0, 4096),
 ]
 CHECK = r'''
 #include <time.h>
@@ -74,7 +74,7 @@ for board, *values in PROFILES:
     output=OUT/f'{RUN}-{board}.jsonl'
     compile_run(stub+source+access+CHECK,[f'CONFIG_ESP_SDR_M5STACK_{board}=1',
                 *(f'TEST_{k}={v}' for k,v in zip(names,values)),
-                f'TEST_FFT_INDEX={5 if values[-1]==8192 else 4}',
+                'TEST_FFT_INDEX=4',
                 'RESULT_PATH='+json.dumps(output.as_posix())])
     rows=[json.loads(line) for line in output.read_text().splitlines()]
     for n,span in sorted({(r['nfft'],r['span']) for r in rows}):

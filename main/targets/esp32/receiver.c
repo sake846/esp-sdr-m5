@@ -32,7 +32,7 @@
 #include "heap_memory_layout.h"
 #if CONFIG_ESP_SDR_M5STACK_BASIC || CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2 || CONFIG_ESP_SDR_M5UNIFIED
 #include "m5stack_basic.h"
-#define M5_LOCAL_FFT_MAX 8192u
+#define M5_LOCAL_FFT_MAX 4096u
 #define M5_LOCAL_AVERAGE_MAX 16u
 static bool local_capture;
 static unsigned local_capture_gain;
@@ -52,7 +52,7 @@ static uint32_t *const samples = (void *)0x3ffe8000;
 static unsigned gain_max, gain_code = 40;
 static bool hardware_agc = true;
 static bool software_agc, software_agc_probing;
-static unsigned frequency_mhz = 2412;
+static unsigned frequency_mhz = 2440;
 /* Original ESP32 BBTOP RX filter: registers 1/2, seven-bit capacitor DAC.
  * Preserve bit 7 and restore PHY calibration before any retune or transfer. */
 static int rx_filter = -1;

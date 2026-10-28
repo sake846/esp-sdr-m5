@@ -21,20 +21,16 @@ typedef struct {
     bool b_long, reset_done, dpx, dpx_failed;
 } m5stack_controls_t;
 
-static const unsigned m5stack_steps[] = {1, 5, 20, 100};
+static const unsigned m5stack_steps[] = {1, 5, 10, 20, 100};
 static const unsigned m5stack_rates[] = {6, 6, 6, 6, 1, 0};
 static const unsigned m5stack_spans[] = {2, 4, 8, 16, 40, 80};
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || (CONFIG_ESP_SDR_M5UNIFIED && CONFIG_IDF_TARGET_ESP32S3)
 static const unsigned m5stack_fft_sizes[] = {256, 512, 1024, 2048, 4096};
-#else
-static const unsigned m5stack_fft_sizes[] = {256, 512, 1024, 2048, 4096, 8192};
-#endif
 static const unsigned m5stack_average_counts[] = {1, 2, 4, 8, 16};
 static const unsigned m5stack_wf_intervals[] = {10, 5, 2, 1};
 
 static inline void m5stack_controls_defaults(m5stack_controls_t *s) {
-    s->step = 0;
-    s->rate = 3;
+    s->step = 2;
+    s->rate = 5;
     s->fft = 2;
     s->average = 4;
     s->y_pos = s->wf_bright = 0;
@@ -65,7 +61,7 @@ static inline unsigned m5stack_menu_adjust(m5stack_controls_t *s, unsigned mhz, 
         return direction < 0 ? (mhz - RX_FREQ_MIN < step ? RX_FREQ_MIN : mhz - step) :
                                (RX_FREQ_MAX - mhz < step ? RX_FREQ_MAX : mhz + step);
     }
-    case M5_MENU_STEP: s->step = m5stack_adjust(s->step, direction, 1, 0, 3); break;
+    case M5_MENU_STEP: s->step = m5stack_adjust(s->step, direction, 1, 0, 4); break;
     case M5_MENU_SPAN: s->rate = m5stack_adjust(s->rate, direction, 1, 0, 5); break;
     case M5_MENU_Y_POS: s->y_pos = m5stack_adjust(s->y_pos, direction, 5, -40, 40); break;
     case M5_MENU_WF_BRIGHT: s->wf_bright = m5stack_adjust(s->wf_bright, direction, 5, -30, 30); break;
@@ -97,7 +93,7 @@ static inline unsigned m5stack_menu_adjust(m5stack_controls_t *s, unsigned mhz, 
             m5stack_controls_defaults(s);
             s->rx_dirty = M5_RX_AGC | M5_RX_GAIN | M5_RX_FILTER;
             s->reset_done = true;
-            mhz = 2412;
+            mhz = 2440;
         }
         break;
     }

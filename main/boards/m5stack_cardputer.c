@@ -351,10 +351,10 @@ void m5stack_basic_init(void) {
     ESP_ERROR_CHECK(waterfall ? ESP_OK : ESP_ERR_NO_MEM);
 #if CONFIG_ESP_SDR_M5UNIFIED
     m5unified_board_init();
-    m5stack_basic_draw(2412, NULL, m5stack_basic_fft_points(), false, false, 0);
+    m5stack_basic_draw(2440, NULL, m5stack_basic_fft_points(), false, false, 0);
 #elif (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
     lilygo_init();
-    m5stack_basic_draw(2412, NULL, m5stack_basic_fft_points(), false, false, 0);
+    m5stack_basic_draw(2440, NULL, m5stack_basic_fft_points(), false, false, 0);
 #else
     const gpio_config_t outputs = {
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2 || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
@@ -422,7 +422,7 @@ void m5stack_basic_init(void) {
     lcd_command(0x11, NULL, 0);
     vTaskDelay(pdMS_TO_TICKS(130));
     lcd_command(0x38, NULL, 0);
-    m5stack_basic_draw(2412, NULL, m5stack_basic_fft_points(), false, false, 0);
+    m5stack_basic_draw(2440, NULL, m5stack_basic_fft_points(), false, false, 0);
     lcd_command(0x29, NULL, 0);
     ESP_ERROR_CHECK(gpio_set_level(LCD_BL, 1));
 #endif

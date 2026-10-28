@@ -42,10 +42,10 @@ int main(void) {
     assert(mhz == 2412);
     press(MATRIX_COMMA); assert(mhz == 2411);
     press(MATRIX_PERIOD); press(MATRIX_SLASH); assert(mhz == 2413);
-    for (unsigned j = 1; j <= 4; j++) {
-        press(MATRIX_T); assert(controls.step == j % 4);
+    for (unsigned j = 1; j <= 5; j++) {
+        press(MATRIX_T); assert(controls.step == j % 5);
     }
-    press(MATRIX_SHIFT | MATRIX_T); assert(controls.step == 3);
+    press(MATRIX_SHIFT | MATRIX_T); assert(controls.step == 4);
     press(MATRIX_COMMA); assert(mhz == 2313);
     mhz = 100; press(MATRIX_COMMA); assert(mhz == 100);
     mhz = 6000; press(MATRIX_PERIOD); assert(mhz == 6000);
@@ -73,12 +73,12 @@ int main(void) {
     tick(MATRIX_T | MATRIX_COMMA, 1, true);
     tick(MATRIX_T | MATRIX_COMMA, 1000, true);
     tick(MATRIX_T | MATRIX_COMMA, 1000, false);
-    assert(mhz == 6000 && controls.step == 3 && !frequency_input_length);
+    assert(mhz == 6000 && controls.step == 4 && !frequency_input_length);
     tick(0, 1, false); tick(0, 30, false);
     press(MATRIX_COMMA); assert(mhz == 5900);
     /* Shift is captured on key-down, even if released during debounce. */
     tick(MATRIX_SHIFT | MATRIX_T, 1, false); tick(MATRIX_T, 30, false);
-    assert(controls.step == 2);
+    assert(controls.step == 3);
     tick(0, 1, false); tick(0, 30, false);
     now = UINT32_MAX - 10;
     tick(MATRIX_PERIOD, 0, false); tick(MATRIX_PERIOD, 30, false);

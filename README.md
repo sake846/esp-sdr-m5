@@ -2,76 +2,66 @@
 
 English | [日本語](README.ja.md)
 
-Turn an M5Stack, LILYGO or ATS-mini device into a standalone spectrum and waterfall display using
-its built-in ESP32 radio. No external SDR hardware or computer is needed during
-standalone operation.
+Turn an M5Stack, LILYGO or ATS-mini device into a standalone spectrum and waterfall display using its built-in ESP32 radio. No external SDR hardware or computer is needed during operation.
 
-This project is a fork of [ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr),
-adapted to run ESP-SDR directly on M5Stack, LILYGO and ATS-mini devices with their own screens and
-controls. The ESP32 captures I/Q samples, computes FFTs and draws the results
-on the built-in display. A computer is needed to build and flash the firmware;
-after that, the device can run on its own.
+This fork adapts [ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr) for the screens and controls on these devices. A computer is needed to build and flash the firmware; after that, the device runs on its own.
 
 ## Features
 
-- Spectrum trace with a translucent blue fill and scrolling color waterfall on
-  the device's LCD.
-- On-device frequency tuning, step, span, FFT size and averaging controls.
-- Standalone profiles for M5Stack BASIC, Core2, CoreS3, Cardputer / ADV, DinMeter,
-  StickS3, M5StickC / Plus / Plus2, PaperColor and PaperS3.
-- LILYGO T-Display S3 Pro, T-Pager, T-Embed SI4732 / CC1101 / CC1101 Plus, T-Deck and
-  T-Deck Pro profiles (not yet hardware-verified).
-- ATS-mini parallel LCD and rotary encoder profile (not yet hardware-verified).
-- FFT sizes from 256 to 8192 points on ESP32 devices, or up to 4096 points on
-  ESP32-S3 devices.
-- Optional PC connection through the existing ESP-SDR USB/UART protocol for
-  I/Q capture and spectrum viewing.
+- Live spectrum trace and scrolling waterfall on the device display.
+- On-device tuning, display span, FFT size, averaging and gain controls.
+- Profiles for M5Stack, LILYGO and ATS-mini devices.
+- Optional PC connection through the ESP-SDR USB/UART protocol for I/Q capture and spectrum viewing.
+- FFT sizes from 256 to 4096 points on ESP32 and ESP32-S3 profiles.
 
-## Devices and hardware test status
+## Get started
 
-**M5Stack BASIC, Core2 and the original Cardputer (K132, non-ADV) have been
-verified on real hardware in this project.** Cardputer ADV is also shown
-running below. M5StickC Plus2 has also been verified on real hardware.
+1. Find your device and hardware test status in the table below.
+2. Prepare Git, Python and the pinned ESP-IDF environment using the [build setup guide](docs/build-setup.md).
+3. Follow the matching device guide for its build command, controls and hardware-specific notes.
 
-| Device | Chip | Display | Build profile | Hardware test status |
+The required ESP-IDF revision for each profile is listed in [firmware-targets.json](firmware-targets.json). The device guides contain the commands and operational details for that profile.
+
+Standalone profiles start at 2440 MHz with a 10 MHz tuning step, 80 MHz span,
+1024-point FFT and 16-spectrum averaging. M5Stack profiles also start with
+software AGC. See the [M5Stack guide](docs/m5stack.md#standalone-operation)
+for the shared menu and display settings.
+
+## Supported devices
+
+M5Stack BASIC, Core2, original Cardputer K132, Cardputer ADV and M5StickC Plus2 have been verified on real hardware in this project. Other profiles are not yet hardware-verified.
+
+| Device | Chip | Display | Profile | Hardware status |
 | --- | --- | --- | --- | --- |
-| M5Stack BASIC | ESP32 | 320 × 240 | `m5stack-basic` | **Verified** |
-| M5Stack Core2 | ESP32 | 320 × 240 | `m5stack-core2` | **Verified** |
-| Cardputer, original K132 | ESP32-S3 | 240 × 135 | `m5stack-cardputer` | **Verified** |
-| Cardputer ADV | ESP32-S3 | 240 × 135 | `m5stack-cardputer-adv` | **Verified** |
-| M5StickC Plus2 | ESP32 | 135 × 240, portrait | `m5stickc-plus2` | **Verified** |
-| M5Stack CoreS3 | ESP32-S3 | 320 × 240 | `m5stack-cores3` | Unverified |
-| M5Stack DinMeter | ESP32-S3 | 240 × 135, landscape | `m5stack-din-meter` | Unverified |
-| M5StickS3 | ESP32-S3 | 240 × 135, landscape | `m5sticks3` | Unverified |
-| M5StickC Plus | ESP32 | 240 × 135, landscape | `m5stickc-plus` | Unverified |
-| M5StickC | ESP32 | 160 × 80, landscape | `m5stickc` | Unverified |
-| M5Stack PaperColor | ESP32-S3 | 600 × 400, color e-paper | `m5stack-paper-color` | Unverified |
-| M5Stack PaperS3 | ESP32-S3 | 960 × 540, grayscale e-paper | `m5stack-papers3` | Unverified |
-| LILYGO T-Display S3 Pro | ESP32-S3 | 480 × 222 | `lilygo-t-display-s3-pro` | Unverified |
-| LILYGO T-LoRa Pager | ESP32-S3 | 480 × 222 | `lilygo-t-pager` | Unverified |
-| T-Embed SI4732 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-si4732` | Unverified |
-| T-Embed CC1101 | ESP32-S3 | 320 × 170 | `lilygo-t-embed-cc1101` | Unverified |
-| T-Embed CC1101 Plus | ESP32-S3 | 320 × 170 | `lilygo-t-embed-cc1101-plus` | Unverified |
-| T-Deck / T-Deck Plus | ESP32-S3 | 320 × 240 | `lilygo-t-deck` | Unverified |
-| T-Deck Pro V1.0 | ESP32-S3 | 240 × 320, e-paper | `lilygo-t-deck-pro` | Unverified |
-| T-Deck Pro V1.1 | ESP32-S3 | 240 × 320, e-paper | `lilygo-t-deck-pro-v11` | Unverified |
-| ATS-mini | ESP32-S3 | 320 × 170, parallel LCD | `ats-mini` | Unverified |
+| [M5Stack BASIC](docs/m5stack.md#m5stack-basic) | ESP32 | 320 × 240 | m5stack-basic | **Verified** |
+| [M5Stack Core2](docs/m5stack.md#core2) | ESP32 | 320 × 240 | m5stack-core2 | **Verified** |
+| [M5Stack CoreS3](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 320 × 240 | m5stack-cores3 | Unverified |
+| [M5Stack DinMeter](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 240 × 135, landscape | m5stack-din-meter | Unverified |
+| [Cardputer, original K132](docs/m5stack.md#cardputer-k132) | ESP32-S3 | 240 × 135 | m5stack-cardputer | **Verified** |
+| [Cardputer ADV](docs/m5stack.md#cardputer-adv) | ESP32-S3 | 240 × 135 | m5stack-cardputer-adv | **Verified** |
+| [M5StickC](docs/m5stack.md#additional-m5stack-devices) | ESP32 | 160 × 80, landscape | m5stickc | Unverified |
+| [M5StickC Plus](docs/m5stack.md#additional-m5stack-devices) | ESP32 | 240 × 135, landscape | m5stickc-plus | Unverified |
+| [M5StickC Plus2](docs/m5stack.md#m5stickc-plus2) | ESP32 | 135 × 240, portrait | m5stickc-plus2 | **Verified** |
+| [M5StickS3](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 240 × 135, landscape | m5sticks3 | Unverified |
+| [M5Stack PaperColor](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 600 × 400, color e-paper | m5stack-paper-color | Unverified |
+| [M5Stack PaperS3](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 960 × 540, grayscale e-paper | m5stack-papers3 | Unverified |
+| [LILYGO T-Display S3 Pro](docs/lilygo.md) | ESP32-S3 | 480 × 222 | lilygo-t-display-s3-pro | Unverified |
+| [LILYGO T-LoRa Pager](docs/lilygo.md) | ESP32-S3 | 480 × 222 | lilygo-t-pager | Unverified |
+| [LILYGO T-Embed SI4732](docs/lilygo.md) | ESP32-S3 | 320 × 170 | lilygo-t-embed-si4732 | Unverified |
+| [LILYGO T-Embed CC1101](docs/lilygo.md) | ESP32-S3 | 320 × 170 | lilygo-t-embed-cc1101 | Unverified |
+| [LILYGO T-Embed CC1101 Plus](docs/lilygo.md) | ESP32-S3 | 320 × 170 | lilygo-t-embed-cc1101-plus | Unverified |
+| [LILYGO T-Deck / T-Deck Plus](docs/lilygo.md) | ESP32-S3 | 320 × 240 | lilygo-t-deck | Unverified |
+| [LILYGO T-Deck Pro V1.0](docs/lilygo.md) | ESP32-S3 | 240 × 320, e-paper | lilygo-t-deck-pro | Unverified |
+| [LILYGO T-Deck Pro V1.1](docs/lilygo.md) | ESP32-S3 | 240 × 320, e-paper | lilygo-t-deck-pro-v11 | Unverified |
+| [ATS-mini](docs/ats-mini.md) | ESP32-S3 | 320 × 170, parallel LCD | ats-mini | Unverified |
 
-See the [LILYGO guide](docs/lilygo.md) for build commands and controls.
-These profiles receive through the ESP32-S3 radio; onboard SI4732/CC1101/LoRa
-chips are not used. T-Deck Pro uses a slower monochrome e-paper display.
-See the [ATS-mini guide](docs/ats-mini.md) for its build commands, display variants and controls.
+## Device guides
 
-See the [additional M5Stack guide](docs/m5stack-additional.md) for CoreS3, DinMeter,
-StickS3, M5StickC / Plus, PaperColor and PaperS3 builds and controls. Use the separate
-M5StickC, Plus and Plus2 profiles for their respective hardware.
+- [M5Stack device guide](docs/m5stack.md)
+- [LILYGO devices](docs/lilygo.md)
+- [ATS-mini](docs/ats-mini.md)
 
-Tab5 is unavailable in this release: its ESP32-P4 has no RF backend, and the
-onboard ESP32-C6 needs dedicated receiver firmware plus a transfer path to the P4.
-See the [official Tab5 specifications](https://docs.m5stack.com/en/core/Tab5).
-
-Other devices and chip profiles inherited from upstream have not been hardware-verified in this
-fork.
+T-Deck Pro uses a slower monochrome e-paper display. LILYGO profiles receive through the ESP32-S3 radio; their onboard SI4732, CC1101 and LoRa radios are not used. See the [LILYGO guide](docs/lilygo.md) for details. Tab5 is not supported in this release because its ESP32-P4 has no RF backend; the onboard ESP32-C6 would need separate receiver firmware and a data path to the P4.
 
 ## Operating photos
 
@@ -87,312 +77,25 @@ fork.
 
 ![M5StickC Plus2 running the standalone spectrum and waterfall display](docs/m5stickc-plus2-screen.png)
 
-## Build environment
+## Radio and display limits
 
-### 1. Clone this repository
-
-Install Git and Python, then clone the repository with its ESP-DSP submodule.
-These commands work in both sh and PowerShell:
-
-```sh
-git clone --recursive https://github.com/sake846/esp-sdr-m5.git
-cd esp-sdr-m5
-```
-
-If you already cloned it without submodules, run:
-
-```sh
-git submodule update --init --recursive
-```
-
-### 2. Install and activate the pinned ESP-IDF
-
-All M5Stack, LILYGO and ATS-mini profiles currently use ESP-IDF commit
-`25fe69f946311abdaf9ad56591f25fedbc20ac98`. The required revision for each
-profile is recorded in [firmware-targets.json](firmware-targets.json). Use that
-revision when building these profiles.
-
-Install the ESP-IDF host prerequisites for your OS first. On Windows, use
-Python 3.12 and ensure Python and Git are on your PATH; see the
-[Windows development setup](docs/windows-development-setup.md) for additional
-setup notes.
-
-Choose the commands for your shell below. Both install the pinned SDK beside
-this repository and return to the repository root. Run them from the
-`esp-sdr-m5` directory.
-
-**sh (Linux/macOS, Bash or Zsh)**
-
-```sh
-cd ..
-git clone https://github.com/espressif/esp-idf.git esp-idf-esp-sdr
-cd esp-idf-esp-sdr
-git checkout 25fe69f946311abdaf9ad56591f25fedbc20ac98
-git submodule update --init --recursive
-./install.sh esp32,esp32s3
-. ./export.sh
-cd ../esp-sdr-m5
-```
-
-**PowerShell (Windows)**
-
-```powershell
-Set-Location ..
-git clone https://github.com/espressif/esp-idf.git esp-idf-esp-sdr
-Set-Location esp-idf-esp-sdr
-git checkout 25fe69f946311abdaf9ad56591f25fedbc20ac98
-git submodule update --init --recursive
-.\install.ps1 'esp32,esp32s3'
-. .\export.ps1
-Set-Location ..\esp-sdr-m5
-```
-
-In each new terminal session, activate this ESP-IDF environment before running
-`idf.py`. From the repository root, use the command for your shell:
-
-**sh**
-
-```sh
-. ../esp-idf-esp-sdr/export.sh
-```
-
-**PowerShell**
-
-```powershell
-. ..\esp-idf-esp-sdr\export.ps1
-```
-
-## Build and flash by device
-
-Connect the device with a USB data cable, then run the commands for your model
-and shell from the repository root in the activated ESP-IDF environment.
-The sh examples use a backslash (`\`) for line continuation; PowerShell uses
-a backtick (`` ` ``). Keep the continuation character at the end of its line,
-with no trailing spaces.
-
-Replace `PORT` with the device's serial port, for example `COM5` on Windows,
-`/dev/ttyUSB0` or `/dev/ttyACM0` on Linux, or `/dev/cu.usbmodem...` on macOS.
-Use a separate build directory for each profile, as shown below.
-
-### M5Stack BASIC
-
-**sh**
-
-```sh
-idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 \
-  -DSDKCONFIG=build-m5stack-basic/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic build
-idf.py -B build-m5stack-basic -p COMx flash
-```
-
-**PowerShell**
-
-```powershell
-idf.py -B build-m5stack-basic -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stack-basic/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-basic' build
-idf.py -B build-m5stack-basic -p COMx flash
-```
-
-The profile uses 4 MB of flash and also fits newer 16 MB BASIC devices.
-The default LCD driver is ILI9342C. If an early BASIC has an ILI9341 LCD, run
-`idf.py -B build-m5stack-basic menuconfig`, enable **ESP-SDR board > Early
-Basic with ILI9341 LCD**, then rebuild and flash.
-
-### M5Stack Core2
-
-**sh**
-
-```sh
-idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 \
-  -DSDKCONFIG=build-m5stack-core2/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2 build
-idf.py -B build-m5stack-core2 -p COMx flash
-```
-
-**PowerShell**
-
-```powershell
-idf.py -B build-m5stack-core2 -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stack-core2/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-core2' build
-idf.py -B build-m5stack-core2 -p COMx flash
-```
-
-This profile uses the Core2's LCD and three touch zones along the bottom of the
-screen. It includes support for AXP192 and AXP2101 power controllers.
-
-### Cardputer, original K132
-
-**sh**
-
-```sh
-idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 \
-  -DSDKCONFIG=build-m5stack-cardputer/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer build
-idf.py -B build-m5stack-cardputer -p COMx flash
-```
-
-**PowerShell**
-
-```powershell
-idf.py -B build-m5stack-cardputer -DIDF_TARGET=esp32s3 -DSDKCONFIG=build-m5stack-cardputer/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer' build
-idf.py -B build-m5stack-cardputer -p COMx flash
-```
-
-Use this profile for the original, non-ADV Cardputer. It uses the built-in
-keyboard matrix and native USB Serial/JTAG.
-
-### Cardputer ADV
-
-**sh**
-
-```sh
-idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 \
-  -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv build
-idf.py -B build-m5stack-cardputer-adv -p COMx flash
-```
-
-**PowerShell**
-
-```powershell
-idf.py -B build-m5stack-cardputer-adv -DIDF_TARGET=esp32s3 -DSDKCONFIG=build-m5stack-cardputer-adv/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cardputer-adv' build
-idf.py -B build-m5stack-cardputer-adv -p COMx flash
-```
-
-The ADV requires its own profile because its keyboard uses a TCA8418 I²C
-controller. Do not substitute the original Cardputer profile.
-
-### M5StickC Plus2
-
-**sh**
-
-```sh
-idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 \
-  -DSDKCONFIG=build-m5stickc-plus2/sdkconfig \
-  -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2 build
-idf.py -B build-m5stickc-plus2 -p COMx flash
-```
-
-**PowerShell**
-
-```powershell
-idf.py -B build-m5stickc-plus2 -DIDF_TARGET=esp32 -DSDKCONFIG=build-m5stickc-plus2/sdkconfig '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stickc-plus2' build
-idf.py -B build-m5stickc-plus2 -p COMx flash
-```
-
-This profile uses the portrait LCD and built-in A/B/C buttons.
-
-After flashing, power on or reset the device to start the standalone display.
-It starts at 2412 MHz with a 16 MHz span, a 1024-point FFT, 16-spectrum
-averaging and software gain control targeting a raw IQ peak of -12 dBFS. It
-starts from PHY gain index 30.
-
-## Standalone controls
-
-### BASIC and Core2
-
-Core2 uses three touch zones corresponding to A/B/C.
-
-| Control | Normal operation | Menu operation |
-| --- | --- | --- |
-| A (left) | TUNE- | Decrease value |
-| B (center) | Open MENU | Next item; hold 0.6 seconds for previous item |
-| C (right) | TUNE+ | Increase value |
-
-Five seconds without input returns to tuning. The selected value appears in
-larger text at screen center. Items are FREQ STEP, FREQ SPAN, Y POS, WF BRIGHT,
-WF CONTRAST, WF SPEED, FFT NUM, FFT AVERAGE, SPEC MODE, AGC TYPE, RF GAIN, FILTER, ABOUT,
-RESET. In RESET, right restores startup settings and left exits.
-See [menu values and defaults](docs/m5stack-basic.md#standalone-operation).
-
-### M5StickC Plus2
-
-The same menu uses C (left side) for TUNE-/decrease, A (center) for MENU,
-and B (right side) for TUNE+/increase.
-
-### Cardputer and Cardputer ADV
-
-| Key | Action |
-| --- | --- |
-| `,` | Tune down by the selected step |
-| `.` or `/` | Tune up by the selected step |
-| `0`–`9` | Enter four digits to set the frequency in MHz, e.g. `2412` |
-| `T` | Cycle tuning step |
-| `P` | Cycle span |
-| `F` | Cycle FFT size |
-| `A` | Cycle averaging count |
-| `Shift` + `Space` | Toggle normal spectrum / DPX-style density display |
-| `Shift` + `T`, `P`, `F` or `A` | Cycle that setting in reverse |
-| `Space` | Show or hide keyboard help |
-
-Tuning steps are 1, 5, 20 and 100 MHz. Spans are 2, 4, 8, 16, 40 and 80 MHz;
-the 2/4/8 MHz views zoom into a 16 MS/s capture. Averaging counts are 1, 2, 4,
-8 and 16. FFT and AVE start at 1024 and 16. All M5Stack profiles start with
-software AGC. Three-button profiles offer AGC TYPE and RF GAIN in the menu;
-Cardputer gain modes are controlled through serial commands. `GAIN HARDWARE`
-or `GAIN MANUAL` overrides software AGC; `GAIN SOFTWARE` resumes it.
-
-`SPEC MODE` selects NORMAL (default) or a DPX-style upper graph built from each
-FFT before averaging. Cardputer/ADV use Shift+Space. The waterfall continues to
-show averaged power. Density uses up to approximately 20 KiB on Basic/Core2, 15 KiB on
-Cardputer/ADV and 8 KiB on Plus2; zoomed pixels sharing an FFT bin share history
-to reduce RAM. Allocation failure returns to the normal trace
-and shows `RAM`. Colors indicate relative occurrence, not a measured probability;
-signals outside snapshot windows remain unseen. Gain changes clear history, so
-manual gain is preferable for comparisons.
-
-## Optional PC connection
-
-Standalone operation does not need a PC. To use the serial protocol, connect
-the device over USB and open the [ESP-SDR browser viewer](https://espargos.net/espsdr/app/)
-or another compatible client. BASIC, Core2 and M5StickC Plus2 use their onboard
-USB-UART bridge at **2,000,000 baud**; Cardputer models use native USB
-Serial/JTAG.
-
-PC commands take priority and pause local controls and captures. Standalone
-operation resumes after `RELEASE` or five seconds without commands. See the
-[protocol reference](docs/protocol.md) for details.
-
-## Radio and display limitations
-
-- These M5Stack profiles receive primarily around **2.4 GHz**. Experimental
-  tuning can reach roughly 1.85 GHz, but the accepted 100–6000 MHz setting
-  range does not mean reception works across that entire range. See
-  [RX controls](docs/rx-controls.md).
+- Reception is primarily around **2.4 GHz**. Experimental tuning can reach roughly 1.85 GHz, but the accepted 100–6000 MHz setting range does not mean reception works across that entire range. See [RX controls](docs/rx-controls.md).
 - The standalone display uses snapshot captures with gaps between them.
-- On-device spectrum and waterfall levels use signed integer dBFS rounded to
-  1 dB; antenna input power is not calibrated in dBm.
-- This is receive-only firmware for spectrum display and I/Q capture. It does
-  not provide audio demodulation.
+- Display levels are signed integer dBFS rounded to 1 dB; antenna input power is not calibrated in dBm.
+- This is receive-only firmware for spectrum display and I/Q capture. It does not provide audio demodulation.
 
-## Further documentation
+## Documentation map
 
-- [M5Stack BASIC display and hardware notes](docs/m5stack-basic.md)
-- [Core2, Cardputer and M5StickC Plus2 hardware notes](docs/m5stack-core2-cardputer.md)
-- [Spectrum processing](docs/spectrum.md)
-- [How ESP-SDR captures radio samples](docs/how-it-works.md)
-- [Firmware profiles and pinned ESP-IDF revisions](firmware-targets.json)
+The [documentation index](docs/README.md) groups device guides, build setup, receiver behavior, serial protocol and implementation notes.
 
 ## Upstream and credits
 
-The radio capture mechanism and original ESP-SDR firmware come from
-[ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr). This fork focuses on
-standalone M5Stack displays and controls. For the original project's broader
-chip support and research, see the [upstream repository](https://github.com/ESPARGOS/esp-sdr)
-and [project overview](https://espargos.net/espsdr/).
+The radio capture mechanism and original ESP-SDR firmware come from [ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr). This fork focuses on standalone displays and controls for M5Stack, LILYGO and ATS-mini devices. See the [upstream repository](https://github.com/ESPARGOS/esp-sdr) and [project overview](https://espargos.net/espsdr/).
 
-Thanks to the upstream contributors, including
-[Florian Euchner](https://github.com/Jeija),
-[Zoltan Doczi](https://github.com/zodoczi) and [14sea](https://github.com/14sea),
-and to [h0m3us3r](https://github.com/h0m3us3r/eSpDR) for the 5/6 LO investigation
-that informed lower-frequency tuning.
+Thanks to the upstream contributors, including [Florian Euchner](https://github.com/Jeija), [Zoltan Doczi](https://github.com/zodoczi) and [14sea](https://github.com/14sea), and to [h0m3us3r](https://github.com/h0m3us3r/eSpDR) for the 5/6 LO investigation that informed lower-frequency tuning.
 
 ## License
 
-ESP-SDR is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE).
-If you distribute a modified version, you must make its source available under
-the GPL.
+ESP-SDR is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE). If you distribute a modified version, you must make its source available under the GPL.
 
-Third-party code retains its own licenses, including the Apache-2.0 ESP-IDF
-code in `platform/esp32s2/esp_usb_cdc_rom_console/`, the
-[ESP-DSP component](components/esp-dsp/LICENSE), and the FFT kernels derived
-from it in `main/targets/esp32s3/s3_fft_rnd.S` and
-`main/targets/esp32s31/burst/s31_fft_rnd.S`.
+Third-party code retains its own licenses, including the Apache-2.0 ESP-IDF code in platform/esp32s2/esp_usb_cdc_rom_console/, the [ESP-DSP component](components/esp-dsp/LICENSE), and FFT kernels derived from it in main/targets/esp32s3/s3_fft_rnd.S and main/targets/esp32s31/burst/s31_fft_rnd.S.
