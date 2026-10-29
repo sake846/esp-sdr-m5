@@ -19,6 +19,8 @@ STUB = r'''
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+static int battery_percent = -1;
+int board_battery_percent(void) { return battery_percent; }
 #define ESP_OK 0
 #define ESP_ERR_NO_MEM 1
 #define ESP_ERROR_CHECK(x) assert((x)==0)
@@ -28,6 +30,7 @@ STUB = r'''
 static unsigned buttons, rows, flushes;
 static int encoder_steps;
 static int64_t now;
+static unsigned completed_frames;
 static int64_t esp_timer_get_time(void) { return now*1000; }
 static void *heap_caps_calloc(size_t n, size_t s, unsigned caps) {
  assert(caps==(CONFIG_SPIRAM ? 6 : 3)); return calloc(n,s);
@@ -38,6 +41,7 @@ CHECK = r'''
 #include "m5unified_input.h"
 static uint16_t pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
 void m5unified_board_init(void) {}
+unsigned m5unified_board_refresh_count(void) { return completed_frames; }
 unsigned m5unified_board_buttons(void) { return buttons; }
 int m5unified_board_encoder(void) { int steps=encoder_steps; encoder_steps=0; return steps; }
 void m5unified_board_row(unsigned y, const uint16_t *p) {
@@ -87,6 +91,25 @@ int main(void) {
  assert(!m5unified_touch_button(300,99,300,100));
  assert(!m5unified_touch_button(-1,75,300,100));
  assert(!m5unified_touch_button(0,74,300,100));
+ controls.menu=M5_MENU_NONE; battery_percent=100;
+ const char *telemetry[]={"BAT 100%", "CPU 49%"};
+ for(unsigned frame=0;frame<2;frame++) {
+   now=(frame+1)*5000; completed_frames=frame+1;
+   m5stack_basic_draw(2412,bins,1024,false,true,49);
+   const GFXfont *font=SCREEN_WIDTH<200 ? &DejaVu9 : &DejaVu12;
+   unsigned left=SCREEN_WIDTH-m5stack_text_width(telemetry[frame],font)-4;
+   assert(12+m5stack_text_width("ESP SDR",&DejaVu9)+3 <= left-m5stack_text_width("LIVE",font)-7);
+   for(unsigned y=1;y<12;y++) {
+     memset(row,0,sizeof(row));
+     m5stack_text_row(y-1,left,9,telemetry[frame],font,0xffff,0);
+     for(unsigned x=left;x<SCREEN_WIDTH;x++)assert(pixels[y*SCREEN_WIDTH+x]==row[x]);
+   }
+ }
+#if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
+ now+=30000; m5stack_basic_draw(2412,bins,1024,false,true,49);
+ char expected[12]; board_status_text(expected,sizeof(expected),49,(int64_t)completed_frames*5000000);
+ assert(!strcmp(expected,"CPU 49%")); /* Wall-clock updates do not skip the BAT refresh. */
+#endif
  free(waterfall); return 0;
 }
 '''
@@ -116,6 +139,7 @@ static uint16_t frame[SCREEN_WIDTH*SCREEN_HEIGHT], pending[SCREEN_WIDTH*SCREEN_H
 static uint16_t tx[SCREEN_WIDTH*SCREEN_HEIGHT];
 static uint16_t *paper_frame=frame, *paper_pending=pending, *paper_tx=tx;
 static unsigned paper_lock, paper_task, locked, notices, calls, rows, refreshes, waited, delayed;
+static unsigned paper_refresh_count;
 static jmp_buf worker_exit;
 static unsigned ulTaskNotifyTake(unsigned clear, unsigned timeout) {
  assert(clear==pdTRUE && timeout==portMAX_DELAY);
@@ -155,6 +179,9 @@ int main(void) {
  assert(notices==1 && paper_pending[0]==0x1234); locked=0;
  if(!setjmp(worker_exit))paper_worker(NULL);
  assert(!locked && notices==2 && refreshes==1 && waited==1 && delayed==TEST_DELAY);
+#if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
+ assert(paper_refresh_count==1);
+#endif
  return 0;
 }
 '''

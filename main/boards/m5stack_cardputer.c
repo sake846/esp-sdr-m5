@@ -1,5 +1,6 @@
 /* Scanline spectrum renderer for compact M5Stack and LILYGO displays. */
 #include "m5stack_basic.h"
+#include "board_battery.h"
 #include "m5stack_basic_controls.h"
 #include "spectrum_math.h"
 #include "driver/gpio.h"
@@ -515,7 +516,12 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
     snprintf(edges[0], sizeof(edges[0]), "%u", mhz - span / 2);
     snprintf(edges[1], sizeof(edges[1]), "%u", mhz);
     snprintf(edges[2], sizeof(edges[2]), "%u", mhz + span / 2);
-    snprintf(cpu, sizeof(cpu), "CPU %u%%", cpu_percent);
+#if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
+    /* A full color refresh exceeds five seconds; alternate on completed refreshes. */
+    board_status_text(cpu, sizeof(cpu), cpu_percent, (int64_t)m5unified_board_refresh_count() * 5000000);
+#else
+    board_status_text(cpu, sizeof(cpu), cpu_percent, esp_timer_get_time());
+#endif
     snprintf(gain, sizeof(gain), "%u", display_gain_index);
     if (bins && valid) {
         for (unsigned x = 0; x < PLOT_WIDTH; x++) display_bins[x] = SPECTRUM_DBFS_MIN;
@@ -596,7 +602,11 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         }
 #if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI || CONFIG_ESP_SDR_M5UNIFIED)
         if (y >= 1 && y < 12) {
-            text_row(y - 1, SCREEN_WIDTH - text_width(status) - 4, status, 0xffff);
+            const GFXfont *font = SCREEN_WIDTH < 200 ? &DejaVu9 : &DejaVu12;
+            unsigned cpu_left = SCREEN_WIDTH - m5stack_text_width(cpu, font) - 4;
+            unsigned status_left = cpu_left - m5stack_text_width(status, font) - 7;
+            m5stack_text_row(y - 1, status_left, 9, status, font, 0xffff, 0);
+            m5stack_text_row(y - 1, cpu_left, 9, cpu, font, 0xffff, 0);
         }
         if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 12) {
             text_row(y - FREQUENCY_TOP, 4, edges[0], 0xffff);
@@ -615,6 +625,9 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
 #endif
         if (!pc_control && controls.menu) m5stack_menu_row(y, menu_value);
 #elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+        if (y >= WATERFALL_TOP + WATERFALL_HEIGHT && y < 224)
+            m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(cpu, &DejaVu9)) / 2,
+                             223, cpu, &DejaVu9, 0xffff, 0);
         if (y >= 1 && y < 12) {
             unsigned status_left = SCREEN_WIDTH - text_width(status) - 3;
             unsigned gain_left = (title_end + status_left) / 2 - text_width(gain) / 2;

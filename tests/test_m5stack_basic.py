@@ -130,6 +130,7 @@ class BasicDisplay(unittest.TestCase):
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+int board_battery_percent(void) { return -1; }
 #include <stdlib.h>
 #include <string.h>
 #define GPIO_MODE_OUTPUT 2

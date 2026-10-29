@@ -9,6 +9,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include <cstring>
+#include <atomic>
 
 #if CONFIG_ESP_SDR_M5STACK_DIN_METER
 static portMUX_TYPE encoder_lock = portMUX_INITIALIZER_UNLOCKED;
@@ -31,6 +32,13 @@ static constexpr size_t frame_pixels = SCREEN_WIDTH * SCREEN_HEIGHT;
 static uint16_t *paper_frame, *paper_pending, *paper_tx;
 static SemaphoreHandle_t paper_lock;
 static TaskHandle_t paper_task;
+#if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
+static std::atomic<unsigned> paper_refresh_count;
+
+unsigned m5unified_board_refresh_count(void) {
+    return paper_refresh_count.load();
+}
+#endif
 
 static void paper_worker(void *) {
     uint16_t expanded[SCREEN_WIDTH * M5_DISPLAY_SCALE];
@@ -55,6 +63,7 @@ static void paper_worker(void *) {
         M5.Display.display();
         M5.Display.waitDisplay();
 #if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
+        paper_refresh_count++;
         vTaskDelay(pdMS_TO_TICKS(30000));
 #else
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -124,6 +133,11 @@ void m5unified_board_init(void) {
     ESP_ERROR_CHECK(gpio_isr_handler_add(GPIO_NUM_40, encoder_interrupt, nullptr));
     ESP_ERROR_CHECK(gpio_isr_handler_add(GPIO_NUM_41, encoder_interrupt, nullptr));
 #endif
+}
+
+int m5unified_board_battery_percent(void) {
+    int mv = M5.Power.getBatteryVoltage();
+    return mv >= 2500 && mv <= 4400 ? M5.Power.getBatteryLevel() : -1;
 }
 
 unsigned m5unified_board_buttons(void) {

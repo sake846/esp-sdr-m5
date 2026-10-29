@@ -26,6 +26,7 @@ python -m unittest discover -s tests -p "test_firmware_export.py" -v
 
 | Test | Regression coverage |
 | --- | --- |
+| `test_board_battery.py` | Five-second CPU/BAT switching, cached reads, missing/invalid telemetry, long uptime, ADC calibration/pin selection, IP5306/AXP192/AXP2101/BQ27220/SY6970 levels and M5Unified telemetry |
 | `test_esptool_windows.py` | Paired DTR/RTS reset sequencing and preservation of unrelated Windows handflow settings |
 | `test_m5stack_basic.py` | Menu order/reversal, setting bounds, five-second timeout, reset, receiver synchronization, debounce, timer wrap, PC handoff, Basic SPI overlay and waterfall controls |
 | `test_m5stack_menu.py` | Native menu and status fonts, long values on 135–480 pixel displays, proportional widths, compact reset hints, empty/unsupported text and scanline clipping |

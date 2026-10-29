@@ -9,6 +9,18 @@ The M5Stack BASIC menu and display section also describes the shared settings
 used by Core2 and M5StickC Plus2. Cardputer uses keyboard controls; the other
 profiles have their own controls below.
 
+The CPU percentage alternates with `BAT` every five seconds when battery telemetry
+is available on any standalone M5Stack profile. Failed or unsupported battery
+readings keep the CPU percentage visible. ADC-based devices and AXP192 devices
+estimate the percentage from battery voltage; I2C-equipped Basics report it in
+25% steps. Plus2 shows CPU/BAT above its button hints; the 160-pixel StickC uses
+a smaller header font.
+
+PaperColor's full screen refresh takes longer than five seconds, so it alternates
+CPU/BAT on completed refreshes instead. This avoids repeatedly sampling the same
+five-second phase during its slow screen updates. Other e-paper panels show the
+current five-second phase when their next refresh completes.
+
 ## In this guide
 
 - [M5Stack BASIC](#m5stack-basic)

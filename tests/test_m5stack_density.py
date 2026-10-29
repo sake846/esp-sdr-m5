@@ -195,9 +195,7 @@ class SpectrumDensity(unittest.TestCase):
             ('CARDPUTER_ADV', 240, 135, 40, 53, 34, 37, 35, 36, 3, 8, 9, 0),
             ('STICKC_PLUS2', 135, 240, 52, 40, 14, 5, 15, 13, 2, 0, 0, 0),
         ]
-        stub = STUB.replace(
-            'static int64_t esp_timer_get_time(void) { return 1000000; }',
-            'static int64_t test_now = 1000000;\nstatic int64_t esp_timer_get_time(void) { return test_now; }')
+        stub = STUB.replace('display_now', 'test_now')
         stub = stub.replace(
             'static void *heap_caps_calloc(size_t n, size_t size, unsigned caps) { assert(caps==3); return calloc(n,size); }',
             'static unsigned allocations, frees; static size_t last_allocation; static bool fail_allocation;\n'

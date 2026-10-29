@@ -56,7 +56,7 @@ int main(void) {
         if (!i) assert(unique>6); /* More detail than five enlarged bitmap rows. */
     }
     assert(text_width("III") < text_width("WWW"));
-    const char *labels[] = {"CPU 100%", "2412", "ESP SDR M5", "WF CONTRAST",
+    const char *labels[] = {"CPU 100%", "BAT 100%", "2412", "ESP SDR M5", "WF CONTRAST",
         "CANCEL", "MENU", "RESET", "<> FREQ 0-9 T STEP P SPAN", "Q%+-/"};
     for (unsigned i=0; i<sizeof(labels)/sizeof(*labels); i++) {
         for (int left=-8; left<SCREEN_WIDTH; left+=SCREEN_WIDTH-8) {
@@ -84,11 +84,20 @@ int main(void) {
     }
     if (SCREEN_WIDTH==135 || SCREEN_WIDTH==240) {
         unsigned title_end=12+m5stack_text_width(SCREEN_WIDTH==135 ? "ESP SDR" : "ESP SDR M5", &DejaVu9);
-        unsigned status_left=SCREEN_WIDTH-3-text_width("WAIT");
-        if (SCREEN_WIDTH==240) status_left-=text_width("CPU 100%")+7;
-        unsigned gain_width=text_width("127");
-        unsigned gain_left=(title_end+status_left)/2-gain_width/2;
-        assert(gain_left>=title_end+3 && gain_left+gain_width+3<=status_left);
+        const char *telemetry[] = {"CPU 100%", "BAT 100%"};
+        for (unsigned i=0; i<2; i++) {
+            unsigned status_left=SCREEN_WIDTH-3-text_width("WAIT");
+            if (SCREEN_WIDTH==240) status_left-=text_width(telemetry[i])+7;
+            unsigned gain_width=text_width("127");
+            unsigned gain_left=(title_end+status_left)/2-gain_width/2;
+            assert(gain_left>=title_end+3 && gain_left+gain_width+3<=status_left);
+        }
+    }
+    if (SCREEN_WIDTH>=160) {
+        const GFXfont *font=SCREEN_WIDTH<200 ? &DejaVu9 : &DejaVu12;
+        unsigned left=SCREEN_WIDTH-m5stack_text_width("CPU 100%",font)-4;
+        unsigned status_left=left-m5stack_text_width("WAIT",font)-7;
+        assert(12+m5stack_text_width("ESP SDR",&DejaVu9)+3<=status_left);
     }
     return 0;
 }

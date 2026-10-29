@@ -46,6 +46,15 @@ SI4732とスピーカー・ヘッドホンの音声経路は使用しません�
 | Audio mute / amplifier enable / ミュート・アンプ | 3 / 10 |
 | Battery ADC / バッテリー電圧 | 4 |
 
+CPU/BAT percentages alternate every five seconds when GPIO4 provides a usable
+battery reading. Charge is estimated using the original board firmware's
+1.702 mV/count calibration and ten-sample averaging. The monitor reads the USB
+supply when connected; voltages above the battery range keep CPU% visible.
+
+GPIO4からバッテリー電圧を取得できる場合は、CPU%とBAT%を5秒ごとに切り替えます。
+残量は基板用ファームウェアの補正値と10回の読み取り平均から推定します。
+USB給電時など、電圧がバッテリーの範囲を外れる場合はCPU%を表示します。
+
 The SI4732 power rail and amplifier remain off. The SI4732 reset stays low and
 its I2C pins are left without pull-ups. GPIO commands cannot drive onboard LCD,
 radio, audio, encoder, battery or memory pins. LCD DMA completes before the

@@ -9,6 +9,8 @@ STUB = r'''
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+static int battery_percent = -1;
+int board_battery_percent(void) { return battery_percent; }
 #define ESP_OK 0
 #define ESP_ERR_NO_MEM 1
 #define ESP_ERR_NOT_FOUND 2
@@ -46,7 +48,8 @@ static unsigned levels[64], command, dc, line, rows, madctl, column_windows;
 static unsigned touch_x, touch_y, touch_count, touch_failure;
 static uint8_t pmu[256];
 static uint16_t pixels[320*240];
-static int64_t esp_timer_get_time(void) { return 1000000; }
+static int64_t display_now = 1000000;
+static int64_t esp_timer_get_time(void) { return display_now; }
 static void vTaskDelay(unsigned ticks) {}
 static int gpio_config(const gpio_config_t *c) { return 0; }
 static int gpio_set_level(unsigned pin, unsigned value) { levels[pin]=value; if(pin==TEST_DC)dc=value; return 0; }
@@ -183,6 +186,32 @@ int main(void) {
     assert(pixels[(TEST_HEIGHT/2-34)*TEST_WIDTH+margin] == COLOR_SRDECK_YELLOW_GREEN);
     assert(pixels[(TEST_HEIGHT/2)*TEST_WIDTH+margin+1] == 0x0861);
 #endif
+    controls.menu = M5_MENU_NONE;
+    const char *telemetry[] = {"BAT 100%", "CPU 49%"};
+    battery_percent = 100;
+    for (unsigned frame = 0; frame < 2; frame++) {
+        display_now = (int64_t)(frame + 1) * 5000000;
+        m5stack_basic_draw(2413,bins,256,false,true,49);
+        unsigned left = SCREEN_WIDTH - text_width(telemetry[frame]) - (SCREEN_WIDTH == 320 ? 2 : 3);
+        unsigned top = SCREEN_WIDTH == 320 ? 3 : 0;
+#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+        left = (SCREEN_WIDTH - m5stack_text_width(telemetry[frame], &DejaVu9)) / 2;
+        top = WATERFALL_TOP + WATERFALL_HEIGHT;
+#endif
+        for (unsigned y = top; y < top + 12; y++) {
+#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+            if (y >= 224) break;
+#endif
+            memset(row, 0, sizeof(row));
+#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+            m5stack_text_row(y, left, 223, telemetry[frame], &DejaVu9, 0xffff, 0);
+#else
+            text_row(y - top, left, telemetry[frame], 0xffff);
+#endif
+            for (unsigned x = left; x < SCREEN_WIDTH; x++)
+                assert(pixels[y*SCREEN_WIDTH+x] == __builtin_bswap16(row[x]));
+        }
+    }
 #if !CONFIG_ESP_SDR_M5STACK_CORE2
     free(waterfall);
 #endif

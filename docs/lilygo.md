@@ -89,6 +89,21 @@ T-Deckのタッチ・トラックボール、CC1101 Plusの追加ボタンは使
 PagerはXL9555経由でキーボードを有効化し、使用しない無線モジュール・アンプ・SDの
 電源を無効にします。
 
+## Battery display / バッテリー表示
+
+All eight profiles alternate CPU/BAT percentages every five seconds when a battery
+reading is available. Pager, CC1101/Plus and T-Deck Pro use the BQ27220 fuel gauge;
+T-Deck, T-Embed SI4732 and T-Display S3 Pro estimate charge from voltage. SI4732
+uses the board example's 1.702 mV/count calibration. SY6970 voltage measurements
+on T-Display S3 Pro are unavailable with USB input while charging is disabled.
+Missing, failed or out-of-range readings keep the CPU percentage visible.
+E-paper shows the selected value when the next panel refresh completes.
+
+残量を取得できる場合は、全8プロファイルでCPU%とBAT%を5秒ごとに切り替えます。
+Pager・CC1101/Plus・T-Deck Proは残量計の値を使い、その他は電圧から推定します。
+T-Display S3 Proは充電を無効にしているため、USB給電中はバッテリー電圧を取得できません。
+取得失敗や範囲外の電圧の場合はCPU%を表示します。電子ペーパーへの反映は画面更新時になります。
+
 ## T-Deck Pro e-paper / 電子ペーパー
 
 Pro uses a monochrome spectrum and dithered waterfall. Refresh runs in a separate

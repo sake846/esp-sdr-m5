@@ -22,6 +22,8 @@ STUB = r'''
 #include <stdbool.h>
 #include <string.h>
 #include <setjmp.h>
+static int battery_percent = -1;
+int board_battery_percent(void) { return battery_percent; }
 #define ESP_OK 0
 #define ESP_ERR_NO_MEM 1
 #define ESP_ERR_INVALID_STATE 2
@@ -137,6 +139,7 @@ int main(void){
  assert(m5stack_basic_fft_points()==1024);
 #if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
  assert((registers[0x6a][3]&0x30)==0 && (registers[0x6a][7]&0x30)==0);
+ assert((registers[0x6a][2]&0xc0)==0xc0);
  assert(levels[14] && levels[46] && levels[13] && madctl==0x68);
 #elif CONFIG_ESP_SDR_LILYGO_T_PAGER
  assert(registers[0x20][2]==0x84 && registers[0x20][3]==1);
@@ -201,6 +204,22 @@ int main(void){
  now+=601;lilygo_poll(&controls,mhz,false);assert(controls.menu==M5_MENU_NONE);
  pressed_inputs=0;now+=1;lilygo_poll(&controls,mhz,false);
  now+=31;lilygo_poll(&controls,mhz,false);assert(controls.menu==M5_MENU_NONE);
+ controls.menu=M5_MENU_NONE; battery_percent=100;
+ const char *telemetry[]={"BAT 100%", "CPU 49%"};
+ for(unsigned frame=0;frame<2;frame++) {
+   now=(frame+1)*5000; m5stack_basic_draw(2412,bins,256,false,true,49);
+   unsigned left=SCREEN_WIDTH-text_width(telemetry[frame])-4;
+   for(unsigned y=1;y<12;y++) {
+     memset(row,0,sizeof(row)); text_row(y-1,left,telemetry[frame],0xffff);
+     for(unsigned x=left;x<SCREEN_WIDTH;x++) {
+#if LILYGO_EPAPER
+       assert(!!(epaper_frame[y*(SCREEN_WIDTH/8)+x/8] & (0x80u>>(x&7))) == !row[x]);
+#else
+       assert(pixels[y*SCREEN_WIDTH+x] == __builtin_bswap16(row[x]));
+#endif
+     }
+   }
+ }
 #if LILYGO_EPAPER
  free(epaper_frame);
 #endif

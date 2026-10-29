@@ -63,6 +63,9 @@ static void input_init(void) {
         ESP_ERROR_CHECK(i2c_master_transmit_receive(pmu, &registers[i], 1, &value, 1, 20));
         reg_write(pmu, registers[i], value & ~0x30);
     }
+    uint8_t adc_reg = 0x02, adc_config;
+    ESP_ERROR_CHECK(i2c_master_transmit_receive(pmu, &adc_reg, 1, &adc_config, 1, 20));
+    reg_write(pmu, adc_reg, adc_config | 0xc0); /* Continuous battery-voltage measurement. */
 #endif
 #if CONFIG_ESP_SDR_LILYGO_T_PAGER
     i2c_master_dev_handle_t expander;

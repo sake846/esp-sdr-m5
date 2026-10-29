@@ -3,6 +3,7 @@
  * LCD registers: https://github.com/m5stack/M5GFX (Panel_ILI9342).
  */
 #include "m5stack_basic.h"
+#include "board_battery.h"
 #include "m5stack_basic_controls.h"
 #include "spectrum_math.h"
 #include "driver/gpio.h"
@@ -332,7 +333,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
     snprintf(edges[0], sizeof(edges[0]), "%u", mhz - span / 2);
     snprintf(edges[1], sizeof(edges[1]), "%u", mhz);
     snprintf(edges[2], sizeof(edges[2]), "%u", mhz + span / 2);
-    snprintf(cpu, sizeof(cpu), "CPU %u%%", cpu_percent);
+    board_status_text(cpu, sizeof(cpu), cpu_percent, esp_timer_get_time());
     snprintf(gain, sizeof(gain), "%u", display_gain_index);
     unsigned cpu_left = 318 - text_width(cpu);
     const char *status = pc_control ? "PC" : controls.dpx_failed ? "RAM" :

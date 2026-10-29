@@ -62,6 +62,10 @@
 extern "C" {
 #endif
 void m5unified_board_init(void);
+int m5unified_board_battery_percent(void);
+#if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
+unsigned m5unified_board_refresh_count(void);
+#endif
 unsigned m5unified_board_buttons(void);
 int m5unified_board_encoder(void);
 void m5unified_board_row(unsigned y, const uint16_t *pixels);
