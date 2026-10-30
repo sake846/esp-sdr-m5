@@ -1,4 +1,4 @@
-"""Benchmark DPX ingestion/rendering with mocked SPI; excludes FFT computation and device timing."""
+"""Benchmark density ingestion/rendering with mocked SPI; excludes FFT computation and device timing."""
 import json
 from pathlib import Path
 import statistics
@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT / 'tests'))
 from host_test import compile_run
 from test_m5stack_displays import STUB
 
-OUT = ROOT / 'artifacts/dpx-benchmark'
+OUT = ROOT / 'artifacts/density-benchmark'
 OUT.mkdir(parents=True, exist_ok=True)
 RUN = 'current'
 PROFILES = [
@@ -19,27 +19,26 @@ PROFILES = [
 ]
 CHECK = r'''
 #include <time.h>
-static uint8_t snapshots[16][8192];
+static uint8_t frame_bins[16][8192];
 int main(void) {
     FILE *out = fopen(RESULT_PATH, "w"); assert(out);
     unsigned seed = 1;
     for (unsigned a=0;a<16;a++) for (unsigned j=0;j<8192;j++) {
-        seed = seed*1664525u+1013904223u; snapshots[a][j]=(uint8_t)(seed>>24);
+        seed = seed*1664525u+1013904223u; frame_bins[a][j]=(uint8_t)(seed>>24);
     }
     m5stack_basic_init();
     for (unsigned big=0;big<2;big++) for (unsigned zoom=0;zoom<2;zoom++) {
         controls.fft = big ? TEST_FFT_INDEX : 2;
         controls.rate = zoom ? 0 : 3;
-        controls.dpx = true;
+        controls.density_mode = true;
         density_mode(2412, false);
+        m5stack_basic_set_density_context(30,-1,1,1);
         unsigned n=m5stack_basic_fft_points(), frames=800;
         for (unsigned repeat=0;repeat<3;repeat++) {
             density_clear();
             clock_t start=clock();
             for (unsigned frame=0;frame<frames;frame++) {
-                for (unsigned fft=0;fft<16;fft++)
-                    m5stack_basic_spectrum(2412,snapshots[(frame+fft)%16],n,30,-1,1);
-                m5stack_basic_draw(2412,snapshots[frame%16],n,false,true,25);
+                m5stack_basic_draw(2412,frame_bins[frame%16],n,false,true,25);
                 test_now+=130000;
             }
             double ms=1000.0*(clock()-start)/CLOCKS_PER_SEC;
@@ -80,7 +79,8 @@ for board, *values in PROFILES:
     for n,span in sorted({(r['nfft'],r['span']) for r in rows}):
         group=[r for r in rows if r['nfft']==n and r['span']==span]
         assert len(group)==3 and len({(r['pixels'],r['history']) for r in group})==1
-        results.append({'board':board,'ffts_per_frame':16,**group[0],'host_ms':statistics.median(r['host_ms'] for r in group)})
+        results.append({'board':board,'density_updates_per_frame':1,**group[0],
+                        'host_ms':statistics.median(r['host_ms'] for r in group)})
     print(board, 'completed', flush=True)
 (OUT/f'{RUN}.json').write_text(json.dumps(results,indent=2)+'\n')
 print(json.dumps(results,indent=2))

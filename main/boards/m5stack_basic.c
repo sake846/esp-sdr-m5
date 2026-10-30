@@ -336,8 +336,8 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
     board_status_text(cpu, sizeof(cpu), cpu_percent, esp_timer_get_time());
     snprintf(gain, sizeof(gain), "%u", display_gain_index);
     unsigned cpu_left = 318 - text_width(cpu);
-    const char *status = pc_control ? "PC" : controls.dpx_failed ? "RAM" :
-                         valid ? (density ? "DPX" : "LIVE") : "WAIT";
+    const char *status = pc_control ? "PC" : controls.density_failed ? "RAM" :
+                         valid ? (density ? "DENS" : "LIVE") : "WAIT";
     unsigned status_left = cpu_left - text_width(status) - 8;
     const char *left_hint = controls.menu == M5_MENU_RESET ? "CANCEL" : controls.menu ? "-" : "TUNE-";
     const char *right_hint = controls.menu == M5_MENU_RESET ? "RESET" : controls.menu ? "+" : "TUNE+";
@@ -348,20 +348,32 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         unsigned visible_points = fft_points * span / capture_span;
         unsigned first_bin = (fft_points - visible_points) / 2 + fft_points / 2;
         spectrum_dbfs_t frame_minimum = SPECTRUM_DBFS_MAX;
+        if (density && !pc_control) density_begin_frame(mhz, fft_points);
+        int last_density_column = -1;
         for (unsigned plot_x = 0; plot_x < PLOT_WIDTH; plot_x++) {
             unsigned first = plot_x * visible_points / PLOT_WIDTH;
             unsigned limit = (plot_x + 1) * visible_points / PLOT_WIDTH;
             if (limit <= first) limit = first + 1;
             if (limit > visible_points) limit = visible_points;
+            uint8_t peak = 0;
             for (unsigned shifted = first; shifted < limit; shifted++) {
                 unsigned bin = first_bin + shifted;
                 if (bin >= fft_points) bin -= fft_points;
                 /* The radio produces negative FFT offsets for RF above the LO.
                  * Mirror the selected bins so higher RF is right. */
                 bin = fft_points - 1 - bin;
-                spectrum_dbfs_t dbfs = spectrum_code_to_dbfs(bins[bin]);
+                uint8_t code = bins[bin];
+                spectrum_dbfs_t dbfs = spectrum_code_to_dbfs(code);
                 if (dbfs < frame_minimum) frame_minimum = dbfs;
-                if (dbfs > display_bins[plot_x]) display_bins[plot_x] = dbfs;
+                if (code > peak) peak = code;
+            }
+            display_bins[plot_x] = spectrum_code_to_dbfs(peak);
+            if (density && !pc_control) {
+                unsigned column = density_width < PLOT_WIDTH ? plot_x * density_width / PLOT_WIDTH : plot_x;
+                if ((int)column != last_density_column) {
+                    density_add_column(column, peak);
+                    last_density_column = (int)column;
+                }
             }
         }
         noise_floor = spectrum_noise_floor_update(&noise_floor_avg, frame_minimum);

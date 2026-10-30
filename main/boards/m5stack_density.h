@@ -6,6 +6,8 @@ static uint8_t *density;
 static unsigned density_width;
 static unsigned density_mhz, density_span, density_fft, density_average, density_gain, density_dc;
 static int density_filter;
+static unsigned density_frame_gain, density_frame_dc, density_frame_count = 1;
+static int density_frame_filter = -1;
 static int64_t density_decay_at;
 static bool density_keyed, density_pc;
 
@@ -16,7 +18,7 @@ static void density_clear(void) {
 }
 
 static void density_mode(unsigned mhz, bool pc_control) {
-    if (!controls.dpx) {
+    if (!controls.density_mode) {
         free(density);
         density = NULL;
         density_width = 0;
@@ -35,8 +37,8 @@ static void density_mode(unsigned mhz, bool pc_control) {
                                        MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 #endif
             density_width = width;
-            controls.dpx_failed = density == NULL;
-            if (!density) controls.dpx = false;
+            controls.density_failed = density == NULL;
+            if (!density) controls.density_mode = false;
             density_keyed = false;
             density_decay_at = esp_timer_get_time();
         }
@@ -60,38 +62,36 @@ static void density_decay(void) {
         density[i] = (uint8_t)((density[i] * factor) >> 16);
 }
 
-void m5stack_basic_spectrum(unsigned mhz, const uint8_t *bins, unsigned fft_points,
-                             unsigned gain, int filter, unsigned dc) {
-    if (!density || density_pc || !bins) return;
+void m5stack_basic_set_density_context(unsigned gain, int filter, unsigned dc, unsigned frame_count) {
+    density_frame_gain = gain;
+    density_frame_filter = filter;
+    density_frame_dc = dc;
+    density_frame_count = frame_count;
+}
+
+static void density_begin_frame(unsigned mhz, unsigned fft_points) {
+    if (!density || density_pc) return;
     unsigned span = m5stack_basic_span(), average = m5stack_basic_average_count();
     if (!density_keyed || density_mhz != mhz || density_span != span || density_fft != fft_points ||
-        density_average != average || density_gain != gain || density_filter != filter || density_dc != dc) {
+        density_average != average || density_gain != density_frame_gain ||
+        density_filter != density_frame_filter || density_dc != density_frame_dc) {
         density_clear();
         density_mhz = mhz;
         density_span = span;
         density_fft = fft_points;
         density_average = average;
-        density_gain = gain;
-        density_filter = filter;
-        density_dc = dc;
+        density_gain = density_frame_gain;
+        density_filter = density_frame_filter;
+        density_dc = density_frame_dc;
         density_keyed = true;
     }
-    density_decay();
-    unsigned visible = span < 16 ? fft_points * span / 16 : fft_points;
-    unsigned origin = visible / 2 - 1, mask = fft_points - 1;
-    for (unsigned x = 0; x < density_width; x++) {
-        unsigned first = density_width < PLOT_WIDTH ? x : x * visible / PLOT_WIDTH;
-        unsigned limit = density_width < PLOT_WIDTH ? x + 1 : (x + 1) * visible / PLOT_WIDTH;
-        unsigned peak = 0;
-        for (unsigned j = first; j < limit; j++) {
-            unsigned code = bins[(origin - j) & mask];
-            if (code > peak) peak = code;
-        }
-        /* shortcut: weighted, saturating density; add wider counters for probability measurements. */
-        uint8_t *cell = density + (peak >> 2) * density_width + x;
-        unsigned value = *cell + 8;
-        *cell = (uint8_t)(value > 255 ? 255 : value);
-    }
+}
+
+static void density_add_column(unsigned x, uint8_t peak) {
+    uint8_t *cell = density + (peak >> 2) * density_width + x;
+    /* Preserve sample weight while updating once from the averaged frame. */
+    unsigned value = *cell + 8 * density_frame_count;
+    *cell = (uint8_t)(value > 255 ? 255 : value);
 }
 
 static void density_row(unsigned y, int lower_dbfs) {

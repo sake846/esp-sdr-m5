@@ -305,7 +305,7 @@ static unsigned cardputer_controls_update(unsigned mhz, unsigned matrix_keys, ui
             break;
         }
         case ACTION_SPACE:
-            if (keyboard_reverse[i]) { controls.dpx = !controls.dpx; controls.dpx_failed = false; }
+            if (keyboard_reverse[i]) { controls.density_mode = !controls.density_mode; controls.density_failed = false; }
             else keyboard_help_visible = !keyboard_help_visible;
             break;
         case ACTION_T: {
@@ -494,8 +494,8 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
     static const char title[] = "ESP SDR";
 #endif
     unsigned title_end = 12 + m5stack_text_width(title, &DejaVu9);
-    const char *status = pc_control ? "PC" : controls.dpx_failed ? "RAM" :
-                         valid ? (density ? "DPX" : "LIVE") : "WAIT";
+    const char *status = pc_control ? "PC" : controls.density_failed ? "RAM" :
+                         valid ? (density ? "DENS" : "LIVE") : "WAIT";
 #if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2 || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI || CONFIG_ESP_SDR_M5UNIFIED)
     char menu_value[24];
     m5stack_menu_value(menu_value, sizeof(menu_value));
@@ -529,19 +529,31 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         unsigned visible = fft_points * span / capture_span;
         unsigned first_bin = (fft_points - visible) / 2 + fft_points / 2;
         spectrum_dbfs_t frame_minimum = SPECTRUM_DBFS_MAX;
+        if (density && !pc_control) density_begin_frame(mhz, fft_points);
+        int last_density_column = -1;
         for (unsigned x = 0; x < PLOT_WIDTH; x++) {
             unsigned first = x * visible / PLOT_WIDTH, limit = (x + 1) * visible / PLOT_WIDTH;
             if (limit <= first) limit = first + 1;
             if (limit > visible) limit = visible;
+            uint8_t peak = 0;
             for (unsigned j = first; j < limit; j++) {
                 unsigned bin = first_bin + j;
                 if (bin >= fft_points) bin -= fft_points;
                 /* The radio produces negative FFT offsets for RF above the LO.
                  * Mirror the selected bins so higher RF is right. */
                 bin = fft_points - 1 - bin;
-                spectrum_dbfs_t dbfs = spectrum_code_to_dbfs(bins[bin]);
+                uint8_t code = bins[bin];
+                spectrum_dbfs_t dbfs = spectrum_code_to_dbfs(code);
                 if (dbfs < frame_minimum) frame_minimum = dbfs;
-                if (dbfs > display_bins[x]) display_bins[x] = dbfs;
+                if (code > peak) peak = code;
+            }
+            display_bins[x] = spectrum_code_to_dbfs(peak);
+            if (density && !pc_control) {
+                unsigned column = density_width < PLOT_WIDTH ? x * density_width / PLOT_WIDTH : x;
+                if ((int)column != last_density_column) {
+                    density_add_column(column, peak);
+                    last_density_column = (int)column;
+                }
             }
         }
         noise_floor = spectrum_noise_floor_update(&noise_floor_avg, frame_minimum);
@@ -668,7 +680,7 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
         if (keyboard_help_visible && y >= 111 && y < 135) {
             memset(row, 0, sizeof(row));
             text_row(y < 123 ? y - 111 : y - 123, 4,
-                     y < 123 ? "<> FREQ 0-9 T STEP P SPAN" : "F FFT A AVE SHIFT SPC DPX",
+                     y < 123 ? "<> FREQ 0-9 T STEP P SPAN" : "F FFT A AVE SHIFT SPC DENS",
                      COLOR_SRDECK_YELLOW_GREEN);
         }
 #endif

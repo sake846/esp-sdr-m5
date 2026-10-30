@@ -51,7 +51,8 @@ work, not device frame rate. LCD payload size and SPI clock are unchanged.
 Those timing/hash figures used the earlier screen layout. The normal-mode hash
 was `543597743` before adding the SRdeck-style blue under-curve fill. That visual
 change updates the expected hash to `494924473`; the benchmark still checks
-962 SPI transactions and five formatting calls per frame. DPX pixels are unchanged.
+962 SPI transactions and five formatting calls per frame. Density-display pixels
+are unchanged.
 
 Run the current benchmark from a compiler-enabled shell:
 
@@ -66,18 +67,20 @@ related tests and the five firmware builds/partition size checks passed. See
 [the test instructions](../tests/README.md). Physical RF and LCD behavior still
 needs validation on the boards.
 
-## DPX ingestion and rendering
+## Density ingestion and rendering
 
-DPX keeps its 64 level buckets and 8-bit density values. When the selected FFT
-window contains fewer bins than screen columns, duplicate pixels share history.
+Density mode keeps its 64 level buckets and 8-bit density values. When the
+selected FFT window contains fewer bins than screen columns, duplicate pixels
+share history.
 The renderer reuses its level buffer for the normal trace after saving the
-waterfall row, and skips trace conversion in DPX mode. FFT-bin wrapping uses
+waterfall row, and skips trace conversion in density mode. FFT-bin wrapping uses
 the power-of-two mask. Grid positions advance through eight intervals instead
 of recalculating the nearest division at every pixel. A 61-entry flash palette
 replaces repeated RGB565 interpolation, preserving the original integer colors.
 
-The production DPX ingestion/rendering benchmark used MSVC `/O2`, mocked SPI,
-16 FFT-result inputs per update and the median of three 800-update runs:
+The following timings describe the previous per-capture density path, measured
+with MSVC `/O2`, mocked SPI, 16 FFT-result inputs per update and the median of
+three 800-update runs. The current averaged-frame path has not been rebenchmarked:
 
 | Geometry, 1024 points / 16 MHz | Before | After | Time reduction |
 | --- | ---: | ---: | ---: |
@@ -85,9 +88,9 @@ The production DPX ingestion/rendering benchmark used MSVC `/O2`, mocked SPI,
 | Cardputer | 74 ms | 58 ms | 21.6% |
 | StickC Plus2 | 69 ms | 55 ms | 20.3% |
 
-Across all 12 default/maximum FFT and 2/16 MHz cases, time fell by 15.5–23.6%.
-Pixel and expanded density-history hashes matched in every case. These timings
-exclude FFT computation and physical SPI delays, and do not establish device FPS.
+Across all 12 default/maximum FFT and 2/16 MHz cases, the previous path fell by
+15.5–23.6%. Pixel and expanded density-history hashes matched in every case.
+These timings exclude FFT computation and physical SPI delays, and do not establish device FPS.
 
 | Density heap payload | Before | After |
 | --- | ---: | ---: |

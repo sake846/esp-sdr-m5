@@ -18,7 +18,7 @@ typedef struct {
     unsigned wf_speed, agc, gain, gain_max, rx_dirty, about;
     uint32_t changed[3], b_pressed, last_input;
     bool suppress_release[3];
-    bool b_long, reset_done, dpx, dpx_failed;
+    bool b_long, reset_done, density_mode, density_failed;
 } m5stack_controls_t;
 
 static const unsigned m5stack_steps[] = {1, 5, 10, 20, 100};
@@ -40,7 +40,7 @@ static inline void m5stack_controls_defaults(m5stack_controls_t *s) {
     s->gain = 30;
     s->filter = -1; /* Follow the selected span. */
     s->about = 0;
-    s->dpx = s->dpx_failed = false;
+    s->density_mode = s->density_failed = false;
 }
 
 static inline int m5stack_adjust(int value, int direction, int step, int minimum, int maximum) {
@@ -72,7 +72,7 @@ static inline unsigned m5stack_menu_adjust(m5stack_controls_t *s, unsigned mhz, 
                                sizeof(m5stack_fft_sizes) / sizeof(m5stack_fft_sizes[0]) - 1);
         break;
     case M5_MENU_AVERAGE: s->average = m5stack_adjust(s->average, direction, 1, 0, 4); break;
-    case M5_MENU_SPECTRUM: s->dpx = !s->dpx; s->dpx_failed = false; break;
+    case M5_MENU_SPECTRUM: s->density_mode = !s->density_mode; s->density_failed = false; break;
     case M5_MENU_AGC:
         s->agc = (s->agc + (direction < 0 ? 2 : 1)) % 3;
         s->rx_dirty |= M5_RX_AGC;

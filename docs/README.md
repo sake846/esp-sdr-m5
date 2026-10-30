@@ -30,7 +30,7 @@ in the guides below.
 | Practical tuning, gain, bandwidth and GPIO controls / 周波数・ゲイン・帯域幅・GPIO設定 | [RX controls](rx-controls.md) |
 | FFT and on-chip spectrum processing / FFTとスペクトラム処理 | [On-chip spectra](spectrum.md) |
 | Capture path and snapshot/ring modes / サンプル取得とスナップショット・リング動作 | [How the capture works](how-it-works.md) |
-| Display memory, rendering and DPX performance / 表示メモリ・描画・DPXの性能 | [M5Stack performance](performance.md) |
+| Display memory, rendering and density-display performance / 表示メモリ・描画・密度表示の性能 | [M5Stack performance](performance.md) |
 
 ## Host connection and protocols / PC接続・プロトコル
 

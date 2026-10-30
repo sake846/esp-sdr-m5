@@ -721,8 +721,6 @@ void burst_serial_idle(bool leased) {
                 bool captured = spectrum_snapshot_inplace_peak(rate, fft_points, spectrum_acquire, bins,
                                                                (int16_t *)IQ_BUFFER, &iq_peak);
                 local_capture = false;
-                if (captured) m5stack_basic_spectrum(frequency_mhz, bins, fft_points,
-                                                     local_capture_gain, rx_filter, ring_capture_dc_mode);
                 int64_t work_end = esp_timer_get_time();
                 frame_work_us += (uint64_t)(work_end - work_start);
                 if (captured) {
@@ -765,6 +763,7 @@ void burst_serial_idle(bool leased) {
     }
     int64_t draw_start = esp_timer_get_time();
     m5stack_basic_set_gain_index(gain_code);
+    m5stack_basic_set_density_context(local_capture_gain, rx_filter, ring_capture_dc_mode, average_count);
     m5stack_basic_draw(frequency_mhz, bins, fft_points, false, valid, cpu_percent);
     int64_t draw_end = esp_timer_get_time();
     frame_work_us += (uint64_t)(draw_end - draw_start);

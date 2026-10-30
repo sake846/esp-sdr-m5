@@ -158,10 +158,9 @@ int main(void){
  uint8_t bins[4096]={0};bins[127]=255;
  m5stack_basic_draw(2412,bins,256,false,true,0);
  assert(waterfall_count==1);
- controls.dpx=true;density_mode(2412,false);assert(density && density_width>0);
+ controls.density_mode=true;density_mode(2412,false);assert(density && density_width>0);
  assert(last_caps==(CONFIG_SPIRAM ? 6 : 3));
- m5stack_basic_spectrum(2412,bins,256,30,-1,1);
- controls.dpx=false;density_mode(2412,false);assert(!density);
+ controls.density_mode=false;density_mode(2412,false);assert(!density);
 #if LILYGO_EPAPER
  assert(flushes==2);
  assert((epaper_frame[0]&0xf0)==0xf0); /* Black UI background becomes white paper. */

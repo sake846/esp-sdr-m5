@@ -173,11 +173,11 @@ int main(void) {
     m5stack_basic_draw(2413,bins,256,false,false,0);
     assert(pixels[(trace_y+1)*TEST_WIDTH+PLOT_LEFT+x]==0);
     assert(pixels[grid_y*TEST_WIDTH+PLOT_LEFT+x]==0x2104);
-    controls.dpx=true;
+    controls.density_mode=true;
     m5stack_basic_draw(2413,bins,256,false,true,0);
-    assert(pixels[(trace_y+1)*TEST_WIDTH+PLOT_LEFT+x]==0); /* DPX has no under-curve fill. */
+    assert(density[32*density_width+x*density_width/PLOT_WIDTH] > 0);
     assert(pixels[grid_y*TEST_WIDTH+PLOT_LEFT+x]==0x2104);
-    controls.dpx=false;
+    controls.density_mode=false;
     density_mode(2413,false);
 #if CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
     controls.menu = M5_MENU_AGC;

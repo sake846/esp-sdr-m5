@@ -22,7 +22,7 @@ static uint16_t guarded_row[SCREEN_WIDTH+2];
 
 int main(void) {
     const char *values[] = {"0", "100 MHZ", "80 MHZ", "+40 DB", "-40 DB", "200%",
-        "1/10X", "8192", "16", "NO RAM", "NORMAL", "DPX", "MANUAL", "SOFTWARE",
+        "1/10X", "8192", "16", "NO RAM", "NORMAL", "DENSITY", "MANUAL", "SOFTWARE",
         "HARDWARE", "30", "AUTO", "WIDE", "DCAP 3", "ESP SDR M5", "STICKC PLUS2",
         "RIGHT RESET", "DONE", "", "\x01\xff"};
     unsigned margin = SCREEN_WIDTH > 200 ? 32 : 4;

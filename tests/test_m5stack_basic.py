@@ -60,7 +60,7 @@ int main(void) {
     s.menu = M5_MENU_FFT; press(4); assert(s.fft == 3);
     press(4); press(4); assert(s.fft == 4 && m5stack_fft_sizes[s.fft] == 4096);
     s.menu = M5_MENU_AVERAGE; press(1); assert(s.average == 3);
-    s.menu = M5_MENU_SPECTRUM; press(4); assert(s.dpx); press(1); assert(!s.dpx);
+    s.menu = M5_MENU_SPECTRUM; press(4); assert(s.density_mode); press(1); assert(!s.density_mode);
     s.menu = M5_MENU_AGC; press(4); assert(s.agc == M5_AGC_HARDWARE);
     press(4); assert(s.agc == M5_AGC_MANUAL); press(1); assert(s.agc == M5_AGC_HARDWARE);
     unsigned agc = M5_AGC_SOFTWARE, gain = 35; int filter = 80; bool follow = true;
@@ -83,7 +83,7 @@ int main(void) {
     assert(s.reset_done && mhz == 2440 && s.menu == M5_MENU_RESET);
     assert(s.rate == 5 && s.step == 2 && s.fft == 2 && s.average == 4);
     assert(s.y_pos == 0 && s.wf_bright == 0 && s.wf_contrast == 100 && s.wf_speed == 3);
-    assert(!s.dpx && !s.dpx_failed);
+    assert(!s.density_mode && !s.density_failed);
     m5stack_controls_sync_rx(&s, &agc, &gain, 20, &filter, &follow);
     assert(agc == M5_AGC_SOFTWARE && gain == 20 && follow); /* Reset respects calibrated bounds. */
     press(1); assert(s.menu == M5_MENU_NONE);

@@ -48,9 +48,10 @@ The numerical snapshot tests use the production FFT; the older snapshot protocol
 test separately supplies deterministic FFT output to check frame encoding.
 `benchmark_m5stack_display.py` measures host rendering work with the same SDK
 mocks; see [the performance measurements](../docs/performance.md).
-`benchmark_m5stack_density.py` measures DPX ingestion and rendering for three
-screen geometries, default/maximum FFT sizes and 2/16 MHz spans. It saves timings,
-heap payload and pixel/history hashes in `artifacts/dpx-benchmark/current.json`.
+`benchmark_m5stack_density.py` measures density ingestion and rendering for one
+averaged FFT frame per update across three screen geometries, default/maximum FFT
+sizes and 2/16 MHz spans. It saves timings,
+heap payload and pixel/history hashes in `artifacts/density-benchmark/current.json`.
 Native C tests report a skip if their compiler is unavailable. Some upstream
 tests require GNU C even on Windows, so use Linux for the complete suite.
 

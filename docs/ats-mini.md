@@ -2,8 +2,8 @@
 
 The `ats-mini` profile uses the ESP32-S3 radio, 320 × 170 LCD and rotary encoder
 in the ATS-mini / ESP32-SI4732 pocket receiver. It provides the same standalone
-spectrum, waterfall, DPX, gain controls and 256–4096-point FFT as the other S3
-standalone profiles. Native USB Serial/JTAG provides the existing burst protocol.
+spectrum, waterfall, density display, gain controls and 256–4096-point FFT as
+the other S3 standalone profiles. Native USB Serial/JTAG provides the existing burst protocol.
 
 This firmware does not use the SI4732 broadcast receiver or the speaker/headphone
 audio path. The telescopic antenna feeds the SI4732, not the ESP32. Receive
@@ -12,7 +12,7 @@ backend; this profile does not add AM/FM/SW reception or audio demodulation.
 
 `ats-mini`プロファイルは、ATS-mini（ESP32-SI4732小型ラジオ）のESP32-S3内蔵無線回路、
 320 × 170 LCD、ロータリーエンコーダーを使用します。スペクトラム、ウォーターフォール、
-DPX、ゲイン設定、256〜4096点FFTを本体で操作できます。
+密度表示、ゲイン設定、256〜4096点FFTを本体で操作できます。
 PC接続はネイティブUSB Serial/JTAGで、既存のバーストプロトコルを使用します。
 
 SI4732とスピーカー・ヘッドホンの音声経路は使用しません。

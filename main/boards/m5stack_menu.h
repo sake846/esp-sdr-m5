@@ -22,7 +22,8 @@ static void m5stack_menu_value(char *value, size_t size) {
     case M5_MENU_FFT: snprintf(value, size, "%u", m5stack_fft_sizes[controls.fft]); break;
     case M5_MENU_AVERAGE: snprintf(value, size, "%u", m5stack_average_counts[controls.average]); break;
     case M5_MENU_SPECTRUM:
-        snprintf(value, size, "%s", controls.dpx_failed ? "NO RAM" : controls.dpx ? "DPX" : "NORMAL");
+        snprintf(value, size, "%s", controls.density_failed ? "NO RAM" :
+                 controls.density_mode ? "DENSITY" : "NORMAL");
         break;
     case M5_MENU_AGC:
         snprintf(value, size, "%s", controls.agc == M5_AGC_MANUAL ? "MANUAL" :

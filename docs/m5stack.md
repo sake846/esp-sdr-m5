@@ -102,7 +102,7 @@ items; numeric settings stop at their limits.
 | WF SPEED | 1/10×, 1/5×, 1/2×, 1×; default one waterfall row per valid display update |
 | FFT NUM | 256, 512, 1024, 2048, 4096; default 1024 |
 | FFT AVERAGE | 1, 2, 4, 8, 16; default 16 |
-| SPEC MODE | NORMAL (default) or DPX-style density display |
+| SPEC MODE | NORMAL (default) or DENSITY display |
 | AGC TYPE | MANUAL, SOFTWARE (default), HARDWARE; cycles in either direction |
 | RF GAIN | Calibrated PHY gain index; changing it selects MANUAL mode |
 | FILTER | AUTO (follow span, default), WIDE (DAC 0), DAC 1–127; larger codes narrow the filter |
@@ -133,8 +133,8 @@ zoom the display into the center of its 16 MHz capture; 16, 40 and 80 MHz spans
 use their matching sample rates. Averaging smooths the displayed level without
 changing the FFT frequency resolution. `LIVE` means at least one local capture and FFT
 succeeded in the current interval; it does not mean a transmitter was detected. `WAIT`
-means the latest local capture failed, and `PC` means a serial client owns the
-receiver. At FFT sizes above 256, the strongest
+means the latest local capture failed. `DENS` marks density mode, and `PC` means a
+serial client owns the receiver. At FFT sizes above 256, the strongest
 bin in each displayed frequency group is shown so narrow peaks remain visible.
 Both plots use nearly the full LCD width. In NORMAL mode the upper plot is a
 thin blue trace with a translucent blue fill beneath it, over a dark grid.
@@ -168,15 +168,17 @@ mean the radio works over that entire range: reception is primarily around
 [RX controls](rx-controls.md). The speaker is muted; this firmware displays
 spectra and captures I/Q, without audio demodulation.
 
-`SPEC MODE` switches the upper graph to a DPX-style density display. Each
-successful FFT contributes before averaging; the waterfall still uses averaged
-power. The display stores 64 fixed level buckets (about 2 dB each), so moving
+`SPEC MODE` switches the upper graph to a density display. Each averaged FFT
+frame contributes once to the density history, weighted by the number of successful
+captures in that average; the waterfall uses the same averaged spectrum. The display stores
+64 fixed level buckets (about 2 dB each), so moving
 Y POS or tracking the floor does not change the saved levels. Blue marks sparse
 hits and warmer colors mark more repeated hits; brightness fades with elapsed
 time. These weighted, saturating values are qualitative, not probabilities.
 
-DPX needs up to an additional 19,968 bytes on Basic/Core2, 14,848 bytes on Cardputer/ADV
-and 8,128 bytes on Plus2. Pixels sharing a zoomed FFT bin share one history column;
+Density mode needs up to an additional 19,968 bytes on Basic/Core2, 14,848 bytes
+on Cardputer/ADV and 8,128 bytes on Plus2. Pixels sharing a zoomed FFT bin
+share one history column;
 for example 1024 points at 2 MHz use 8,192 bytes on Basic/Core2 and Cardputer/ADV.
 It allocates internal RAM when enabled and releases it
 when disabled. Allocation failure keeps the normal trace and shows `RAM` in the
@@ -244,7 +246,7 @@ and the built-in keyboard matrix. Key `,` tunes down; `.` or `/` tunes up.
 Keys `T`, `P`, `F` and `A` cycle STEP, SPAN, FFT and AVE. Hold Shift with `T`,
 `P`, `F` or `A` to cycle that setting in reverse. Enter four digits to set the
 frequency in MHz, and press Space to show or hide keyboard help. Shift+Space
-toggles the DPX-style upper graph. Density history clears when capture gain changes.
+toggles density mode for the upper graph. Density history clears when capture gain changes.
 Software AGC stays enabled during standalone operation; serial gain commands can explicitly
 override it. The standalone defaults are FFT 1024, AVE 16 and gain index 30.
 The local FFT menu goes up to 4096 points and uses internal RAM.

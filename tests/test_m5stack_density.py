@@ -1,4 +1,4 @@
-"""Run the DPX input, history, scanline mapping and allocation fallback on all boards."""
+"""Run density input, history, scanline mapping and allocation fallback on all boards."""
 import unittest
 
 from host_test import COMPILER, ROOT, compile_run
@@ -8,14 +8,15 @@ from test_m5stack_displays import STUB
 CHECK = r'''
 #define CELL(level,x) density[(level)*density_width+(x)*density_width/PLOT_WIDTH]
 static void sample(unsigned mhz, uint8_t *bins, unsigned gain, int filter, unsigned dc) {
-    m5stack_basic_spectrum(mhz, bins, m5stack_basic_fft_points(), gain, filter, dc);
+    m5stack_basic_set_density_context(gain, filter, dc, 1);
+    m5stack_basic_draw(mhz, bins, m5stack_basic_fft_points(), density_pc, true, 0);
 }
 static void verify_projection(void) {
     uint8_t reference[64][PLOT_WIDTH], bins[8192];
     unsigned seed = 1;
     for (unsigned f = 0; f < sizeof(m5stack_fft_sizes) / sizeof(m5stack_fft_sizes[0]); f++) {
         for (unsigned r = 0; r < 6; r++) {
-            controls.fft = f; controls.rate = r; controls.dpx = true;
+            controls.fft = f; controls.rate = r; controls.density_mode = true;
             density_mode(2412, false); density_clear();
             unsigned n = m5stack_basic_fft_points(), span = m5stack_basic_span();
             unsigned visible = n * span / (span < 16 ? 16 : span);
@@ -28,7 +29,8 @@ static void verify_projection(void) {
                     seed = seed * 1664525u + 1013904223u;
                     bins[j] = (uint8_t)(seed >> 24);
                 }
-                /* Independent original projection, including duplicated screen columns. */
+                /* Each density column receives one peak from the averaged frame. */
+                int last_column = -1;
                 for (unsigned x = 0; x < PLOT_WIDTH; x++) {
                     unsigned first = x * visible / PLOT_WIDTH, limit = (x + 1) * visible / PLOT_WIDTH;
                     if (limit <= first) limit = first + 1;
@@ -40,12 +42,17 @@ static void verify_projection(void) {
                         unsigned code = bins[n - 1 - bin];
                         if (code > peak) peak = code;
                     }
-                    reference[peak >> 2][x] += 8;
+                    unsigned column = density_width < PLOT_WIDTH ? x * density_width / PLOT_WIDTH : x;
+                    if ((int)column != last_column) {
+                        reference[peak >> 2][column] += 8;
+                        last_column = (int)column;
+                    }
                 }
                 sample(2412, bins, 30, -1, 1);
             }
             for (unsigned level = 0; level < 64; level++)
-                for (unsigned x = 0; x < PLOT_WIDTH; x++) assert(CELL(level, x) == reference[level][x]);
+                for (unsigned x = 0; x < density_width; x++)
+                    assert(density[level * density_width + x] == reference[level][x]);
         }
     }
     m5stack_controls_defaults(&controls);
@@ -77,19 +84,19 @@ static void verify_palette(void) {
 int main(void) {
     pmu[3] = TEST_PMU;
     m5stack_basic_init();
-    assert(!controls.dpx && !density);
+    assert(!controls.density_mode && !density);
     uint8_t bins[8192] = {0};
     unsigned initial_allocations = allocations;
     sample(2412, bins, 30, -1, 1);
     assert(allocations == initial_allocations); /* Normal mode needs no density RAM. */
-    controls.dpx = true;
-    m5stack_basic_draw(2412, bins, 1024, false, true, 0);
+    controls.density_mode = true;
+    m5stack_basic_draw(2412, bins, 1024, false, false, 0);
     assert(density && allocations == initial_allocations + 1 && last_allocation == 64 * PLOT_WIDTH);
     for (unsigned i = 0; i < 15; i++) sample(2412, bins, 30, -1, 1);
     bins[510] = 120;
     sample(2412, bins, 30, -1, 1);
     assert(CELL(30,0) == 8 && CELL(0,0) == 120);
-    bins[510] = 0; /* The averaged/current trace lacks the captured transient. */
+    bins[510] = 0; /* The next averaged frame no longer contains the transient. */
     unsigned before_rows = rows, before_windows = column_windows;
     m5stack_basic_draw(2412, bins, 1024, false, true, 0);
     assert(rows == before_rows + TEST_HEIGHT && column_windows == before_windows + 1);
@@ -164,18 +171,18 @@ int main(void) {
     controls.fft = 3;
     density_mode(2413, false); assert(!density_keyed);
 
-    controls.dpx = false;
+    controls.density_mode = false;
     unsigned before_frees = frees;
     density_mode(2413, false);
     assert(!density && frees == before_frees + 1);
-    controls.dpx = true; fail_allocation = true;
+    controls.density_mode = true; fail_allocation = true;
     density_mode(2413, false);
-    assert(!density && !controls.dpx && controls.dpx_failed);
+    assert(!density && !controls.density_mode && controls.density_failed);
     m5stack_basic_draw(2413, bins, 2048, false, true, 0);
-    assert(!density && controls.dpx_failed); /* Failure stays visible; no retry loop. */
-    fail_allocation = false; controls.dpx = true;
+    assert(!density && controls.density_failed); /* Failure stays visible; no retry loop. */
+    fail_allocation = false; controls.density_mode = true;
     density_mode(2413, false);
-    assert(density && !controls.dpx_failed);
+    assert(density && !controls.density_failed);
     m5stack_controls_defaults(&controls);
     density_mode(2412, false); assert(!density);
     verify_projection();

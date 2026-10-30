@@ -18,6 +18,7 @@ class StandaloneLoop(unittest.TestCase):
 #include "m5stack_basic_controls.h"
 static unsigned gain_code = 30, gain_applies;
 static unsigned local_capture_gain = 45, spectrum_dc_mode = 1, density_inputs;
+static unsigned density_frame_count;
 #define ring_capture_dc_mode spectrum_dc_mode
 static m5stack_controls_t ui;
 static int rx_filter = -1;
@@ -76,17 +77,15 @@ static bool spectrum_snapshot_inplace_peak(unsigned r, unsigned n,
     *peak = 0;
     assert(workspace == iq_buffer); return spectrum_snapshot(r, n, acquire, bins);
 }
-void m5stack_basic_spectrum(unsigned mhz, const uint8_t *bins, unsigned n,
-                                   unsigned gain, int filter, unsigned dc) {
-    assert(!local_capture && mhz == frequency_mhz && n == points);
+void m5stack_basic_set_density_context(unsigned gain, int filter, unsigned dc, unsigned count) {
+    assert(!local_capture);
     assert(gain == 45 && filter == rx_filter && dc == 1);
-    assert(bins[0] == ((captures - 1) % 2 ? 120 : 80)); /* Each raw FFT, before averaging. */
-    density_inputs++;
-    now += 200;
+    density_frame_count = count;
 }
 void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned n,
                                 bool pc, bool valid, unsigned cpu) {
     assert(!local_capture && mhz == frequency_mhz && cpu <= 100);
+    if (!pc && valid) { assert(density_frame_count); density_inputs++; }
     draws++; drawn_valid = valid; drawn_pc = pc; drawn_points = n;
     memcpy(drawn, bins, n); now += 500;
 }
@@ -101,7 +100,8 @@ static int64_t begin_window(void) {
 static void at(int64_t t, bool pc) { now = t; burst_serial_idle(pc); assert(!local_capture); }
 static void verify_average(void) {
     assert(!drawn_pc && drawn_valid == (successful != 0) && drawn_points == points);
-    assert(density_inputs == successful); /* Failed acquisitions cannot add stale bins. */
+    assert(density_inputs == (successful != 0)); /* One density update per averaged frame. */
+    assert(density_frame_count == successful);
     if (!successful) return;
     for (unsigned j = 0; j < points; j++) {
         double p = expected_power[j%4]/successful;
