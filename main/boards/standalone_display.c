@@ -57,6 +57,7 @@ static unsigned matrix_key_bit(unsigned matrix_row, unsigned matrix_col) {
 #endif
 
 static m5stack_controls_t controls;
+static unsigned display_gain_index = 30;
 static uint16_t row[SCREEN_WIDTH] __attribute__((aligned(4)));
 static spectrum_dbfs_t (*waterfall)[PLOT_WIDTH];
 static spectrum_dbfs_t waterfall_floor[WATERFALL_HEIGHT];
@@ -137,7 +138,7 @@ static void draw_global_tune_hints(unsigned y) {
 }
 
 void standalone_display_set_gain_index(unsigned gain_index) {
-    (void)gain_index;
+    display_gain_index = gain_index;
 }
 
 static uint16_t waterfall_color(int delta_db) {
@@ -385,7 +386,7 @@ void standalone_display_draw(unsigned mhz, const uint8_t *bins, unsigned fft_poi
                         bool valid, unsigned cpu_percent) {
     density_mode(mhz, pc_control);
     density_decay();
-    char edges[3][12], cpu[12];
+    char edges[3][12], right_status[12];
     static const char title[] = "ESP SDR M5";
     unsigned title_end = 12 + m5stack_text_width(title, &DejaVu9);
     const char *status = pc_control ? "PC" : controls.density_failed ? "RAM" :
@@ -410,12 +411,8 @@ void standalone_display_draw(unsigned mhz, const uint8_t *bins, unsigned fft_poi
     snprintf(edges[0], sizeof(edges[0]), "%u", mhz - span / 2);
     snprintf(edges[1], sizeof(edges[1]), "%u", mhz);
     snprintf(edges[2], sizeof(edges[2]), "%u", mhz + span / 2);
-#if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
-    /* A full color refresh exceeds five seconds; alternate on completed refreshes. */
-    board_status_text(cpu, sizeof(cpu), cpu_percent, (int64_t)m5stack_device_adapter_refresh_count() * 5000000);
-#else
-    board_status_text(cpu, sizeof(cpu), cpu_percent, esp_timer_get_time());
-#endif
+    board_status_text(right_status, sizeof(right_status), cpu_percent,
+                      display_gain_index, esp_timer_get_time());
     if (bins && valid) {
         for (unsigned x = 0; x < PLOT_WIDTH; x++) display_bins[x] = SPECTRUM_DBFS_MIN;
         unsigned capture_span = span < 16 ? 16 : span;
@@ -506,7 +503,7 @@ void standalone_display_draw(unsigned mhz, const uint8_t *bins, unsigned fft_poi
         if (y >= 1 && y < 12) {
             text_row(y - 1, SCREEN_WIDTH / 2 - text_width(status) / 2,
                      status, pc_control ? 0xffe0 : 0xffff);
-            text_row(y - 1, SCREEN_WIDTH - text_width(cpu) - 4, cpu, 0xffff);
+            text_row(y - 1, SCREEN_WIDTH - text_width(right_status) - 4, right_status, 0xffff);
         }
         if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 12) {
             text_row(y - FREQUENCY_TOP, 4, edges[0], 0xffff);
@@ -520,12 +517,12 @@ void standalone_display_draw(unsigned mhz, const uint8_t *bins, unsigned fft_poi
                 m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(status, &DejaVu9)) / 2,
                                  22, status, &DejaVu9, pc_control ? 0xffe0 : 0xffff, 0);
             if (y >= 25 && y < 36)
-                m5stack_text_row(y, SCREEN_WIDTH - m5stack_text_width(cpu, &DejaVu9) - 4,
-                                 34, cpu, &DejaVu9, 0xffff, 0);
+                m5stack_text_row(y, SCREEN_WIDTH - m5stack_text_width(right_status, &DejaVu9) - 4,
+                                 34, right_status, &DejaVu9, 0xffff, 0);
         } else if (y >= 1 && y < 12) {
             text_row(y - 1, SCREEN_WIDTH / 2 - text_width(status) / 2,
                      status, pc_control ? 0xffe0 : 0xffff);
-            text_row(y - 1, SCREEN_WIDTH - text_width(cpu) - 4, cpu, 0xffff);
+            text_row(y - 1, SCREEN_WIDTH - text_width(right_status) - 4, right_status, 0xffff);
         }
         if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 12) {
             if (SCREEN_WIDTH < 100) {
@@ -545,8 +542,8 @@ void standalone_display_draw(unsigned mhz, const uint8_t *bins, unsigned fft_poi
             const GFXfont *font = &DejaVu12;
             m5stack_text_row(y - 1, SCREEN_WIDTH / 2 - m5stack_text_width(status, font) / 2,
                              9, status, font, pc_control ? 0xffe0 : 0xffff, 0);
-            m5stack_text_row(y - 1, SCREEN_WIDTH - m5stack_text_width(cpu, font) - 4,
-                             9, cpu, font, 0xffff, 0);
+            m5stack_text_row(y - 1, SCREEN_WIDTH - m5stack_text_width(right_status, font) - 4,
+                             9, right_status, font, 0xffff, 0);
         }
         if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 12) {
             text_row(y - FREQUENCY_TOP, 4, edges[0], 0xffff);

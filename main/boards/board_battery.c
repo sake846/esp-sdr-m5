@@ -2,6 +2,7 @@
 #include "sdkconfig.h"
 #include "board_battery.h"
 
+/* M5Unified owns the internal I2C bus used by the M5Stack power controller. */
 #if CONFIG_ESP_SDR_M5STACK && !CONFIG_ESP_SDR_M5STACK_LCD_ILI9341
 #include "standalone_device_m5stack.h"
 

@@ -9,7 +9,6 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include <cstring>
-#include <atomic>
 
 #if CONFIG_ESP_SDR_M5STACK_DIN_METER
 static portMUX_TYPE encoder_lock = portMUX_INITIALIZER_UNLOCKED;
@@ -32,13 +31,6 @@ static constexpr size_t frame_pixels = SCREEN_WIDTH * SCREEN_HEIGHT;
 static uint16_t *paper_frame, *paper_pending, *paper_tx;
 static SemaphoreHandle_t paper_lock;
 static TaskHandle_t paper_task;
-#if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
-static std::atomic<unsigned> paper_refresh_count;
-
-unsigned m5stack_device_adapter_refresh_count(void) {
-    return paper_refresh_count.load();
-}
-#endif
 
 static void paper_worker(void *) {
     uint16_t expanded[SCREEN_WIDTH * M5_DISPLAY_SCALE];
@@ -63,7 +55,6 @@ static void paper_worker(void *) {
         M5.Display.display();
         M5.Display.waitDisplay();
 #if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
-        paper_refresh_count++;
         vTaskDelay(pdMS_TO_TICKS(30000));
 #else
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -143,8 +134,24 @@ void m5stack_device_adapter_init(void) {
 }
 
 int m5stack_device_adapter_battery_percent(void) {
+#if CONFIG_ESP_SDR_M5STACK_BASIC
+    std::uint8_t raw = 0;
+    const bool read_ok = M5.In_I2C.readRegister(0x75, 0x78, &raw, 1, 400000);
+    int percent = -1;
+    if (read_ok) {
+        switch (raw >> 4) {
+        case 0x0: percent = 100; break;
+        case 0x8: percent = 75; break;
+        case 0xc: percent = 50; break;
+        case 0xe: percent = 25; break;
+        case 0xf: percent = 0; break;
+        }
+    }
+    return percent;
+#else
     int mv = M5.Power.getBatteryVoltage();
     return mv >= 2500 && mv <= 4400 ? M5.Power.getBatteryLevel() : -1;
+#endif
 }
 
 unsigned m5stack_device_adapter_buttons(void) {
