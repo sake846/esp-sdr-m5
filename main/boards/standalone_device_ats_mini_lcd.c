@@ -28,7 +28,7 @@
  * those of the authors and should not be interpreted as representing official
  * policies, either expressed or implied, of the FreeBSD Project.
  */
-#include "ats_mini.h"
+#include "standalone_device_ats_mini_lcd.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_lcd_io_i80.h"

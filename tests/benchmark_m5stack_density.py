@@ -26,19 +26,19 @@ int main(void) {
     for (unsigned a=0;a<16;a++) for (unsigned j=0;j<8192;j++) {
         seed = seed*1664525u+1013904223u; frame_bins[a][j]=(uint8_t)(seed>>24);
     }
-    m5stack_basic_init();
+    standalone_display_init();
     for (unsigned big=0;big<2;big++) for (unsigned zoom=0;zoom<2;zoom++) {
         controls.fft = big ? TEST_FFT_INDEX : 2;
         controls.rate = zoom ? 0 : 3;
         controls.density_mode = true;
         density_mode(2412, false);
-        m5stack_basic_set_density_context(30,-1,1,1);
-        unsigned n=m5stack_basic_fft_points(), frames=800;
+        standalone_display_set_density_context(30,-1,1,1);
+        unsigned n=standalone_display_fft_points(), frames=800;
         for (unsigned repeat=0;repeat<3;repeat++) {
             density_clear();
             clock_t start=clock();
             for (unsigned frame=0;frame<frames;frame++) {
-                m5stack_basic_draw(2412,frame_bins[frame%16],n,false,true,25);
+                standalone_display_draw(2412,frame_bins[frame%16],n,false,true,25);
                 test_now+=130000;
             }
             double ms=1000.0*(clock()-start)/CLOCKS_PER_SEC;
@@ -48,7 +48,7 @@ int main(void) {
                 history=(history^BENCH_CELL(level,x))*16777619u;
             fprintf(out,"{\"nfft\":%u,\"span\":%u,\"frames\":%u,\"host_ms\":%.3f,"
                         "\"density_bytes\":%zu,\"pixels\":%u,\"history\":%u}\n",
-                        n,m5stack_basic_span(),frames,ms,density_bytes,hash,history);
+                        n,standalone_display_span(),frames,ms,density_bytes,hash,history);
         }
     }
     assert(!fclose(out));
@@ -60,10 +60,20 @@ stub = STUB.replace('static int64_t esp_timer_get_time(void) { return 1000000; }
                     'static int64_t test_now=1000000; static int64_t esp_timer_get_time(void) { return test_now; }')
 stub = stub.replace('static void *heap_caps_calloc(size_t n, size_t size, unsigned caps) { assert(caps==3); return calloc(n,size); }',
                     'static size_t density_bytes; static void *heap_caps_calloc(size_t n, size_t size, unsigned caps) { assert(caps==3); density_bytes=n*size; return calloc(n,size); }')
+stub += r'''
+static void m5stack_device_adapter_init(void) {}
+static unsigned m5stack_device_adapter_buttons(void) { return 0; }
+static int m5stack_device_adapter_encoder(void) { return 0; }
+static void m5stack_device_adapter_row(unsigned y, const uint16_t *p) {
+    assert(y < TEST_HEIGHT);
+    memcpy(pixels + y * TEST_WIDTH, p, TEST_WIDTH * sizeof(*p));
+    rows++;
+}
+static void m5stack_device_adapter_flush(void) { column_windows++; }
+'''
 results = []
 for board, *values in PROFILES:
-    filename = 'm5stack_basic.c' if board == 'BASIC' else 'm5stack_cardputer.c'
-    source = (ROOT / 'main/boards' / filename).read_text()
+    source = (ROOT / 'main/boards/standalone_display.c').read_text()
     for header in ['driver/gpio.h', 'driver/spi_master.h', 'driver/i2c_master.h',
                    'esp_check.h', 'esp_heap_caps.h', 'esp_timer.h',
                    'freertos/FreeRTOS.h', 'freertos/task.h']:
@@ -71,7 +81,8 @@ for board, *values in PROFILES:
     access = '#define BENCH_CELL(level,x) density[(level)*density_width + (x)*density_width/PLOT_WIDTH]\n'
     names=['WIDTH','HEIGHT','X','Y','DC','CS','MOSI','SCLK','HOST','SDA','SCL','PMU','FFT']
     output=OUT/f'{RUN}-{board}.jsonl'
-    compile_run(stub+source+access+CHECK,[f'CONFIG_ESP_SDR_M5STACK_{board}=1',
+    compile_run(stub+source+access+CHECK,['CONFIG_ESP_SDR_M5STACK=1',
+                f'CONFIG_ESP_SDR_M5STACK_{board}=1',
                 *(f'TEST_{k}={v}' for k,v in zip(names,values)),
                 'TEST_FFT_INDEX=4',
                 'RESULT_PATH='+json.dumps(output.as_posix())])

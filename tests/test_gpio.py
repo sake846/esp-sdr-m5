@@ -48,7 +48,7 @@ for _board, _chip, _pins in [
     ('STICKC_PLUS', 'ESP32', {0, 2, 5, 18} | set(range(13, 18)) | set(range(21, 24)) | set(range(34, 40))),
 ]:
     _count, _usb, _uart, _memory = TARGETS[_chip]
-    TARGETS[_chip + '_M5UNIFIED_' + _board] = (_count, _usb, _uart, _memory | _pins)
+    TARGETS[_chip + '_M5STACK_' + _board] = (_count, _usb, _uart, _memory | _pins)
 
 @unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
 class GpioService(unittest.TestCase):
@@ -168,8 +168,8 @@ int main(void) {
                                  'ESP32_STICKC_PLUS2': 'STICKC_PLUS2',
                                  'ESP32S3_CARDPUTER': 'CARDPUTER',
                                  'ESP32S3_CARDPUTER_ADV': 'CARDPUTER_ADV'}.get(target)
-                        if '_M5UNIFIED_' in target:
-                            board = target.split('_M5UNIFIED_')[1]
+                        if '_M5STACK_' in target:
+                            board = target.split('_M5STACK_')[1]
                         invalid = {p for p in excluded if (chip=='ESP32' and p>=34) or (chip=='ESP32S2' and p==46) or (chip=='ESP32S3' and p in range(22,26)) or (chip=='ESP32S31' and p==41)}
                         with (tmp/'soc/soc_caps.h').open('a') as f:
                             if invalid:

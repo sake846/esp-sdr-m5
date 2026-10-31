@@ -159,9 +159,13 @@ int main(void) {
 '''
         for profile, chip in [('BASIC', 'ESP32'), ('CORE2', 'ESP32'),
                               ('STICKC_PLUS2', 'ESP32'), ('CARDPUTER', 'ESP32S3'),
-                              ('CARDPUTER_ADV', 'ESP32S3'), ('M5UNIFIED', 'ESP32S3'), ('M5UNIFIED', 'ESP32'), ('LILYGO', 'ESP32S3'), ('ATS_MINI', 'ESP32S3')]:
+                              ('CARDPUTER_ADV', 'ESP32S3'), ('CORES3', 'ESP32S3'),
+                              ('STICKC', 'ESP32'), ('LILYGO', 'ESP32S3'), ('ATS_MINI', 'ESP32S3')]:
             for budget in [0, 1]:
                 with self.subTest(profile=profile, memory_budget=bool(budget)):
+                    board = profile not in ('LILYGO', 'ATS_MINI')
+                    board_definitions = ['CONFIG_ESP_SDR_M5STACK=1'] if board else []
                     compile_run(stub + source + check, [f'CONFIG_IDF_TARGET_{chip}=1',
-                                (f'CONFIG_ESP_SDR_{profile}=1' if profile in ('LILYGO', 'ATS_MINI', 'M5UNIFIED') else
+                                *board_definitions,
+                                (f'CONFIG_ESP_SDR_{profile}=1' if not board else
                                  f'CONFIG_ESP_SDR_M5STACK_{profile}=1'), f'CHECK_MEMORY_BUDGET={budget}'])

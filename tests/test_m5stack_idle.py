@@ -15,7 +15,7 @@ class StandaloneLoop(unittest.TestCase):
 #include <stdlib.h>
 #include <math.h>
 #include "software_agc.h"
-#include "m5stack_basic_controls.h"
+#include "standalone_display_controls.h"
 static unsigned gain_code = 30, gain_applies;
 static unsigned local_capture_gain = 45, spectrum_dc_mode = 1, density_inputs;
 static unsigned density_frame_count;
@@ -34,11 +34,11 @@ static unsigned gain_max = 72;
 static bool hardware_agc, software_agc;
 static void apply_gain(void) { gain_applies++; }
 #endif
-bool m5stack_basic_sync_rx(unsigned *agc, unsigned *gain, unsigned maximum,
+bool standalone_display_sync_rx(unsigned *agc, unsigned *gain, unsigned maximum,
                                  int *filter, bool *follow) {
     return m5stack_controls_sync_rx(&ui, agc, gain, maximum, filter, follow);
 }
-void m5stack_basic_set_gain_index(unsigned gain) { assert(gain <= 72); }
+void standalone_display_set_gain_index(unsigned gain) { assert(gain <= 72); }
 #define M5_LOCAL_FFT_MAX 8192
 #define M5_LOCAL_AVERAGE_MAX 16
 static int64_t now = 10000;
@@ -53,10 +53,10 @@ static int16_t iq_buffer[16384];
 #define IQ_BUFFER iq_buffer
 static int64_t esp_timer_get_time(void) { return now; }
 static void prepare_rx(void) { assert(!rx_ready); prepared++; rx_ready = true; }
-unsigned m5stack_basic_poll(unsigned mhz, bool pc) { return pc || !requested_mhz ? mhz : requested_mhz; }
-unsigned m5stack_basic_rate(void) { return rate; }
-unsigned m5stack_basic_fft_points(void) { return points; }
-unsigned m5stack_basic_average_count(void) { return target; }
+unsigned standalone_display_poll(unsigned mhz, bool pc) { return pc || !requested_mhz ? mhz : requested_mhz; }
+unsigned standalone_display_rate(void) { return rate; }
+unsigned standalone_display_fft_points(void) { return points; }
+unsigned standalone_display_average_count(void) { return target; }
 static void spectrum_snapshot_reset_dc(void) { resets++; }
 static bool spectrum_acquire(unsigned n, unsigned r, const uint32_t **p, unsigned *us) { return true; }
 static bool spectrum_snapshot(unsigned r, unsigned n,
@@ -77,12 +77,12 @@ static bool spectrum_snapshot_inplace_peak(unsigned r, unsigned n,
     *peak = 0;
     assert(workspace == iq_buffer); return spectrum_snapshot(r, n, acquire, bins);
 }
-void m5stack_basic_set_density_context(unsigned gain, int filter, unsigned dc, unsigned count) {
+void standalone_display_set_density_context(unsigned gain, int filter, unsigned dc, unsigned count) {
     assert(!local_capture);
     assert(gain == 45 && filter == rx_filter && dc == 1);
     density_frame_count = count;
 }
-void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned n,
+void standalone_display_draw(unsigned mhz, const uint8_t *bins, unsigned n,
                                 bool pc, bool valid, unsigned cpu) {
     assert(!local_capture && mhz == frequency_mhz && cpu <= 100);
     if (!pc && valid) { assert(density_frame_count); density_inputs++; }

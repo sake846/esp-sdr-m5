@@ -1,7 +1,7 @@
 /* Official M5Stack drivers handle panel revisions, PMICs and touch controllers. */
 #include <M5Unified.h>
-#include "m5unified_board.h"
-#include "m5unified_input.h"
+#include "standalone_device_m5stack.h"
+#include "standalone_device_m5stack_input.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_heap_caps.h"
@@ -35,7 +35,7 @@ static TaskHandle_t paper_task;
 #if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
 static std::atomic<unsigned> paper_refresh_count;
 
-unsigned m5unified_board_refresh_count(void) {
+unsigned m5stack_device_adapter_refresh_count(void) {
     return paper_refresh_count.load();
 }
 #endif
@@ -72,7 +72,7 @@ static void paper_worker(void *) {
 }
 #endif
 
-void m5unified_board_init(void) {
+void m5stack_device_adapter_init(void) {
     auto cfg = M5.config();
     cfg.internal_imu = cfg.internal_rtc = cfg.internal_mic = cfg.internal_spk = false;
     cfg.external_display_value = 0;
@@ -81,7 +81,9 @@ void m5unified_board_init(void) {
     cfg.clear_display = false;
     cfg.fallback_board = static_cast<m5::board_t>(CONFIG_ESP_SDR_M5GFX_BOARD);
     M5.begin(cfg);
-#if !CONFIG_ESP_SDR_M5STACK_CORES3
+#if !CONFIG_ESP_SDR_M5STACK_CORES3 && !CONFIG_ESP_SDR_M5STACK_BASIC && \
+    !CONFIG_ESP_SDR_M5STACK_CORE2 && !CONFIG_ESP_SDR_M5STACK_CARDPUTER && \
+    !CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
     /* Also clear the temporary GPIO46 power hold used by M5Unified detection. */
     static const gpio_num_t quiet_pins[] = {
 #if CONFIG_ESP_SDR_M5STACK_STICKS3
@@ -92,7 +94,7 @@ void m5unified_board_init(void) {
         GPIO_NUM_3, /* Buzzer; keep GPIO46 power hold high. */
 #elif CONFIG_ESP_SDR_M5STACK_PAPERS3
         GPIO_NUM_21, /* Buzzer. */
-#elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS
+#elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
         GPIO_NUM_2, GPIO_NUM_9, /* Buzzer, IR. */
 #else
         GPIO_NUM_9, /* IR. */
@@ -103,8 +105,13 @@ void m5unified_board_init(void) {
         ESP_ERROR_CHECK(gpio_set_direction(pin, GPIO_MODE_OUTPUT));
     }
 #endif
-    if (M5.Display.width() != SCREEN_WIDTH * M5_DISPLAY_SCALE)
+#if M5_DISPLAY_LAYOUT_STICK
+    M5.Display.setRotation(0);
+#else
+    if (M5.Display.width() != SCREEN_WIDTH * M5_DISPLAY_SCALE ||
+        M5.Display.height() != SCREEN_HEIGHT * M5_DISPLAY_SCALE)
         M5.Display.setRotation(1);
+#endif
     ESP_ERROR_CHECK(M5.Display.width() == SCREEN_WIDTH * M5_DISPLAY_SCALE &&
                     M5.Display.height() == SCREEN_HEIGHT * M5_DISPLAY_SCALE ? ESP_OK : ESP_FAIL);
     M5.Display.setBrightness(128);
@@ -135,28 +142,35 @@ void m5unified_board_init(void) {
 #endif
 }
 
-int m5unified_board_battery_percent(void) {
+int m5stack_device_adapter_battery_percent(void) {
     int mv = M5.Power.getBatteryVoltage();
     return mv >= 2500 && mv <= 4400 ? M5.Power.getBatteryLevel() : -1;
 }
 
-unsigned m5unified_board_buttons(void) {
+unsigned m5stack_device_adapter_buttons(void) {
     M5.update();
 #if CONFIG_ESP_SDR_M5STACK_DIN_METER
     return M5.BtnA.isPressed() ? 2 : 0;
+#elif CONFIG_ESP_SDR_M5STACK_BASIC || CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
+    return unsigned(M5.BtnA.isPressed()) | (unsigned(M5.BtnB.isPressed()) << 1) |
+           (unsigned(M5.BtnC.isPressed()) << 2);
+#elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
+    return unsigned(M5.BtnPWR.isPressed()) | (unsigned(M5.BtnA.isPressed()) << 1) |
+           (unsigned(M5.BtnB.isPressed()) << 2);
 #elif CONFIG_ESP_SDR_M5STACK_STICKC || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS || CONFIG_ESP_SDR_M5STACK_STICKS3
     static bool chord;
-    return m5unified_two_buttons(unsigned(M5.BtnA.isPressed()) | (unsigned(M5.BtnB.isPressed()) << 1), &chord);
-#elif CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
-    return unsigned(M5.BtnA.isPressed()) | (unsigned(M5.BtnB.isPressed()) << 1) | (unsigned(M5.BtnC.isPressed()) << 2);
+    unsigned pressed = unsigned(M5.BtnA.isPressed()) | (unsigned(M5.BtnB.isPressed()) << 1);
+    return m5stack_device_input_two_buttons(pressed, &chord);
 #else
     if (!M5.Touch.getCount()) return 0;
     const auto &touch = M5.Touch.getDetail();
-    return touch.isPressed() ? m5unified_touch_button(touch.x, touch.y, M5.Display.width(), M5.Display.height()) : 0;
+    return touch.isPressed() ?
+        m5stack_device_input_touch_button(touch.x, touch.y,
+                                          M5.Display.width(), M5.Display.height()) : 0;
 #endif
 }
 
-int m5unified_board_encoder(void) {
+int m5stack_device_adapter_encoder(void) {
 #if CONFIG_ESP_SDR_M5STACK_DIN_METER
     portENTER_CRITICAL(&encoder_lock);
     int steps = encoder_count / 4;
@@ -168,7 +182,7 @@ int m5unified_board_encoder(void) {
 #endif
 }
 
-void m5unified_board_row(unsigned y, const uint16_t *pixels) {
+void m5stack_device_adapter_row(unsigned y, const uint16_t *pixels) {
 #if M5_EPAPER
     memcpy(paper_frame + y * SCREEN_WIDTH, pixels, SCREEN_WIDTH * sizeof(uint16_t));
 #else
@@ -176,7 +190,7 @@ void m5unified_board_row(unsigned y, const uint16_t *pixels) {
 #endif
 }
 
-void m5unified_board_flush(void) {
+void m5stack_device_adapter_flush(void) {
 #if M5_EPAPER
     if (xSemaphoreTake(paper_lock, 0) == pdTRUE) {
         memcpy(paper_pending, paper_frame, frame_pixels * sizeof(uint16_t));

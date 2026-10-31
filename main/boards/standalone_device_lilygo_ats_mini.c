@@ -1,6 +1,6 @@
 /* Compact S3 display/control glue. Wiring: docs/lilygo.md and docs/ats-mini.md. */
-#include "lilygo.h"
-#include "lilygo_controls.h"
+#include "standalone_device_lilygo_ats_mini.h"
+#include "standalone_device_lilygo_ats_mini_controls.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "driver/spi_master.h"
@@ -118,7 +118,7 @@ static unsigned encoder_state;
 static void encoder_interrupt(void *unused) {
     unsigned state = (unsigned)gpio_get_level(ENCODER_A) | ((unsigned)gpio_get_level(ENCODER_B) << 1);
     portENTER_CRITICAL_ISR(&encoder_lock);
-    int delta = lilygo_encoder_delta(encoder_state, state);
+    int delta = standalone_device_lilygo_ats_mini_encoder_delta(encoder_state, state);
     if (encoder_count + delta >= -128 && encoder_count + delta <= 128) encoder_count += delta;
     encoder_state = state;
     portEXIT_CRITICAL_ISR(&encoder_lock);
@@ -138,7 +138,7 @@ static void encoder_init(void) {
 }
 #endif
 
-unsigned lilygo_poll(m5stack_controls_t *s, unsigned mhz, bool pc_control) {
+unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *s, unsigned mhz, bool pc_control) {
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
     bool was_long = s->b_long;
     unsigned buttons = gpio_get_level(MENU_BUTTON) ? 0 : 2;
@@ -255,7 +255,7 @@ static void epaper_worker(void *unused) {
 }
 #endif
 
-void lilygo_init(void) {
+void standalone_device_lilygo_ats_mini_init(void) {
 #if CONFIG_ESP_SDR_ATS_MINI
     output(10, 0); /* Speaker amplifier off. */
     output(3, 1);  /* Clamp/mute analog audio. */
@@ -374,7 +374,7 @@ void lilygo_init(void) {
 #endif
 }
 
-void lilygo_display_row(unsigned y, const uint16_t *pixels) {
+void standalone_device_lilygo_ats_mini_display_row(unsigned y, const uint16_t *pixels) {
 #if CONFIG_ESP_SDR_ATS_MINI
     ats_mini_lcd_row(y, pixels);
 #elif LILYGO_EPAPER
@@ -396,7 +396,7 @@ void lilygo_display_row(unsigned y, const uint16_t *pixels) {
 #endif
 }
 
-void lilygo_display_flush(void) {
+void standalone_device_lilygo_ats_mini_display_flush(void) {
 #if LILYGO_EPAPER
     xSemaphoreTake(epaper_lock, portMAX_DELAY);
     memcpy(epaper_pending, epaper_frame, EPAPER_BYTES);

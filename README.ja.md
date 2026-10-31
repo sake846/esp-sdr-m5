@@ -32,29 +32,17 @@ M5Stack・LILYGO・ATS-miniの内蔵ESP32を使い、スペクトラムとウォ
 
 M5Stack BASIC・Core2・Cardputer通常版K132・Cardputer ADV・M5StickC Plus2は、このプロジェクトで実機動作を確認しています。それ以外のプロファイルは未確認です。
 
-| 機種 | チップ | 画面 | プロファイル | 実機確認 |
-| --- | --- | --- | --- | --- |
-| [M5Stack BASIC](docs/m5stack.md#m5stack-basic) | ESP32 | 320 × 240 | m5stack-basic | **確認済み** |
-| [M5Stack Core2](docs/m5stack.md#core2) | ESP32 | 320 × 240 | m5stack-core2 | **確認済み** |
-| [M5Stack CoreS3](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 320 × 240 | m5stack-cores3 | 未確認 |
-| [M5Stack DinMeter](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 240 × 135、横画面 | m5stack-din-meter | 未確認 |
-| [Cardputer 通常版 K132](docs/m5stack.md#cardputer-k132) | ESP32-S3 | 240 × 135 | m5stack-cardputer | **確認済み** |
-| [Cardputer ADV](docs/m5stack.md#cardputer-adv) | ESP32-S3 | 240 × 135 | m5stack-cardputer-adv | **確認済み** |
-| [M5StickC](docs/m5stack.md#additional-m5stack-devices) | ESP32 | 160 × 80、横画面 | m5stickc | 未確認 |
-| [M5StickC Plus](docs/m5stack.md#additional-m5stack-devices) | ESP32 | 240 × 135、横画面 | m5stickc-plus | 未確認 |
-| [M5StickC Plus2](docs/m5stack.md#m5stickc-plus2) | ESP32 | 135 × 240、縦画面 | m5stickc-plus2 | **確認済み** |
-| [M5StickS3](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 240 × 135、横画面 | m5sticks3 | 未確認 |
-| [M5Stack PaperColor](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 600 × 400、カラー電子ペーパー | m5stack-paper-color | 未確認 |
-| [M5Stack PaperS3](docs/m5stack.md#additional-m5stack-devices) | ESP32-S3 | 960 × 540、白黒電子ペーパー | m5stack-papers3 | 未確認 |
-| [LILYGO T-Display S3 Pro](docs/lilygo.md) | ESP32-S3 | 480 × 222 | lilygo-t-display-s3-pro | 未確認 |
-| [LILYGO T-LoRa Pager](docs/lilygo.md) | ESP32-S3 | 480 × 222 | lilygo-t-pager | 未確認 |
-| [LILYGO T-Embed SI4732](docs/lilygo.md) | ESP32-S3 | 320 × 170 | lilygo-t-embed-si4732 | 未確認 |
-| [LILYGO T-Embed CC1101](docs/lilygo.md) | ESP32-S3 | 320 × 170 | lilygo-t-embed-cc1101 | 未確認 |
-| [LILYGO T-Embed CC1101 Plus](docs/lilygo.md) | ESP32-S3 | 320 × 170 | lilygo-t-embed-cc1101-plus | 未確認 |
-| [LILYGO T-Deck / T-Deck Plus](docs/lilygo.md) | ESP32-S3 | 320 × 240 | lilygo-t-deck | 未確認 |
-| [LILYGO T-Deck Pro V1.0](docs/lilygo.md) | ESP32-S3 | 240 × 320、電子ペーパー | lilygo-t-deck-pro | 未確認 |
-| [LILYGO T-Deck Pro V1.1](docs/lilygo.md) | ESP32-S3 | 240 × 320、電子ペーパー | lilygo-t-deck-pro-v11 | 未確認 |
-| [ATS-mini](docs/ats-mini.md) | ESP32-S3 | 320 × 170、並列LCD | ats-mini | 未確認 |
+| 画面サイズ・向き | デバイス（プロファイル） | 実機確認 |
+| --- | --- | --- |
+| 320 × 240、横 | [M5Stack BASIC](docs/m5stack.md#m5stack-basic) (`m5stack-basic`)、[Core2](docs/m5stack.md#core2) (`m5stack-core2`)、[CoreS3](docs/m5stack.md#additional-m5stack-devices) (`m5stack-cores3`)、[LILYGO T-Deck／Plus](docs/lilygo.md) (`lilygo-t-deck`) | BASIC・Core2は確認済み。CoreS3・T-Deckは未確認 |
+| 240 × 135、横 | [Cardputer K132／ADV](docs/m5stack.md#cardputer-k132) (`m5stack-cardputer`, `m5stack-cardputer-adv`)、[DinMeter](docs/m5stack.md#additional-m5stack-devices) (`m5stack-din-meter`) | Cardputerは確認済み。DinMeterは未確認 |
+| 135 × 240、縦 | [M5StickC Plus](docs/m5stack.md#additional-m5stack-devices) (`m5stickc-plus`)、[Plus2](docs/m5stack.md#m5stickc-plus2) (`m5stickc-plus2`)、[StickS3](docs/m5stack.md#additional-m5stack-devices) (`m5sticks3`) | Plus2は確認済み。Plus・StickS3は未確認 |
+| 80 × 160、縦 | [M5StickC](docs/m5stack.md#additional-m5stack-devices) (`m5stickc`) | 未確認 |
+| 320 × 170、横 | [LILYGO T-Embed SI4732／CC1101／CC1101 Plus](docs/lilygo.md) (`lilygo-t-embed-si4732`, `lilygo-t-embed-cc1101`, `lilygo-t-embed-cc1101-plus`)、[ATS-mini](docs/ats-mini.md) (`ats-mini`) | 未確認 |
+| 480 × 222、横 | [LILYGO T-Display S3 Pro](docs/lilygo.md) (`lilygo-t-display-s3-pro`)、[T-LoRa Pager](docs/lilygo.md) (`lilygo-t-pager`) | 未確認 |
+| 240 × 320、縦、電子ペーパー | [LILYGO T-Deck Pro V1.0／V1.1](docs/lilygo.md) (`lilygo-t-deck-pro`, `lilygo-t-deck-pro-v11`) | 未確認 |
+| 600 × 400、横、カラー電子ペーパー | [M5Stack PaperColor](docs/m5stack.md#additional-m5stack-devices) (`m5stack-paper-color`)、描画座標は300 × 200 | 未確認 |
+| 960 × 540、横、白黒電子ペーパー | [M5Stack PaperS3](docs/m5stack.md#additional-m5stack-devices) (`m5stack-papers3`)、描画座標は480 × 270 | 未確認 |
 
 ## 機種別ガイド
 

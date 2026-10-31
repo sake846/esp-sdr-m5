@@ -1,8 +1,8 @@
 #pragma once
-#include "m5stack_basic_controls.h"
+#include "standalone_display_controls.h"
 
 /* Ignore impossible two-bit jumps rather than inventing encoder movement. */
-static inline int lilygo_encoder_delta(unsigned previous, unsigned current) {
+static inline int standalone_device_lilygo_ats_mini_encoder_delta(unsigned previous, unsigned current) {
     static const int8_t transitions[16] = {0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0};
     return transitions[(previous & 3) * 4 + (current & 3)];
 }

@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "rx_tuning.h"
-#include "m5stack_basic.h"
+#include "standalone_display.h"
 
 typedef enum {
     M5_MENU_NONE, M5_MENU_STEP, M5_MENU_SPAN, M5_MENU_Y_POS, M5_MENU_WF_BRIGHT,
@@ -44,8 +44,11 @@ static inline void m5stack_controls_defaults(m5stack_controls_t *s) {
 }
 
 static inline int m5stack_adjust(int value, int direction, int step, int minimum, int maximum) {
-    value += direction * step;
-    return value < minimum ? minimum : value > maximum ? maximum : value;
+    int count = (maximum - minimum) / step + 1;
+    int index = (value - minimum) / step;
+    index = (index + direction % count) % count;
+    if (index < 0) index += count;
+    return minimum + index * step;
 }
 
 static inline void m5stack_menu_move(m5stack_controls_t *s, bool reverse) {

@@ -29,8 +29,8 @@
 #include "rx_lo.h"
 #include "esp_rom_sys.h"
 #include "ring_capture.h"
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
-#include "m5stack_basic.h"
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
+#include "standalone_display.h"
 #include "spectrum.h"
 #define M5_LOCAL_FFT_MAX 4096u
 #define M5_LOCAL_AVERAGE_MAX 16u
@@ -92,7 +92,7 @@ enum { rx_source = 0, rx_mode = 0, rx_flag = 0, rx_wide = 0, rx_prep = 3, rx_pac
 #endif
 extern void force_rx_gain(unsigned, unsigned, unsigned);
 static int rx_filter = -1; /* -1 restores the PHY-calibrated automatic mode. */
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
 static bool rx_filter_span_follow = true;
 #endif
 extern unsigned rom_chip_i2c_readReg(unsigned, unsigned, unsigned);
@@ -120,7 +120,7 @@ int cmd_parse(char *cmd, char *name, int *argc, char **argv) {
 }
 #define send_bytes burst_serial_send
 static void reply(const char *s) {
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
     if (local_capture || software_agc_probing) return;
 #else
     if (software_agc_probing) return;
@@ -181,7 +181,7 @@ static bool acquire_iq(unsigned n, unsigned divider, const uint32_t **data, unsi
         return false;
     }
     prepare_rx();
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
     if (gain_mode == GAIN_SOFTWARE && !software_agc_probing && !local_capture) {
 #else
     if (gain_mode == GAIN_SOFTWARE && !software_agc_probing) {
@@ -203,7 +203,7 @@ static bool acquire_iq(unsigned n, unsigned divider, const uint32_t **data, unsi
                 break;
             }
             gain_code = next;
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
             spectrum_snapshot_reset_dc();
 #endif
             gain_reconfigure();
@@ -530,26 +530,26 @@ static void handle_command(char *line) {
               "DUALSERIAL "
 #endif
               "TUNEEXT RX40 RX16 LPFANA GAIN HWAGC "
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
               "SWAGC "
 #endif
               "IQ8 RING SPEC SPECN SPECCAPS SPECSTAT DCT\n");
     } else if (sscanf(line, "BANDWIDTH %u %c", &n, &extra) == 1 &&
                (!n || (n >= RX_BANDWIDTH_MIN && n <= RX_BANDWIDTH_MAX))) {
         rx_filter = rx_bandwidth_dcap(n);
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
         rx_filter_span_follow = false;
 #endif
         reply("OK\n");
     } else if (!strcmp(line, "LPF AUTO")) {
         rx_filter = -1;
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
         rx_filter_span_follow = true;
 #endif
         reply("OK\n");
     } else if (sscanf(line, "LPF %u %c", &n, &extra) == 1 && n <= 63) {
         rx_filter = n;
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
         rx_filter_span_follow = false;
 #endif
         reply("OK\n");
@@ -581,12 +581,12 @@ static void handle_command(char *line) {
 
 void app_main(void) {
     esp_log_level_set("*", ESP_LOG_NONE);
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
     local_bins = heap_caps_calloc(M5_LOCAL_FFT_MAX, sizeof(*local_bins) + sizeof(*local_average_power_q6),
                                   MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     ESP_ERROR_CHECK(local_bins ? ESP_OK : ESP_ERR_NO_MEM);
     local_average_power_q6 = (uint16_t *)(local_bins + M5_LOCAL_FFT_MAX);
-    m5stack_basic_init();
+    standalone_display_init();
 #endif
     esp_err_t e = nvs_flash_init();
     if (e == ESP_ERR_NVS_NO_FREE_PAGES || e == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -606,21 +606,21 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));
     ESP_ERROR_CHECK(esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE));
     prepare_rx();
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
-    (void)spectrum_fft_init_n(m5stack_basic_fft_points()); /* Prepare only the selected FFT tables. */
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
+    (void)spectrum_fft_init_n(standalone_display_fft_points()); /* Prepare only the selected FFT tables. */
 #endif
     esp_log_level_set("*", ESP_LOG_NONE);
     /* USB may be unplugged when the host uses the UART bridge. */
     (void)usb_serial_jtag_wait_tx_done(pdMS_TO_TICKS(100));
     ESP_ERROR_CHECK(usb_serial_jtag_driver_uninstall());
     burst_serial_init();
-#if !CONFIG_ESP_SDR_M5STACK_CARDPUTER && !CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV && !CONFIG_ESP_SDR_LILYGO && !CONFIG_ESP_SDR_ATS_MINI && !CONFIG_ESP_SDR_M5UNIFIED
+#if !CONFIG_ESP_SDR_M5STACK && !CONFIG_ESP_SDR_LILYGO && !CONFIG_ESP_SDR_ATS_MINI
     (void)ring_capture_init();
 #endif
     burst_serial_serve(handle_command);
 }
 
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
 static bool spectrum_acquire(unsigned n, unsigned rate, const uint32_t **data, unsigned *elapsed) {
     bool ok = acquire_iq(n, rate, data, elapsed);
     if (ok && local_capture) local_capture_gain = (uint8_t)((*data)[0] >> 20);
@@ -652,7 +652,7 @@ void burst_serial_idle(bool leased) {
     int64_t now = esp_timer_get_time();
     if (now < next_poll) return;
     next_poll = now + 2000;
-    unsigned mhz = m5stack_basic_poll(frequency_mhz, leased);
+    unsigned mhz = standalone_display_poll(frequency_mhz, leased);
     if (mhz != frequency_mhz) {
         frequency_mhz = mhz;
         rx_ready = false;
@@ -664,13 +664,13 @@ void burst_serial_idle(bool leased) {
         agc_peak_ready = false;
         agc_release_streak = 0;
     }
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI) || CONFIG_ESP_SDR_M5UNIFIED
-    if (rx_filter_span_follow) rx_filter = rx_bandwidth_dcap(m5stack_basic_span());
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
+    if (rx_filter_span_follow) rx_filter = rx_bandwidth_dcap(standalone_display_span());
 #endif
     if (leased) {
         if (!showing_pc || pc_mhz != frequency_mhz) {
-            m5stack_basic_set_gain_index(gain_code);
-            m5stack_basic_draw(frequency_mhz, bins, m5stack_basic_fft_points(), true, true, cpu_percent);
+            standalone_display_set_gain_index(gain_code);
+            standalone_display_draw(frequency_mhz, bins, standalone_display_fft_points(), true, true, cpu_percent);
         }
         showing_pc = true;
         pc_mhz = frequency_mhz;
@@ -686,9 +686,9 @@ void burst_serial_idle(bool leased) {
         frame_work_us = 0;
         average_start = 0;
     }
-    unsigned rate = m5stack_basic_rate();
-    unsigned fft_points = m5stack_basic_fft_points();
-    unsigned average_target = m5stack_basic_average_count();
+    unsigned rate = standalone_display_rate();
+    unsigned fft_points = standalone_display_fft_points();
+    unsigned average_target = standalone_display_average_count();
     if (snapshot_mhz != frequency_mhz || snapshot_rate != rate || snapshot_fft != fft_points ||
         snapshot_average_target != average_target) {
         spectrum_snapshot_reset_dc();
@@ -762,9 +762,9 @@ void burst_serial_idle(bool leased) {
         }
     }
     int64_t draw_start = esp_timer_get_time();
-    m5stack_basic_set_gain_index(gain_code);
-    m5stack_basic_set_density_context(local_capture_gain, rx_filter, ring_capture_dc_mode, average_count);
-    m5stack_basic_draw(frequency_mhz, bins, fft_points, false, valid, cpu_percent);
+    standalone_display_set_gain_index(gain_code);
+    standalone_display_set_density_context(local_capture_gain, rx_filter, ring_capture_dc_mode, average_count);
+    standalone_display_draw(frequency_mhz, bins, fft_points, false, valid, cpu_percent);
     int64_t draw_end = esp_timer_get_time();
     frame_work_us += (uint64_t)(draw_end - draw_start);
     int64_t frame_end = draw_end;

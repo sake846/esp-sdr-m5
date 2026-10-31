@@ -9,7 +9,7 @@ class BasicControls(unittest.TestCase):
     def test_debounce_short_long_presses_limits_and_pc_lease(self):
         source = r'''
 #include <assert.h>
-#include "m5stack_basic_controls.h"
+#include "standalone_display_controls.h"
 static m5stack_controls_t s;
 static unsigned mhz = 2440;
 static uint32_t now;
@@ -42,7 +42,8 @@ int main(void) {
     press(1); assert(s.step == 2);
     press(1); assert(s.step == 1);
     press(1); assert(s.step == 0);
-    press(1); assert(s.step == 0); /* Values stop at the lower bound. */
+    press(1); assert(s.step == 4); /* Lower bound wraps to the maximum. */
+    press(4); assert(s.step == 0); /* Upper bound wraps to the minimum. */
     const m5stack_menu_t order[] = {M5_MENU_SPAN, M5_MENU_Y_POS, M5_MENU_WF_BRIGHT,
         M5_MENU_WF_CONTRAST, M5_MENU_WF_SPEED, M5_MENU_FFT, M5_MENU_AVERAGE,
         M5_MENU_SPECTRUM, M5_MENU_AGC, M5_MENU_GAIN, M5_MENU_FILTER, M5_MENU_ABOUT, M5_MENU_RESET, M5_MENU_STEP};
@@ -52,14 +53,21 @@ int main(void) {
     hold(2); assert(s.menu == M5_MENU_RESET); /* One reverse step, no release action. */
     hold(2); assert(s.menu == M5_MENU_ABOUT);
     press(4); assert(s.about == 1); press(1); assert(s.about == 0);
-    s.menu = M5_MENU_SPAN; press(4); assert(s.rate == 5); press(1); assert(s.rate == 4);
+    s.menu = M5_MENU_SPAN; press(4); assert(s.rate == 0); press(1); assert(s.rate == 5);
+    press(1); assert(s.rate == 4);
     s.menu = M5_MENU_Y_POS; press(4); assert(s.y_pos == 5); press(1); assert(s.y_pos == 0);
+    s.y_pos = 40; press(4); assert(s.y_pos == -40); press(1); assert(s.y_pos == 40);
     s.menu = M5_MENU_WF_BRIGHT; press(1); assert(s.wf_bright == -5);
+    s.wf_bright = -30; press(1); assert(s.wf_bright == 30); press(4); assert(s.wf_bright == -30);
     s.menu = M5_MENU_WF_CONTRAST; press(4); assert(s.wf_contrast == 125);
+    s.wf_contrast = 200; press(4); assert(s.wf_contrast == 25); press(1); assert(s.wf_contrast == 200);
     s.menu = M5_MENU_WF_SPEED; press(1); assert(s.wf_speed == 2);
+    s.wf_speed = 3; press(4); assert(s.wf_speed == 0); press(1); assert(s.wf_speed == 3);
     s.menu = M5_MENU_FFT; press(4); assert(s.fft == 3);
     press(4); press(4); assert(s.fft == 4 && m5stack_fft_sizes[s.fft] == 4096);
+    press(4); assert(s.fft == 0); press(1); assert(s.fft == 4);
     s.menu = M5_MENU_AVERAGE; press(1); assert(s.average == 3);
+    s.average = 4; press(4); assert(s.average == 0); press(1); assert(s.average == 4);
     s.menu = M5_MENU_SPECTRUM; press(4); assert(s.density_mode); press(1); assert(!s.density_mode);
     s.menu = M5_MENU_AGC; press(4); assert(s.agc == M5_AGC_HARDWARE);
     press(4); assert(s.agc == M5_AGC_MANUAL); press(1); assert(s.agc == M5_AGC_HARDWARE);
@@ -69,9 +77,10 @@ int main(void) {
     s.menu = M5_MENU_GAIN; press(4);
     assert(m5stack_controls_sync_rx(&s, &agc, &gain, 72, &filter, &follow));
     assert(agc == M5_AGC_MANUAL && gain == 36);
-    s.gain = 72; press(4); assert(s.gain == 72);
-    s.gain = 0; press(1); assert(s.gain == 0);
-    s.menu = M5_MENU_FILTER; press(4); assert(s.filter == 0);
+    s.gain = 72; press(4); assert(s.gain == 0);
+    s.gain = 0; press(1); assert(s.gain == 72);
+    s.menu = M5_MENU_FILTER; press(1); assert(s.filter == 127);
+    press(4); assert(s.filter == -1); press(4); assert(s.filter == 0);
     assert(m5stack_controls_sync_rx(&s, &agc, &gain, 72, &filter, &follow));
     assert(filter == 0 && !follow);
     press(1); assert(s.filter == -1);
@@ -119,9 +128,10 @@ int main(void) {
 
 
 @unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
-class BasicDisplay(unittest.TestCase):
-    def test_board_init_and_fft_shifted_scanlines(self):
-        production = (ROOT / 'main/boards/m5stack_basic.c').read_text()
+class BasicIli9341Backend(unittest.TestCase):
+    def test_board_backend_with_shared_renderer(self):
+        production = (ROOT / 'main/boards/standalone_display.c').read_text()
+        production += (ROOT / 'main/boards/standalone_device_m5stack_basic_ili9341.c').read_text()
         for header in ['driver/gpio.h', 'driver/spi_master.h', 'esp_check.h', 'esp_timer.h', 'esp_heap_caps.h',
                        'freertos/FreeRTOS.h', 'freertos/task.h']:
             production = production.replace('#include "' + header + '"', '')
@@ -137,6 +147,11 @@ int board_battery_percent(void) { return -1; }
 #define GPIO_MODE_INPUT 1
 #define GPIO_PULLDOWN_ONLY 2
 #define GPIO_FLOATING 0
+#define GPIO_NUM_4 4
+#define GPIO_NUM_25 25
+#define GPIO_NUM_37 37
+#define GPIO_NUM_38 38
+#define GPIO_NUM_39 39
 #define SPI3_HOST 3
 #define SPI_DMA_CH_AUTO 1
 #define MALLOC_CAP_INTERNAL 1
@@ -185,14 +200,15 @@ static int spi_device_polling_transmit(spi_device_handle_t h, const spi_transact
 '''
         check = r'''
 int main(void) {
+#define BUTTON_HINT_TOP (SCREEN_HEIGHT - 17)
     uint8_t bins[256] = {0};
-    m5stack_basic_init();
+    standalone_display_init();
     assert(levels[4] == 1 && levels[25] == 0 && levels[32] == 1 && levels[33] == 1);
     assert(inputs == ((UINT64_C(1) << 37) | (UINT64_C(1) << 38) | (UINT64_C(1) << 39)));
-    assert(rows == 240 && m5stack_basic_rate() == 0 && m5stack_basic_span() == 80);
-    assert(m5stack_basic_poll(2412, false) == 2412);
+    assert(rows == 240 && standalone_display_rate() == 0 && standalone_display_span() == 80);
+    assert(standalone_display_poll(2412, false) == 2412);
     bins[127] = 255; bins[255] = 0; bins[254] = 128; bins[0] = 64;
-    m5stack_basic_draw(2412, bins, 256, false, true, 0);
+    standalone_display_draw(2412, bins, 256, false, true, 0);
     assert(rows == 480);
     assert(pixels[SPECTRUM_TOP * 320 + 4] == 0x2cbf); /* Thin trace starts at the left edge. */
     assert(pixels[50 * 320 + 6] == 0x2cbf); /* The steep peak is connected to its neighbor. */
@@ -218,14 +234,14 @@ int main(void) {
     assert(pixels[97 * 320 + 4] == 0xffff); /* Newest waterfall row. */
     assert(pixels[97 * 320 + 160] == waterfall_color(0));
     memset(bins, 0, sizeof(bins));
-    m5stack_basic_draw(2412, bins, 256, false, true, 0);
+    standalone_display_draw(2412, bins, 256, false, true, 0);
     assert(rows == 720);
     assert(pixels[97 * 320 + 4] == waterfall_color(0)); /* The tracked noise floor is black. */
     assert(pixels[98 * 320 + 4] == 0xffff); /* Previous capture moved down. */
-    m5stack_basic_draw(2412, bins, 256, true, false, 0);
+    standalone_display_draw(2412, bins, 256, true, false, 0);
     assert(rows == 960 && pixels[97 * 320 + 4] == waterfall_color(0));
     assert(pixels[98 * 320 + 4] == 0xffff); /* PC lease freezes local history. */
-    m5stack_basic_draw(2413, bins, 256, false, true, 0);
+    standalone_display_draw(2413, bins, 256, false, true, 0);
     assert(rows == 1200 && pixels[98 * 320 + 4] == 0x0000); /* Retune clears stale history. */
     for (unsigned frame = 0; frame < WATERFALL_HEIGHT; frame++) {
         unsigned peak = (64 + frame * 4) & 255;
@@ -234,7 +250,7 @@ int main(void) {
             if (distance > 128) distance = 256 - distance;
             bins[k] = distance < 28 ? (uint8_t)(255 - distance * 7) : 24;
         }
-        m5stack_basic_draw(2413, bins, 256, false, true, 0);
+        standalone_display_draw(2413, bins, 256, false, true, 0);
     }
     unsigned latest_peak = (64 + (WATERFALL_HEIGHT - 1) * 4) & 255;
     unsigned latest_x = PLOT_LEFT + ((((127 - latest_peak) & 255) * PLOT_WIDTH + 255) / 256);
@@ -244,7 +260,7 @@ int main(void) {
     assert(pixels[(WATERFALL_TOP + WATERFALL_HEIGHT - 1) * 320 + oldest_x] == 0xffff);
     memset(bins, 0, sizeof(bins));
     controls.y_pos = 40;
-    m5stack_basic_draw(2413, bins, 256, false, true, 0);
+    standalone_display_draw(2413, bins, 256, false, true, 0);
     bool raised = false;
     for (unsigned y = SPECTRUM_TOP; y < SPECTRUM_BOTTOM; y++)
         if (pixels[y * 320 + PLOT_LEFT] == 0x2cbf) raised = true;
@@ -256,16 +272,16 @@ int main(void) {
     controls.wf_contrast = 100;
     waterfall_frame = 0; controls.wf_speed = 0;
     unsigned before_head = waterfall_head;
-    for (unsigned frame = 0; frame < 10; frame++) m5stack_basic_draw(2413, bins, 256, false, true, 0);
+    for (unsigned frame = 0; frame < 10; frame++) standalone_display_draw(2413, bins, 256, false, true, 0);
     assert(waterfall_head == (before_head + 1) % WATERFALL_HEIGHT);
     for (controls.menu = M5_MENU_STEP; controls.menu <= M5_MENU_RESET; controls.menu++) {
-        m5stack_basic_draw(2413, bins, 256, false, false, 0);
+        standalone_display_draw(2413, bins, 256, false, false, 0);
         assert(pixels[86 * 320 + 32] == COLOR_SRDECK_YELLOW_GREEN);
         assert(pixels[120 * 320 + 33] == 0x0861);
     }
     controls.menu = M5_MENU_WF_BRIGHT;
     controls.wf_bright = 10;
-    m5stack_basic_draw(2413, bins, 256, false, true, 0);
+    standalone_display_draw(2413, bins, 256, false, true, 0);
     const char *preview = getenv("M5STACK_PREVIEW");
     if (preview) {
         FILE *f = fopen(preview, "wb");
@@ -281,4 +297,6 @@ int main(void) {
     return 0;
 }
 '''
-        compile_run(stub + production + check)
+        compile_run(stub + production + check,
+                    ['CONFIG_ESP_SDR_M5STACK=1', 'CONFIG_ESP_SDR_M5STACK_BASIC=1',
+                     'CONFIG_ESP_SDR_M5STACK_LCD_ILI9341=1'])

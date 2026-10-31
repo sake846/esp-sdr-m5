@@ -1,67 +1,24 @@
-/* Scanline spectrum renderer for compact M5Stack and LILYGO displays. */
-#include "m5stack_basic.h"
+/* Shared scanline spectrum renderer for standalone display devices. */
+#include "standalone_display.h"
+#include "standalone_display_backend.h"
 #include "board_battery.h"
-#include "m5stack_basic_controls.h"
+#include "standalone_display_controls.h"
 #include "spectrum_math.h"
 #include "driver/gpio.h"
-#include "driver/spi_master.h"
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
 #include "driver/i2c_master.h"
 #endif
 #include "esp_check.h"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include <stdio.h>
 #include <string.h>
 
-#if CONFIG_ESP_SDR_M5UNIFIED
-#include "m5unified_board.h"
-#elif (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
-#include "lilygo.h"
-#elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-#define SCREEN_WIDTH 135
-#define SCREEN_HEIGHT 240
-#define LCD_MOSI 15
-#define LCD_SCLK 13
-#define LCD_CS 5
-#define LCD_DC 14
-#define LCD_RST 12
-#define LCD_BL 27
-#define LCD_X_OFFSET 52
-#define LCD_Y_OFFSET 40
-#define LCD_HOST SPI2_HOST
-#define LCD_CLOCK_HZ 20000000
-#define LCD_MADCTL 0x08
-#define PLOT_LEFT 4
-#define PLOT_WIDTH 127
-#define SPECTRUM_TOP 14
-#define SPECTRUM_BOTTOM 79
-#define FREQUENCY_TOP 82
-#define WATERFALL_TOP 94
-#define WATERFALL_HEIGHT 122
-#else
-#define SCREEN_WIDTH 240
-#define SCREEN_HEIGHT 135
-#define LCD_MOSI 35
-#define LCD_SCLK 36
-#define LCD_CS 37
-#define LCD_DC 34
-#define LCD_RST 33
-#define LCD_BL 38
-#define LCD_X_OFFSET 40
-#define LCD_Y_OFFSET 53
-#define LCD_HOST SPI3_HOST
-#define LCD_CLOCK_HZ 40000000
-#define LCD_MADCTL 0x6c
-#define PLOT_LEFT 4
-#define PLOT_WIDTH 232
-#define SPECTRUM_TOP 12
-#define SPECTRUM_BOTTOM 47
-#define FREQUENCY_TOP 49
-#define WATERFALL_TOP 60
-#define WATERFALL_HEIGHT (SCREEN_HEIGHT - WATERFALL_TOP)
+#ifndef M5_DISPLAY_LAYOUT_BASIC
+#define M5_DISPLAY_LAYOUT_BASIC 0
+#endif
+#ifndef M5_DISPLAY_LAYOUT_STICK
+#define M5_DISPLAY_LAYOUT_STICK 0
 #endif
 #define COLOR_SRDECK_YELLOW_GREEN 0xb726
 #define PIN(n) (UINT64_C(1) << (n))
@@ -99,11 +56,7 @@ static unsigned matrix_key_bit(unsigned matrix_row, unsigned matrix_col) {
 }
 #endif
 
-#if !CONFIG_ESP_SDR_LILYGO && !CONFIG_ESP_SDR_ATS_MINI && !CONFIG_ESP_SDR_M5UNIFIED
-static spi_device_handle_t lcd;
-#endif
 static m5stack_controls_t controls;
-static unsigned display_gain_index;
 static uint16_t row[SCREEN_WIDTH] __attribute__((aligned(4)));
 static spectrum_dbfs_t (*waterfall)[PLOT_WIDTH];
 static spectrum_dbfs_t waterfall_floor[WATERFALL_HEIGHT];
@@ -112,7 +65,7 @@ static unsigned waterfall_frame;
 static bool waterfall_tuned;
 static spectrum_noise_floor_t noise_floor_avg;
 
-#include "m5stack_density.h"
+#include "standalone_display_density.h"
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
 static i2c_master_dev_handle_t keyboard_i2c;
 static unsigned adv_keyboard_state;
@@ -156,28 +109,35 @@ static void adv_keyboard_init(void) {
 }
 #endif
 
-#if !CONFIG_ESP_SDR_LILYGO && !CONFIG_ESP_SDR_ATS_MINI && !CONFIG_ESP_SDR_M5UNIFIED
-static void lcd_write(bool data, const void *bytes, size_t size) {
-    ESP_ERROR_CHECK(gpio_set_level(LCD_DC, data));
-    spi_transaction_t transaction = {.length = size * 8, .tx_buffer = bytes};
-    ESP_ERROR_CHECK(spi_device_polling_transmit(lcd, &transaction));
-}
+#include "standalone_display_font.h"
 
-static void lcd_command(uint8_t command, const uint8_t *data, size_t size) {
-    lcd_write(false, &command, 1);
-    if (size) lcd_write(true, data, size);
-}
-
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
+#include "standalone_display_menu.h"
 #endif
 
-#include "m5stack_font.h"
+static void draw_global_tune_hints(unsigned y) {
+    const char *hints[] = {"TUNE-", "MENU", "TUNE+"};
+    if (SCREEN_WIDTH < 100) {
+        if (y < SCREEN_HEIGHT - 21) return;
+        m5stack_text_row(y, 20 - m5stack_text_width(hints[0], &DejaVu9) / 2,
+                         SCREEN_HEIGHT - 12, hints[0], &DejaVu9, COLOR_SRDECK_YELLOW_GREEN, 0);
+        m5stack_text_row(y, 60 - m5stack_text_width(hints[1], &DejaVu9) / 2,
+                         SCREEN_HEIGHT - 12, hints[1], &DejaVu9, COLOR_SRDECK_YELLOW_GREEN, 0);
+        m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(hints[2], &DejaVu9)) / 2,
+                         SCREEN_HEIGHT - 2, hints[2], &DejaVu9, COLOR_SRDECK_YELLOW_GREEN, 0);
+        return;
+    }
+    if (y < SCREEN_HEIGHT - 17) return;
+    const int baseline = SCREEN_HEIGHT >= 200 ? SCREEN_HEIGHT - 9 : SCREEN_HEIGHT - 3;
+    for (unsigned i = 0; i < 3; i++) {
+        int center = (2 * (int)i + 1) * SCREEN_WIDTH / 6;
+        m5stack_text_row(y, center - m5stack_text_width(hints[i], &DejaVu9) / 2,
+                         baseline, hints[i], &DejaVu9, COLOR_SRDECK_YELLOW_GREEN, 0);
+    }
+}
 
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2 || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI || CONFIG_ESP_SDR_M5UNIFIED)
-#include "m5stack_menu.h"
-#endif
-
-void m5stack_basic_set_gain_index(unsigned gain_index) {
-    display_gain_index = gain_index;
+void standalone_display_set_gain_index(unsigned gain_index) {
+    (void)gain_index;
 }
 
 static uint16_t waterfall_color(int delta_db) {
@@ -195,7 +155,7 @@ static uint16_t waterfall_color(int delta_db) {
     return colors[delta_db <= 0 ? 0 : delta_db >= 60 ? 60 : delta_db];
 }
 
-#if !CONFIG_ESP_SDR_LILYGO && !CONFIG_ESP_SDR_ATS_MINI && !CONFIG_ESP_SDR_M5UNIFIED
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
 static unsigned keyboard_buttons(void) {
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
     unsigned count = tca8418_read(0x03) & 0x0f;
@@ -213,12 +173,6 @@ static unsigned keyboard_buttons(void) {
         else adv_keyboard_state |= bit;
     }
     return adv_keyboard_state;
-#elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-    unsigned pressed = 0;
-    if (!gpio_get_level(GPIO_NUM_35)) pressed |= 1u; /* C, left: tune down / span */
-    if (!gpio_get_level(GPIO_NUM_37)) pressed |= 2u; /* A, center: step / FFT */
-    if (!gpio_get_level(GPIO_NUM_39)) pressed |= 4u; /* B, right: tune up / average */
-    return pressed;
 #else
     static const gpio_num_t out_pins[] = {GPIO_NUM_8, GPIO_NUM_9, GPIO_NUM_11};
     static const gpio_num_t in_pins[] = {GPIO_NUM_13, GPIO_NUM_15, GPIO_NUM_3,
@@ -336,103 +290,50 @@ static unsigned cardputer_controls_update(unsigned mhz, unsigned matrix_keys, ui
 
 #endif
 
-void m5stack_basic_init(void) {
+void standalone_display_init(void) {
     m5stack_controls_defaults(&controls);
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-    const gpio_config_t hold = {.pin_bit_mask = PIN(4), .mode = GPIO_MODE_OUTPUT};
-    ESP_ERROR_CHECK(gpio_config(&hold));
-    ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_4, 1)); /* Keep the Plus2 power rail on. */
-#endif
     waterfall = heap_caps_calloc(WATERFALL_HEIGHT, PLOT_WIDTH,
-#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI || CONFIG_ESP_SDR_M5UNIFIED) && CONFIG_SPIRAM
+#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI || CONFIG_ESP_SDR_M5STACK) && CONFIG_SPIRAM
                                  MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 #else
                                  MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 #endif
     ESP_ERROR_CHECK(waterfall ? ESP_OK : ESP_ERR_NO_MEM);
-#if CONFIG_ESP_SDR_M5UNIFIED
-    m5unified_board_init();
-    m5stack_basic_draw(2440, NULL, m5stack_basic_fft_points(), false, false, 0);
-#elif (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
-    lilygo_init();
-    m5stack_basic_draw(2440, NULL, m5stack_basic_fft_points(), false, false, 0);
-#else
+    standalone_display_backend_init();
+#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER
     const gpio_config_t outputs = {
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2 || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
-        .pin_bit_mask = PIN(LCD_DC) | PIN(LCD_RST) | PIN(LCD_BL),
-#else
-        .pin_bit_mask = PIN(LCD_DC) | PIN(LCD_RST) | PIN(LCD_BL) | PIN(8) | PIN(9) | PIN(11),
-#endif
-        .mode = GPIO_MODE_OUTPUT,
+        .pin_bit_mask = PIN(8) | PIN(9) | PIN(11), .mode = GPIO_MODE_OUTPUT,
     };
     ESP_ERROR_CHECK(gpio_config(&outputs));
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER
     ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_8, 0));
     ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_9, 0));
     ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_11, 0));
-#endif
     const gpio_config_t inputs = {
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-        .pin_bit_mask = PIN(35) | PIN(37) | PIN(39),
-        .mode = GPIO_MODE_INPUT,
-#elif CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
-        .pin_bit_mask = PIN(11),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-#else
         .pin_bit_mask = PIN(13) | PIN(15) | PIN(3) | PIN(4) | PIN(5) | PIN(6) | PIN(7),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-#endif
+        .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE,
     };
     ESP_ERROR_CHECK(gpio_config(&inputs));
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+#elif CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    const gpio_config_t inputs = {
+        .pin_bit_mask = PIN(11), .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE,
+    };
+    ESP_ERROR_CHECK(gpio_config(&inputs));
     adv_keyboard_init();
 #endif
-    ESP_ERROR_CHECK(gpio_set_level(LCD_BL, 0));
-    ESP_ERROR_CHECK(gpio_set_level(LCD_RST, 0));
-    vTaskDelay(pdMS_TO_TICKS(20));
-    ESP_ERROR_CHECK(gpio_set_level(LCD_RST, 1));
-    vTaskDelay(pdMS_TO_TICKS(120));
-
-    const spi_bus_config_t bus = {.mosi_io_num = LCD_MOSI, .miso_io_num = -1, .sclk_io_num = LCD_SCLK,
-                                  .quadwp_io_num = -1, .quadhd_io_num = -1,
-                                  .max_transfer_sz = sizeof(row)};
-    ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &bus, SPI_DMA_CH_AUTO));
-    const spi_device_interface_config_t device = {
-        .clock_speed_hz = LCD_CLOCK_HZ, .mode = 0, .spics_io_num = LCD_CS, .queue_size = 1,
-    };
-    ESP_ERROR_CHECK(spi_bus_add_device(LCD_HOST, &device, &lcd));
-    lcd_command(0x01, NULL, 0);
-    vTaskDelay(pdMS_TO_TICKS(120));
-    lcd_command(0x36, (const uint8_t[]){LCD_MADCTL}, 1);
-    lcd_command(0x3a, (const uint8_t[]){0x55}, 1);
-    lcd_command(0xb0, (const uint8_t[]){0x00, 0xc0}, 2);
-    lcd_command(0xb7, (const uint8_t[]){0x35}, 1);
-    lcd_command(0xbb, (const uint8_t[]){0x28}, 1);
-    lcd_command(0xc0, (const uint8_t[]){0x0c}, 1);
-    lcd_command(0xc2, (const uint8_t[]){0x01, 0xff}, 2);
-    lcd_command(0xc3, (const uint8_t[]){0x10}, 1);
-    lcd_command(0xc4, (const uint8_t[]){0x20}, 1);
-    lcd_command(0xd0, (const uint8_t[]){0xa4, 0xa1}, 2);
-    lcd_command(0xe0, (const uint8_t[]){0xd0, 0x00, 0x02, 0x07, 0x0a, 0x28, 0x32,
-                                         0x44, 0x42, 0x06, 0x0e, 0x12, 0x14, 0x17}, 14);
-    lcd_command(0xe1, (const uint8_t[]){0xd0, 0x00, 0x02, 0x07, 0x0a, 0x28, 0x31,
-                                         0x54, 0x47, 0x0e, 0x1c, 0x17, 0x1b, 0x1e}, 14);
-    lcd_command(0x21, NULL, 0);
-    lcd_command(0x11, NULL, 0);
-    vTaskDelay(pdMS_TO_TICKS(130));
-    lcd_command(0x38, NULL, 0);
-    m5stack_basic_draw(2440, NULL, m5stack_basic_fft_points(), false, false, 0);
-    lcd_command(0x29, NULL, 0);
-    ESP_ERROR_CHECK(gpio_set_level(LCD_BL, 1));
+#endif
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
+    standalone_display_draw(2440, NULL, standalone_display_fft_points(), false, false, 0);
 #endif
 }
 
-unsigned m5stack_basic_poll(unsigned mhz, bool pc_control) {
-#if CONFIG_ESP_SDR_M5UNIFIED
-    unsigned buttons = m5unified_board_buttons();
-    int steps = m5unified_board_encoder();
+unsigned standalone_display_poll(unsigned mhz, bool pc_control) {
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    mhz = cardputer_controls_update(mhz, keyboard_buttons(),
+                                    (uint32_t)(esp_timer_get_time() / 1000), pc_control);
+#elif CONFIG_ESP_SDR_M5STACK
+    unsigned buttons = standalone_display_backend_buttons();
+    int steps = standalone_display_backend_encoder();
     /* Suppress the individual releases when two keys become the menu chord. */
 #if CONFIG_ESP_SDR_M5STACK_STICKC || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS || CONFIG_ESP_SDR_M5STACK_STICKS3
     if (buttons & 2) controls.suppress_release[0] = controls.suppress_release[2] = true;
@@ -450,10 +351,7 @@ unsigned m5stack_basic_poll(unsigned mhz, bool pc_control) {
     if (controls.filter > 63) controls.filter = 63;
 #endif
 #elif (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
-    mhz = lilygo_poll(&controls, mhz, pc_control);
-#elif CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
-    mhz = cardputer_controls_update(mhz, keyboard_buttons(),
-                                    (uint32_t)(esp_timer_get_time() / 1000), pc_control);
+    mhz = standalone_device_lilygo_ats_mini_poll(&controls, mhz, pc_control);
 #else
     mhz = m5stack_controls_update(&controls, mhz, pc_control ? 0 : keyboard_buttons(),
                                   (uint32_t)(esp_timer_get_time() / 1000), pc_control);
@@ -462,41 +360,37 @@ unsigned m5stack_basic_poll(unsigned mhz, bool pc_control) {
     return mhz;
 }
 
-bool m5stack_basic_sync_rx(unsigned *agc, unsigned *gain, unsigned gain_max,
+bool standalone_display_sync_rx(unsigned *agc, unsigned *gain, unsigned gain_max,
                            int *filter, bool *follow_span) {
     return m5stack_controls_sync_rx(&controls, agc, gain, gain_max, filter, follow_span);
 }
 
-unsigned m5stack_basic_rate(void) {
+unsigned standalone_display_rate(void) {
     return m5stack_rates[controls.rate];
 }
 
-unsigned m5stack_basic_span(void) {
+unsigned standalone_display_span(void) {
     return m5stack_spans[controls.rate];
 }
 
-unsigned m5stack_basic_fft_points(void) {
+unsigned standalone_display_fft_points(void) {
     return m5stack_fft_sizes[controls.fft];
 }
 
-unsigned m5stack_basic_average_count(void) {
+unsigned standalone_display_average_count(void) {
     return m5stack_average_counts[controls.average];
 }
 
-void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, bool pc_control,
+void standalone_display_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, bool pc_control,
                         bool valid, unsigned cpu_percent) {
     density_mode(mhz, pc_control);
     density_decay();
-    char edges[3][12], cpu[12], gain[8];
-#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+    char edges[3][12], cpu[12];
     static const char title[] = "ESP SDR M5";
-#else
-    static const char title[] = "ESP SDR";
-#endif
     unsigned title_end = 12 + m5stack_text_width(title, &DejaVu9);
     const char *status = pc_control ? "PC" : controls.density_failed ? "RAM" :
                          valid ? (density ? "DENS" : "LIVE") : "WAIT";
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2 || (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI || CONFIG_ESP_SDR_M5UNIFIED)
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
     char menu_value[24];
     m5stack_menu_value(menu_value, sizeof(menu_value));
 #endif
@@ -518,11 +412,10 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
     snprintf(edges[2], sizeof(edges[2]), "%u", mhz + span / 2);
 #if CONFIG_ESP_SDR_M5STACK_PAPER_COLOR
     /* A full color refresh exceeds five seconds; alternate on completed refreshes. */
-    board_status_text(cpu, sizeof(cpu), cpu_percent, (int64_t)m5unified_board_refresh_count() * 5000000);
+    board_status_text(cpu, sizeof(cpu), cpu_percent, (int64_t)m5stack_device_adapter_refresh_count() * 5000000);
 #else
     board_status_text(cpu, sizeof(cpu), cpu_percent, esp_timer_get_time());
 #endif
-    snprintf(gain, sizeof(gain), "%u", display_gain_index);
     if (bins && valid) {
         for (unsigned x = 0; x < PLOT_WIDTH; x++) display_bins[x] = SPECTRUM_DBFS_MIN;
         unsigned capture_span = span < 16 ? 16 : span;
@@ -574,10 +467,6 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             trace[x] = SPECTRUM_BOTTOM - height;
         }
     }
-#if !CONFIG_ESP_SDR_LILYGO && !CONFIG_ESP_SDR_ATS_MINI && !CONFIG_ESP_SDR_M5UNIFIED
-    const uint16_t x_end = LCD_X_OFFSET + SCREEN_WIDTH - 1;
-    lcd_command(0x2a, (const uint8_t[]){0, LCD_X_OFFSET, (uint8_t)(x_end >> 8), (uint8_t)x_end}, 4);
-#endif
     for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
         memset(row, 0, sizeof(row));
         if (y >= SPECTRUM_TOP && y <= SPECTRUM_BOTTOM) {
@@ -609,98 +498,82 @@ void m5stack_basic_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, 
             }
         }
         if (y < 12) {
-            for (unsigned x = 4; x < title_end; x++) row[x] = __builtin_bswap16(COLOR_SRDECK_YELLOW_GREEN);
+            for (unsigned x = 4; x < title_end && x < SCREEN_WIDTH; x++)
+                row[x] = __builtin_bswap16(COLOR_SRDECK_YELLOW_GREEN);
             m5stack_text_row(y, 6, 10, title, &DejaVu9, 0x0000, 0);
         }
-#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI || CONFIG_ESP_SDR_M5UNIFIED)
+#if CONFIG_ESP_SDR_M5STACK && M5_DISPLAY_LAYOUT_BASIC
         if (y >= 1 && y < 12) {
-            const GFXfont *font = SCREEN_WIDTH < 200 ? &DejaVu9 : &DejaVu12;
-            unsigned cpu_left = SCREEN_WIDTH - m5stack_text_width(cpu, font) - 4;
-            unsigned status_left = cpu_left - m5stack_text_width(status, font) - 7;
-            m5stack_text_row(y - 1, status_left, 9, status, font, 0xffff, 0);
-            m5stack_text_row(y - 1, cpu_left, 9, cpu, font, 0xffff, 0);
+            text_row(y - 1, SCREEN_WIDTH / 2 - text_width(status) / 2,
+                     status, pc_control ? 0xffe0 : 0xffff);
+            text_row(y - 1, SCREEN_WIDTH - text_width(cpu) - 4, cpu, 0xffff);
         }
         if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 12) {
             text_row(y - FREQUENCY_TOP, 4, edges[0], 0xffff);
             text_row(y - FREQUENCY_TOP, SCREEN_WIDTH / 2 - text_width(edges[1]) / 2, edges[1], 0xffff);
             text_row(y - FREQUENCY_TOP, SCREEN_WIDTH - text_width(edges[2]) - 4, edges[2], 0xffff);
         }
-        if (y >= SCREEN_HEIGHT - 12)
-#if CONFIG_ESP_SDR_M5UNIFIED
-            text_row(y - (SCREEN_HEIGHT - 12), 4, M5_CONTROL_HINT, COLOR_SRDECK_YELLOW_GREEN);
-#elif defined(ENCODER_A)
-            text_row(y - (SCREEN_HEIGHT - 12), 4, "TURN +/- CLICK MENU", COLOR_SRDECK_YELLOW_GREEN);
-#elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
-            text_row(y - (SCREEN_HEIGHT - 12), 4, "BOOT- 12 MENU 16+", COLOR_SRDECK_YELLOW_GREEN);
-#else
-            text_row(y - (SCREEN_HEIGHT - 12), 4, "A -  D +  SPACE MENU", COLOR_SRDECK_YELLOW_GREEN);
-#endif
         if (!pc_control && controls.menu) m5stack_menu_row(y, menu_value);
-#elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-        if (y >= WATERFALL_TOP + WATERFALL_HEIGHT && y < 224)
-            m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(cpu, &DejaVu9)) / 2,
-                             223, cpu, &DejaVu9, 0xffff, 0);
-        if (y >= 1 && y < 12) {
-            unsigned status_left = SCREEN_WIDTH - text_width(status) - 3;
-            unsigned gain_left = (title_end + status_left) / 2 - text_width(gain) / 2;
-            text_row(y - 1, gain_left, gain, 0xffff);
-            text_row(y - 1, status_left, status, pc_control ? 0xffe0 : 0xffff);
+#elif M5_DISPLAY_LAYOUT_STICK
+        if (SCREEN_WIDTH < 200) {
+            if (y >= 13 && y < 24)
+                m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(status, &DejaVu9)) / 2,
+                                 22, status, &DejaVu9, pc_control ? 0xffe0 : 0xffff, 0);
+            if (y >= 25 && y < 36)
+                m5stack_text_row(y, SCREEN_WIDTH - m5stack_text_width(cpu, &DejaVu9) - 4,
+                                 34, cpu, &DejaVu9, 0xffff, 0);
+        } else if (y >= 1 && y < 12) {
+            text_row(y - 1, SCREEN_WIDTH / 2 - text_width(status) / 2,
+                     status, pc_control ? 0xffe0 : 0xffff);
+            text_row(y - 1, SCREEN_WIDTH - text_width(cpu) - 4, cpu, 0xffff);
         }
         if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 12) {
-            text_row(y - FREQUENCY_TOP, PLOT_LEFT, edges[0], 0xffff);
-            text_row(y - FREQUENCY_TOP, SCREEN_WIDTH / 2 - text_width(edges[1]) / 2, edges[1], 0xffff);
-            text_row(y - FREQUENCY_TOP, SCREEN_WIDTH - text_width(edges[2]) - 3, edges[2], 0xffff);
-        }
-        if (y >= 224 && y < 234) {
-            const char *hints[] = {
-                controls.menu == M5_MENU_RESET ? "CANCEL" : controls.menu ? "-" : "TUNE-",
-                "MENU", controls.menu == M5_MENU_RESET ? "RESET" : controls.menu ? "+" : "TUNE+",
-            };
-            for (unsigned i = 0; i < 3; i++)
-                m5stack_text_row(y, (2 * i + 1) * SCREEN_WIDTH / 6 - m5stack_text_width(hints[i], &DejaVu9) / 2,
-                                 231, hints[i], &DejaVu9, COLOR_SRDECK_YELLOW_GREEN, 0);
+            if (SCREEN_WIDTH < 100) {
+                text_row(y - FREQUENCY_TOP, (SCREEN_WIDTH - text_width(edges[1])) / 2,
+                         edges[1], 0xffff);
+            } else {
+                text_row(y - FREQUENCY_TOP, PLOT_LEFT, edges[0], 0xffff);
+                text_row(y - FREQUENCY_TOP, SCREEN_WIDTH / 2 - text_width(edges[1]) / 2,
+                         edges[1], 0xffff);
+                text_row(y - FREQUENCY_TOP, SCREEN_WIDTH - text_width(edges[2]) - 3,
+                         edges[2], 0xffff);
+            }
         }
         if (!pc_control && controls.menu) m5stack_menu_row(y, menu_value);
-#else
-        if (y < 12) {
-            unsigned cpu_left = SCREEN_WIDTH - text_width(cpu) - 3;
-            unsigned status_left = cpu_left - text_width(status) - 7;
-            text_row(y, status_left, status, pc_control ? 0xffe0 : 0xffff);
-            text_row(y, (title_end + status_left) / 2 - text_width(gain) / 2, gain, 0xffff);
-            text_row(y, cpu_left, cpu, 0xffff);
+#elif (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI || CONFIG_ESP_SDR_M5STACK)
+        if (y >= 1 && y < 12) {
+            const GFXfont *font = &DejaVu12;
+            m5stack_text_row(y - 1, SCREEN_WIDTH / 2 - m5stack_text_width(status, font) / 2,
+                             9, status, font, pc_control ? 0xffe0 : 0xffff, 0);
+            m5stack_text_row(y - 1, SCREEN_WIDTH - m5stack_text_width(cpu, font) - 4,
+                             9, cpu, font, 0xffff, 0);
         }
         if (y >= FREQUENCY_TOP && y < FREQUENCY_TOP + 12) {
             text_row(y - FREQUENCY_TOP, 4, edges[0], 0xffff);
-            const char *center = frequency_input_length ? frequency_input : edges[1];
-            text_row(y - FREQUENCY_TOP, SCREEN_WIDTH / 2 - text_width(center) / 2, center,
-                     frequency_input_length ? COLOR_SRDECK_YELLOW_GREEN : 0xffff);
-            text_row(y - FREQUENCY_TOP, SCREEN_WIDTH - text_width(edges[2]) - 3, edges[2], 0xffff);
-        }
+            const char *center = edges[1];
+            uint16_t center_color = 0xffff;
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
-        if (keyboard_help_visible && y >= 111 && y < 135) {
+            if (frequency_input_length) {
+                center = frequency_input;
+                center_color = COLOR_SRDECK_YELLOW_GREEN;
+            }
+#endif
+            text_row(y - FREQUENCY_TOP, SCREEN_WIDTH / 2 - text_width(center) / 2, center,
+                     center_color);
+            text_row(y - FREQUENCY_TOP, SCREEN_WIDTH - text_width(edges[2]) - 4, edges[2], 0xffff);
+        }
+        if (!pc_control && controls.menu) m5stack_menu_row(y, menu_value);
+#if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
+        if (keyboard_help_visible && y >= 87 && y < 111) {
             memset(row, 0, sizeof(row));
-            text_row(y < 123 ? y - 111 : y - 123, 4,
-                     y < 123 ? "<> FREQ 0-9 T STEP P SPAN" : "F FFT A AVE SHIFT SPC DENS",
+            text_row(y < 99 ? y - 87 : y - 99, 4,
+                     y < 99 ? "<> FREQ 0-9 T STEP P SPAN" : "F FFT A AVE SHIFT SPC DENS",
                      COLOR_SRDECK_YELLOW_GREEN);
         }
 #endif
 #endif
-#if CONFIG_ESP_SDR_M5UNIFIED
-        m5unified_board_row(y, row);
-#elif (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
-        lilygo_display_row(y, row);
-#else
-        unsigned address = y + LCD_Y_OFFSET;
-        const uint8_t window[] = {(uint8_t)(address >> 8), (uint8_t)address,
-                                  (uint8_t)(address >> 8), (uint8_t)address};
-        lcd_command(0x2b, window, sizeof(window));
-        lcd_command(0x2c, NULL, 0);
-        lcd_write(true, row, sizeof(row));
-#endif
+        draw_global_tune_hints(y);
+        standalone_display_backend_row(y, row);
     }
-#if CONFIG_ESP_SDR_M5UNIFIED
-    m5unified_board_flush();
-#elif (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
-    lilygo_display_flush();
-#endif
+    standalone_display_backend_flush();
 }

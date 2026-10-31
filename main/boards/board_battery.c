@@ -2,11 +2,11 @@
 #include "sdkconfig.h"
 #include "board_battery.h"
 
-#if CONFIG_ESP_SDR_M5UNIFIED
-#include "m5unified_board.h"
+#if CONFIG_ESP_SDR_M5STACK && !CONFIG_ESP_SDR_M5STACK_LCD_ILI9341
+#include "standalone_device_m5stack.h"
 
 int board_battery_percent(void) {
-    return m5unified_board_battery_percent();
+    return m5stack_device_adapter_battery_percent();
 }
 
 #else

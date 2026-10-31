@@ -205,9 +205,9 @@ int main(void) {
                 compile_run(stub + production() + check, [f'CONFIG_ESP_SDR_{profile}=1',
                             f'TEST_ADDR={addr}', f'TEST_PORT={port}'])
 
-    def test_m5unified_voltage_validation_and_level_passthrough(self):
-        source = (ROOT / 'main/boards/m5unified_board.cpp').read_text()
-        start = source.index('int m5unified_board_battery_percent(')
+    def test_m5stack_adapter_voltage_validation_and_level_passthrough(self):
+        source = (ROOT / 'main/boards/standalone_device_m5stack.cpp').read_text()
+        start = source.index('int m5stack_device_adapter_battery_percent(')
         wrapper = source[start:source.index('\n}', start) + 2]
         stub = r'''
 #include <assert.h>
@@ -229,4 +229,4 @@ int main(void) {
 }
 '''
         compile_run(stub + wrapper + production() + check,
-                    ['CONFIG_ESP_SDR_M5UNIFIED=1', 'CONFIG_ESP_SDR_M5STACK_CORES3=1'])
+                    ['CONFIG_ESP_SDR_M5STACK=1', 'CONFIG_ESP_SDR_M5STACK_CORES3=1'])

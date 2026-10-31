@@ -99,14 +99,14 @@ class AtsMini(unittest.TestCase):
         stub = stub.replace(old, new)
         stub = stub.replace('assert(c->sda_io_num==TEST_SDA', 'ats_i2c_started++;assert(c->sda_io_num==TEST_SDA')
         stub = stub.replace('if(mutex_taken)return 0;', 'if(s==(void*)3)return ats_dma_wait(s,timeout);if(mutex_taken)return 0;')
-        sources = '\n'.join((ROOT/'main/boards'/f).read_text() for f in ['ats_mini.c', 'lilygo.c', 'm5stack_cardputer.c'])
+        sources = '\n'.join((ROOT/'main/boards'/f).read_text() for f in ['standalone_device_ats_mini_lcd.c', 'standalone_device_lilygo_ats_mini.c', 'standalone_display.c'])
         for header in ['driver/gpio.h', 'driver/spi_master.h', 'driver/i2c_master.h',
                        'esp_check.h', 'esp_heap_caps.h', 'esp_timer.h', 'esp_lcd_io_i80.h',
                        'esp_lcd_panel_io.h', 'esp_rom_sys.h', 'freertos/FreeRTOS.h',
                        'freertos/task.h', 'freertos/semphr.h']:
             sources = sources.replace(f'#include "{header}"', '')
-        check = CHECK.replace('assert(m5stack_basic_fft_points()==1024);', '''
- assert(m5stack_basic_fft_points()==1024);
+        check = CHECK.replace('assert(standalone_display_fft_points()==1024);', '''
+ assert(standalone_display_fft_points()==1024);
  assert(!levels[15] && !levels[16] && !levels[10] && levels[3] && levels[38]);
  assert(!ats_i2c_started && !ats_modes[17] && !ats_modes[18]);
  assert(madctl==(TEST_LCD_ID==0x9307?0xe8:0xa0));

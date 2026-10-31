@@ -101,4 +101,4 @@ PC操作中はPC側を優先し、その間の本体操作は破棄します。
 - [LovyanGFX GC9307 register sequence](https://github.com/lovyan03/LovyanGFX/blob/master/src/lgfx/v1/panel/Panel_GC9A01.hpp)
 
 The GC9307 register sequence retains the LovyanGFX FreeBSD license notice in
-[`main/boards/ats_mini.c`](../main/boards/ats_mini.c).
+[`main/boards/standalone_device_ats_mini_lcd.c`](../main/boards/standalone_device_ats_mini_lcd.c).

@@ -13,8 +13,11 @@ The CPU percentage alternates with `BAT` every five seconds when battery telemet
 is available on any standalone M5Stack profile. Failed or unsupported battery
 readings keep the CPU percentage visible. ADC-based devices and AXP192 devices
 estimate the percentage from battery voltage; I2C-equipped Basics report it in
-25% steps. Plus2 shows CPU/BAT above its button hints; the 160-pixel StickC uses
-a smaller header font.
+25% steps. All profiles use the same information order: `ESP SDR M5` at the
+upper left, the receiver state centered, and CPU%/BAT% at the upper right. The
+gain value is not shown in the header. `TUNE-`, `MENU`, and `TUNE+` stay fixed
+along the bottom edge. Portrait Stick displays place the state and CPU/BAT on
+separate header rows; the 80-pixel StickC uses two short rows for the bottom hints.
 
 PaperColor's full screen refresh takes longer than five seconds, so it alternates
 CPU/BAT on completed refreshes instead. This avoids repeatedly sampling the same
@@ -121,10 +124,9 @@ percentage estimates time spent capturing, calculating FFTs and drawing the
 LCD during each integration/update interval; it is a local display workload
 estimate, not a system-wide idle-task measurement.
 
-The center frequency and plot span appear above the plots; frequencies below
-them are in MHz. The CPU estimate is at the upper right. The Basic and Core2
-omit the settings line below the title and extend the spectrum graph upward
-into that space. The selected number
+The frequency marks between the plots are in MHz. The Basic, Core2 and CoreS3
+share the same 320×240 header and plot layout. They extend the spectrum graph
+upward to use the available space below the header. The selected number
 of snapshots is scheduled at evenly spaced positions within each 100 ms
 interval and averaged in the power domain. If a capture runs late, missed
 positions are skipped rather than bunched together, so the actual number may be
@@ -343,21 +345,26 @@ They have **not been verified on physical hardware**.
 
 | Device / 機種 | Profile / プロファイル | Flash | Display / 表示 |
 | --- | --- | --- | --- |
-| CoreS3 | `m5stack-cores3` | 16 MB | 320 × 240 LCD / touch |
+| CoreS3 | `m5stack-cores3` | 16 MB | 320 × 240 LCD / touch; BASIC-style layout |
 | DinMeter | `m5stack-din-meter` | 8 MB | 240 × 135 LCD / encoder |
-| M5StickS3 | `m5sticks3` | 8 MB | 240 × 135 LCD / buttons |
-| M5StickC Plus | `m5stickc-plus` | 4 MB | 240 × 135 LCD / buttons |
-| M5StickC | `m5stickc` | 4 MB | 160 × 80 LCD / buttons |
+| M5StickS3 | `m5sticks3` | 8 MB | 135 × 240 portrait LCD / buttons |
+| M5StickC Plus | `m5stickc-plus` | 4 MB | 135 × 240 portrait LCD / buttons |
+| M5StickC | `m5stickc` | 4 MB | 80 × 160 portrait LCD / buttons |
 | PaperColor | `m5stack-paper-color` | 16 MB | 600 × 400 color e-paper / buttons |
 | PaperS3 | `m5stack-papers3` | 16 MB | 960 × 540 grayscale e-paper / touch |
 
-The Stick and DinMeter displays run in landscape. PaperColor and PaperS3 render
+M5StickC, M5StickC Plus and StickS3 run in portrait; DinMeter runs in landscape.
+The M5Stick profiles share the Plus2-style header and status placement, with a
+compact layout for the 80 × 160 StickC. CoreS3 shares the BASIC header and plot
+layout. PaperColor and PaperS3 render
 at 300 × 200 and 480 × 270 respectively, then scale by two for readable controls.
 ESP32 and ESP32-S3 profiles allow 256–4096-point FFTs.
 CoreS3, StickS3 and both Paper profiles use OPI PSRAM for display storage. DinMeter
 and the original StickC / Plus use internal memory. RF and FFT buffers stay in internal SRAM.
 
-Stick系とDinMeterは横画面です。電子ペーパーでは操作表示を読みやすくするため2倍に拡大します。
+M5StickC、M5StickC Plus、StickS3は縦画面、DinMeterは横画面です。
+M5Stick各機種はPlus2風のヘッダーと状態表示に揃え、80 × 160のStickCは省スペース表示にします。
+CoreS3はBASICと同じヘッダー・グラフ配置です。電子ペーパーでは操作表示を読みやすくするため2倍に拡大します。
 FFTはESP32・ESP32-S3ともに256〜4096点です。画面用PSRAMと受信・FFT用の内蔵SRAMを使い分けます。
 
 ### Build and flash / ビルド・書き込み
@@ -365,7 +372,8 @@ FFTはESP32・ESP32-S3ともに256〜4096点です。画面用PSRAMと受信・F
 Initialize submodules and activate the pinned ESP-IDF environment using the
 [build setup guide](build-setup.md).
 Select a profile from the table. This helper also enables the required
-`ESP_SDR_M5UNIFIED` CMake option. Use a fresh output directory for each export.
+`ESP_SDR_M5STACK` CMake option. All M5Stack profiles use the same M5Unified and
+M5GFX display, input and power adapter. Use a fresh output directory for each export.
 The one-line commands below can be run from sh or PowerShell.
 
 サブモジュールの取得と指定ESP-IDFの有効化は[ビルド環境ガイド](build-setup.ja.md)を参照してください。
@@ -378,10 +386,12 @@ python tools/build_firmware.py --profile m5stack-cores3 --version local --output
 idf.py -B build-m5stack-cores3 -p PORT flash
 ```
 
-For a direct build, add `-DESP_SDR_M5UNIFIED=ON`:
+All M5Stack models are selected from the same **M5Stack standalone device**
+choice in `menuconfig`. For a direct M5Stack build, add `-DESP_SDR_M5STACK=ON`;
+the profile build tool sets this option automatically:
 
 ```console
-idf.py -B build-m5stack-cores3 -DIDF_TARGET=esp32s3 -DSDKCONFIG=build-m5stack-cores3/sdkconfig -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cores3 -DESP_SDR_M5UNIFIED=ON build
+idf.py -B build-m5stack-cores3 -DIDF_TARGET=esp32s3 -DSDKCONFIG=build-m5stack-cores3/sdkconfig -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.m5stack-cores3 -DESP_SDR_M5STACK=ON build
 ```
 
 M5StickC / Plus use UART0 over their USB bridge at 2,000,000 baud.

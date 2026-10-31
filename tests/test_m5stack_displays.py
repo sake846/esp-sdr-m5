@@ -1,4 +1,4 @@
-"""Compile board drivers and inspect their SPI frames and Core2 I2C controls."""
+"""Check shared per-device display geometry; STUB supports host render harnesses."""
 import unittest
 
 from host_test import COMPILER, ROOT, compile_run
@@ -33,7 +33,7 @@ int board_battery_percent(void) { return battery_percent; }
 typedef unsigned gpio_num_t;
 enum {GPIO_NUM_3=3, GPIO_NUM_4=4, GPIO_NUM_5=5, GPIO_NUM_6=6, GPIO_NUM_7=7,
       GPIO_NUM_8=8, GPIO_NUM_9=9, GPIO_NUM_11=11, GPIO_NUM_13=13, GPIO_NUM_15=15,
-      GPIO_NUM_35=35, GPIO_NUM_37=37, GPIO_NUM_39=39};
+      GPIO_NUM_25=25, GPIO_NUM_35=35, GPIO_NUM_37=37, GPIO_NUM_38=38, GPIO_NUM_39=39};
 typedef void *spi_device_handle_t;
 typedef uintptr_t i2c_master_dev_handle_t;
 typedef void *i2c_master_bus_handle_t;
@@ -107,138 +107,46 @@ static int spi_device_polling_transmit(spi_device_handle_t d, const spi_transact
 }
 '''
 
-CHECK = r'''
+@unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
+class BoardDisplayProfiles(unittest.TestCase):
+    def test_shared_geometry_orientation_and_scaling(self):
+        profiles = [
+            ('BASIC', 320, 240, 1, 1, 0),
+            ('CORE2', 320, 240, 1, 1, 0),
+            ('CORES3', 320, 240, 1, 1, 0),
+            ('CARDPUTER', 240, 135, 1, 0, 0),
+            ('CARDPUTER_ADV', 240, 135, 1, 0, 0),
+            ('STICKC_PLUS2', 135, 240, 1, 0, 1),
+            ('STICKC_PLUS', 135, 240, 1, 0, 1),
+            ('STICKS3', 135, 240, 1, 0, 1),
+            ('STICKC', 80, 160, 1, 0, 1),
+            ('DIN_METER', 240, 135, 1, 0, 0),
+            ('PAPER_COLOR', 300, 200, 2, 0, 0),
+            ('PAPERS3', 480, 270, 2, 0, 0),
+        ]
+        source = r'''
+#include <assert.h>
+#include <string.h>
+#include "standalone_device_m5stack_display.h"
 int main(void) {
-    pmu[3]=TEST_PMU;
-    m5stack_basic_init();
-    assert(rows==TEST_HEIGHT && column_windows==1 && m5stack_basic_rate()==0);
-    assert(m5stack_basic_span()==80 && m5stack_steps[controls.step]==10);
-    assert(m5stack_basic_fft_points()==1024 && m5stack_basic_average_count()==16);
-#if CONFIG_ESP_SDR_M5STACK_CORE2
-    assert(levels[4]==1);
-    if(TEST_PMU==0x4a){assert((pmu[0x90]&0x1a)==0x1a && pmu[0x96]==28);}
-    else {assert((pmu[0x12]&6)==6 && (pmu[0x96]&2) && pmu[0x27]==103);}
-    const unsigned xs[]={0,106,107,212,213,319};
-    for(unsigned j=0;j<6;j++){
-        touch_x=xs[j];touch_y=207;touch_count=1;assert(core2_touch_buttons()==0);
-        touch_y=208;assert(core2_touch_buttons()==(1u<<(j/2)));
-    }
-    touch_count=0;assert(core2_touch_buttons()==0);
-    touch_count=1;touch_failure=1;assert(core2_touch_buttons()==0);touch_failure=0;
-#elif CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-    assert(levels[4]==1 && levels[27]==1 && madctl==0x08);
-#else
-    assert(levels[38]==1 && madctl==0x6c);
-#endif
-    uint8_t bins[8192]={0};
-    bins[127]=255;
-    m5stack_basic_draw(2412,bins,256,false,true,0);
-    assert(rows==2*TEST_HEIGHT && column_windows==2 && waterfall_count==1);
-    assert(pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==0xffff);
-    memset(bins,0,sizeof(bins));
-    m5stack_basic_draw(2412,bins,256,false,true,100);
-    assert(pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==waterfall_color(0));
-    assert(pixels[(WATERFALL_TOP+1)*TEST_WIDTH+PLOT_LEFT]==0xffff);
-    m5stack_basic_draw(2412,bins,256,true,false,50);
-    assert(waterfall_count==2); /* PC and failed captures freeze history. */
-    m5stack_basic_draw(2413,bins,256,false,true,0);
-    assert(waterfall_count==1 && pixels[(WATERFALL_TOP+1)*TEST_WIDTH+PLOT_LEFT]==0);
-    /* A 2 MHz view crops the central 32 bins of the 16 MHz acquisition. */
-    controls.rate=0;bins[127]=255;bins[15]=200;
-    m5stack_basic_draw(2413,bins,256,false,true,0);
-    assert(waterfall_count==1);
-    assert(pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==waterfall_color(60));
-    /* Peak reduction preserves a narrow signal in a 4096-bin spectrum. */
-    memset(bins,0,sizeof(bins));controls.rate=3;
-    bins[TEST_FFT/2-2]=255;
-    m5stack_basic_draw(2413,bins,TEST_FFT,false,true,0);
-    assert(waterfall_count==1 && pixels[WATERFALL_TOP*TEST_WIDTH+PLOT_LEFT]==0xffff);
-    controls.fft=0; controls.menu=M5_MENU_NONE;
-    memset(bins,0,sizeof(bins));
-    for(unsigned j=64;j<96;j++)bins[j]=128;
-    m5stack_basic_draw(2413,bins,256,false,true,0);
-    unsigned x=(48*PLOT_WIDTH+255)/256;
-    unsigned height=spectrum_dbfs_to_display_value(spectrum_code_to_dbfs(128),-84,80)*
-                    (SPECTRUM_BOTTOM-SPECTRUM_TOP)/255;
-    unsigned trace_y=SPECTRUM_BOTTOM-height;
-    unsigned step=TEST_WIDTH==320 ? 13 : 6;
-    unsigned grid_y=SPECTRUM_TOP+((trace_y+1-SPECTRUM_TOP+step-1)/step)*step;
-    for(unsigned d=0;d<=8;d++)assert(x!=(d*(PLOT_WIDTH-1)+4)/8);
-    assert(pixels[trace_y*TEST_WIDTH+PLOT_LEFT+x]==0x2cbf);
-    assert(pixels[(trace_y+1)*TEST_WIDTH+PLOT_LEFT+x]==0x012c);
-    assert(pixels[grid_y*TEST_WIDTH+PLOT_LEFT+x]==0x11ae);
-    assert(pixels[(trace_y-1)*TEST_WIDTH+PLOT_LEFT+x]==
-           ((trace_y-1-SPECTRUM_TOP)%step==0 ? 0x2104 : 0));
-    assert(pixels[SPECTRUM_BOTTOM*TEST_WIDTH+PLOT_LEFT+x]==0x4208);
-    m5stack_basic_draw(2413,bins,256,false,false,0);
-    assert(pixels[(trace_y+1)*TEST_WIDTH+PLOT_LEFT+x]==0);
-    assert(pixels[grid_y*TEST_WIDTH+PLOT_LEFT+x]==0x2104);
-    controls.density_mode=true;
-    m5stack_basic_draw(2413,bins,256,false,true,0);
-    assert(density[32*density_width+x*density_width/PLOT_WIDTH] > 0);
-    assert(pixels[grid_y*TEST_WIDTH+PLOT_LEFT+x]==0x2104);
-    controls.density_mode=false;
-    density_mode(2413,false);
-#if CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-    controls.menu = M5_MENU_AGC;
-    m5stack_basic_draw(2413,bins,TEST_FFT,false,false,0);
-    unsigned margin = TEST_WIDTH > 200 ? 32 : 4;
-    assert(pixels[(TEST_HEIGHT/2-34)*TEST_WIDTH+margin] == COLOR_SRDECK_YELLOW_GREEN);
-    assert(pixels[(TEST_HEIGHT/2)*TEST_WIDTH+margin+1] == 0x0861);
-#endif
-    controls.menu = M5_MENU_NONE;
-    const char *telemetry[] = {"BAT 100%", "CPU 49%"};
-    battery_percent = 100;
-    for (unsigned frame = 0; frame < 2; frame++) {
-        display_now = (int64_t)(frame + 1) * 5000000;
-        m5stack_basic_draw(2413,bins,256,false,true,49);
-        unsigned left = SCREEN_WIDTH - text_width(telemetry[frame]) - (SCREEN_WIDTH == 320 ? 2 : 3);
-        unsigned top = SCREEN_WIDTH == 320 ? 3 : 0;
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-        left = (SCREEN_WIDTH - m5stack_text_width(telemetry[frame], &DejaVu9)) / 2;
-        top = WATERFALL_TOP + WATERFALL_HEIGHT;
-#endif
-        for (unsigned y = top; y < top + 12; y++) {
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-            if (y >= 224) break;
-#endif
-            memset(row, 0, sizeof(row));
-#if CONFIG_ESP_SDR_M5STACK_STICKC_PLUS2
-            m5stack_text_row(y, left, 223, telemetry[frame], &DejaVu9, 0xffff, 0);
-#else
-            text_row(y - top, left, telemetry[frame], 0xffff);
-#endif
-            for (unsigned x = left; x < SCREEN_WIDTH; x++)
-                assert(pixels[y*SCREEN_WIDTH+x] == __builtin_bswap16(row[x]));
-        }
-    }
-#if !CONFIG_ESP_SDR_M5STACK_CORE2
-    free(waterfall);
-#endif
+    assert(SCREEN_WIDTH == TEST_WIDTH && SCREEN_HEIGHT == TEST_HEIGHT);
+    assert(M5_DISPLAY_SCALE == TEST_SCALE);
+    assert(M5_DISPLAY_LAYOUT_BASIC == TEST_BASIC);
+    assert(M5_DISPLAY_LAYOUT_STICK == TEST_STICK);
+    assert(strcmp(M5_BOARD_NAME, TEST_NAME) == 0);
     return 0;
 }
 '''
-
-
-@unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
-class BoardDisplays(unittest.TestCase):
-    def test_core2_power_touch_and_compact_display_geometry_and_history(self):
-        profiles = [
-            ('CORE2', 320, 240, 0, 0, 15, 5, 23, 18, 3, 21, 22, 0x03, 4096),
-            ('CORE2', 320, 240, 0, 0, 15, 5, 23, 18, 3, 21, 22, 0x4a, 4096),
-            ('CARDPUTER', 240, 135, 40, 53, 34, 37, 35, 36, 3, 8, 9, 0, 4096),
-            ('CARDPUTER_ADV', 240, 135, 40, 53, 34, 37, 35, 36, 3, 8, 9, 0, 4096),
-            ('STICKC_PLUS2', 135, 240, 52, 40, 14, 5, 15, 13, 2, 0, 0, 0, 4096),
-        ]
-        for profile, *values in profiles:
-            with self.subTest(profile=profile, pmu=values[-2]):
-                file = 'm5stack_basic.c' if profile == 'CORE2' else 'm5stack_cardputer.c'
-                source = (ROOT / 'main/boards' / file).read_text()
-                for header in ['driver/gpio.h', 'driver/spi_master.h', 'driver/i2c_master.h',
-                               'esp_check.h', 'esp_heap_caps.h', 'esp_timer.h',
-                               'freertos/FreeRTOS.h', 'freertos/task.h']:
-                    source = source.replace(f'#include "{header}"', '')
-                names = ['WIDTH', 'HEIGHT', 'X', 'Y', 'DC', 'CS', 'MOSI', 'SCLK', 'HOST',
-                         'SDA', 'SCL', 'PMU', 'FFT']
-                compile_run(STUB + source + CHECK, [f'CONFIG_ESP_SDR_M5STACK_{profile}=1',
-                            *(f'TEST_{k}={v}' for k, v in zip(names, values))])
+        names = {
+            'BASIC': 'BASIC', 'CORE2': 'CORE2', 'CORES3': 'CORES3',
+            'CARDPUTER': 'CARDPUTER', 'CARDPUTER_ADV': 'CARDPUTER ADV',
+            'STICKC_PLUS2': 'STICKC PLUS2', 'STICKC_PLUS': 'STICKC PLUS',
+            'STICKS3': 'STICKS3', 'STICKC': 'STICKC', 'DIN_METER': 'DIN METER',
+            'PAPER_COLOR': 'PAPER COLOR', 'PAPERS3': 'PAPERS3',
+        }
+        for board, width, height, scale, basic, stick in profiles:
+            with self.subTest(board=board):
+                compile_run(source, [f'CONFIG_ESP_SDR_M5STACK_{board}=1',
+                            f'TEST_WIDTH={width}', f'TEST_HEIGHT={height}',
+                            f'TEST_SCALE={scale}', f'TEST_BASIC={basic}', f'TEST_STICK={stick}',
+                            f'TEST_NAME="{names[board]}"'])

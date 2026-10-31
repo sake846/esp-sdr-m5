@@ -16,7 +16,8 @@
       "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
       "allow_larger_flash": true,
       "preview": false,
-      "sdkconfig": "sdkconfig.defaults.m5stack-basic"
+      "sdkconfig": "sdkconfig.defaults.m5stack-basic",
+      "m5stack": true
     },
     {
       "id": "m5stack-core2",
@@ -25,7 +26,8 @@
       "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
       "allow_larger_flash": true,
       "preview": false,
-      "sdkconfig": "sdkconfig.defaults.m5stack-core2"
+      "sdkconfig": "sdkconfig.defaults.m5stack-core2",
+      "m5stack": true
     },
     {
       "id": "esp32c2",
@@ -74,7 +76,8 @@
       "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
       "allow_larger_flash": true,
       "preview": false,
-      "sdkconfig": "sdkconfig.defaults.m5stack-cardputer"
+      "sdkconfig": "sdkconfig.defaults.m5stack-cardputer",
+      "m5stack": true
     },
     {
       "id": "m5stack-cardputer-adv",
@@ -83,7 +86,8 @@
       "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
       "allow_larger_flash": true,
       "preview": false,
-      "sdkconfig": "sdkconfig.defaults.m5stack-cardputer-adv"
+      "sdkconfig": "sdkconfig.defaults.m5stack-cardputer-adv",
+      "m5stack": true
     },
     {
       "id": "m5stickc-plus2",
@@ -92,7 +96,8 @@
       "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
       "allow_larger_flash": true,
       "preview": false,
-      "sdkconfig": "sdkconfig.defaults.m5stickc-plus2"
+      "sdkconfig": "sdkconfig.defaults.m5stickc-plus2",
+      "m5stack": true
     },
     {
       "id": "esp32s31",
@@ -216,7 +221,7 @@
       "allow_larger_flash": true,
       "preview": false,
       "sdkconfig": "sdkconfig.defaults.m5stack-cores3",
-      "m5unified": true
+      "m5stack": true
     },
     {
       "id": "m5stack-din-meter",
@@ -226,7 +231,7 @@
       "allow_larger_flash": true,
       "preview": false,
       "sdkconfig": "sdkconfig.defaults.m5stack-din-meter",
-      "m5unified": true
+      "m5stack": true
     },
     {
       "id": "m5sticks3",
@@ -236,7 +241,7 @@
       "allow_larger_flash": true,
       "preview": false,
       "sdkconfig": "sdkconfig.defaults.m5sticks3",
-      "m5unified": true
+      "m5stack": true
     },
     {
       "id": "m5stickc-plus",
@@ -246,7 +251,7 @@
       "allow_larger_flash": true,
       "preview": false,
       "sdkconfig": "sdkconfig.defaults.m5stickc-plus",
-      "m5unified": true
+      "m5stack": true
     },
     {
       "id": "m5stickc",
@@ -256,7 +261,7 @@
       "allow_larger_flash": true,
       "preview": false,
       "sdkconfig": "sdkconfig.defaults.m5stickc",
-      "m5unified": true
+      "m5stack": true
     },
     {
       "id": "m5stack-paper-color",
@@ -266,7 +271,7 @@
       "allow_larger_flash": true,
       "preview": false,
       "sdkconfig": "sdkconfig.defaults.m5stack-paper-color",
-      "m5unified": true
+      "m5stack": true
     },
     {
       "id": "m5stack-papers3",
@@ -276,7 +281,7 @@
       "allow_larger_flash": true,
       "preview": false,
       "sdkconfig": "sdkconfig.defaults.m5stack-papers3",
-      "m5unified": true
+      "m5stack": true
     },
     {
       "id": "lilygo-t-display-s3-pro",

@@ -41,54 +41,44 @@ menu "ESP-SDR board"
             Uses the ESP32-S3 RF backend, onboard display and controls.
             External SI4732/CC1101/LoRa radios are not used for reception.
 
-    config ESP_SDR_M5STACK_BASIC
-        bool "M5Stack Basic standalone spectrum display"
-        depends on IDF_TARGET_ESP32
-        default n
-        help
-            Enable the Basic LCD and A/B/C buttons, mute its speaker and
-            exclude onboard peripheral pins from the serial GPIO service.
-            PC commands take priority over standalone controls.
-
-    config ESP_SDR_M5STACK_CORE2
-        bool "M5Stack Core2 standalone spectrum display"
-        depends on IDF_TARGET_ESP32
-        default n
-        help
-            Enable the Core2 LCD, AXP192/AXP2101 power management and touch
-            controls. PC commands take priority over standalone controls.
-
-    config ESP_SDR_M5STACK_CARDPUTER
-        bool "M5Stack Cardputer standalone spectrum display"
-        depends on IDF_TARGET_ESP32S3
-        default n
-        help
-            Enable the Cardputer ST7789 display and keyboard controls. The
-            Standalone FFT sizes up to 4096 points use internal RAM.
-
-    config ESP_SDR_M5STACK_CARDPUTER_ADV
-        bool "M5Stack Cardputer ADV standalone spectrum display"
-        depends on IDF_TARGET_ESP32S3
-        default n
-        help
-            Enable the Cardputer ADV ST7789 display and TCA8418 keyboard.
-            Standalone FFT sizes up to 4096 points use internal RAM.
-
-    config ESP_SDR_M5STACK_STICKC_PLUS2
-        bool "M5StickC Plus2 standalone spectrum display"
-        depends on IDF_TARGET_ESP32
-        default n
-        help
-            Enable the 135x240 ST7789 display and A/B/C buttons on the
-            M5StickC Plus2. Hold GPIO4 high to keep the power rail enabled.
-
-    choice ESP_SDR_M5UNIFIED_BOARD
-        prompt "Additional M5Stack standalone device (build with ESP_SDR_M5UNIFIED=ON)"
+    choice ESP_SDR_M5STACK_BOARD
+        prompt "M5Stack standalone device"
         depends on IDF_TARGET_ESP32 || IDF_TARGET_ESP32S3
-        default ESP_SDR_M5UNIFIED_NONE
+        default ESP_SDR_M5STACK_NONE
 
-        config ESP_SDR_M5UNIFIED_NONE
+        config ESP_SDR_M5STACK_NONE
             bool "None"
+        config ESP_SDR_M5STACK_BASIC
+            bool "M5Stack Basic"
+            depends on IDF_TARGET_ESP32
+            help
+                Enable the Basic LCD and A/B/C buttons, mute its speaker and
+                exclude onboard peripheral pins from the serial GPIO service.
+                PC commands take priority over standalone controls.
+        config ESP_SDR_M5STACK_CORE2
+            bool "M5Stack Core2"
+            depends on IDF_TARGET_ESP32
+            help
+                Enable the Core2 LCD, AXP192/AXP2101 power management and touch
+                controls. PC commands take priority over standalone controls.
+        config ESP_SDR_M5STACK_CARDPUTER
+            bool "M5Stack Cardputer"
+            depends on IDF_TARGET_ESP32S3
+            help
+                Enable the Cardputer ST7789 display and keyboard controls.
+                Standalone FFT sizes up to 4096 points use internal RAM.
+        config ESP_SDR_M5STACK_CARDPUTER_ADV
+            bool "M5Stack Cardputer ADV"
+            depends on IDF_TARGET_ESP32S3
+            help
+                Enable the Cardputer ADV ST7789 display and TCA8418 keyboard.
+                Standalone FFT sizes up to 4096 points use internal RAM.
+        config ESP_SDR_M5STACK_STICKC_PLUS2
+            bool "M5StickC Plus2"
+            depends on IDF_TARGET_ESP32
+            help
+                Enable the 135x240 ST7789 display and A/B/C buttons. Hold GPIO4
+                high to keep the power rail enabled.
         config ESP_SDR_M5STACK_CORES3
             bool "CoreS3"
             depends on IDF_TARGET_ESP32S3
@@ -112,12 +102,28 @@ menu "ESP-SDR board"
             depends on IDF_TARGET_ESP32S3
     endchoice
 
-    config ESP_SDR_M5UNIFIED
+    config ESP_SDR_M5STACK
         bool
-        default y if ESP_SDR_M5STACK_CORES3 || ESP_SDR_M5STACK_DIN_METER || ESP_SDR_M5STACK_STICKS3 || ESP_SDR_M5STACK_STICKC_PLUS || ESP_SDR_M5STACK_STICKC || ESP_SDR_M5STACK_PAPER_COLOR || ESP_SDR_M5STACK_PAPERS3
+        default y if ESP_SDR_M5STACK_BASIC
+        default y if ESP_SDR_M5STACK_CORE2
+        default y if ESP_SDR_M5STACK_CARDPUTER
+        default y if ESP_SDR_M5STACK_CARDPUTER_ADV
+        default y if ESP_SDR_M5STACK_STICKC_PLUS2
+        default y if ESP_SDR_M5STACK_CORES3
+        default y if ESP_SDR_M5STACK_DIN_METER
+        default y if ESP_SDR_M5STACK_STICKS3
+        default y if ESP_SDR_M5STACK_STICKC_PLUS
+        default y if ESP_SDR_M5STACK_STICKC
+        default y if ESP_SDR_M5STACK_PAPER_COLOR
+        default y if ESP_SDR_M5STACK_PAPERS3
 
     config ESP_SDR_M5GFX_BOARD
         int
+        default 1 if ESP_SDR_M5STACK_BASIC
+        default 2 if ESP_SDR_M5STACK_CORE2
+        default 14 if ESP_SDR_M5STACK_CARDPUTER
+        default 24 if ESP_SDR_M5STACK_CARDPUTER_ADV
+        default 5 if ESP_SDR_M5STACK_STICKC_PLUS2
         default 10 if ESP_SDR_M5STACK_CORES3
         default 13 if ESP_SDR_M5STACK_DIN_METER
         default 26 if ESP_SDR_M5STACK_STICKS3

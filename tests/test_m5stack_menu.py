@@ -11,14 +11,14 @@ class MenuFont(unittest.TestCase):
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "m5stack_basic_controls.h"
+#include "standalone_display_controls.h"
 #define SCREEN_WIDTH TEST_WIDTH
 #define SCREEN_HEIGHT 80
 #define COLOR_SRDECK_YELLOW_GREEN 0xb726
 static m5stack_controls_t controls;
 static uint16_t guarded_row[SCREEN_WIDTH+2];
 #define row (guarded_row+1)
-#include "m5stack_menu.h"
+#include "standalone_display_menu.h"
 
 int main(void) {
     const char *values[] = {"0", "100 MHZ", "80 MHZ", "+40 DB", "-40 DB", "200%",

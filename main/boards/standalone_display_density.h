@@ -24,14 +24,14 @@ static void density_mode(unsigned mhz, bool pc_control) {
         density_width = 0;
         density_keyed = false;
     } else {
-        unsigned span = m5stack_basic_span(), width = m5stack_basic_fft_points();
+        unsigned span = standalone_display_span(), width = standalone_display_fft_points();
         if (span < 16) width = width * span / 16;
         if (width > PLOT_WIDTH) width = PLOT_WIDTH;
         /* Zoomed pixels sharing one FFT bin also share one history column. */
         if (density && density_width != width) { free(density); density = NULL; }
         if (!density) {
             density = heap_caps_calloc(64, width,
-#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI || CONFIG_ESP_SDR_M5UNIFIED) && CONFIG_SPIRAM
+#if (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI || CONFIG_ESP_SDR_M5STACK) && CONFIG_SPIRAM
                                        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 #else
                                        MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -44,8 +44,8 @@ static void density_mode(unsigned mhz, bool pc_control) {
         }
     }
     if (density && ((density_pc && !pc_control) ||
-        (density_keyed && (density_mhz != mhz || density_span != m5stack_basic_span() ||
-         density_fft != m5stack_basic_fft_points() || density_average != m5stack_basic_average_count() ||
+        (density_keyed && (density_mhz != mhz || density_span != standalone_display_span() ||
+         density_fft != standalone_display_fft_points() || density_average != standalone_display_average_count() ||
          controls.rx_dirty)))) density_clear();
     density_pc = pc_control;
 }
@@ -62,7 +62,7 @@ static void density_decay(void) {
         density[i] = (uint8_t)((density[i] * factor) >> 16);
 }
 
-void m5stack_basic_set_density_context(unsigned gain, int filter, unsigned dc, unsigned frame_count) {
+void standalone_display_set_density_context(unsigned gain, int filter, unsigned dc, unsigned frame_count) {
     density_frame_gain = gain;
     density_frame_filter = filter;
     density_frame_dc = dc;
@@ -71,7 +71,7 @@ void m5stack_basic_set_density_context(unsigned gain, int filter, unsigned dc, u
 
 static void density_begin_frame(unsigned mhz, unsigned fft_points) {
     if (!density || density_pc) return;
-    unsigned span = m5stack_basic_span(), average = m5stack_basic_average_count();
+    unsigned span = standalone_display_span(), average = standalone_display_average_count();
     if (!density_keyed || density_mhz != mhz || density_span != span || density_fft != fft_points ||
         density_average != average || density_gain != density_frame_gain ||
         density_filter != density_frame_filter || density_dc != density_frame_dc) {

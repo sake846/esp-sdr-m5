@@ -8,8 +8,8 @@ from test_m5stack_displays import STUB
 CHECK = r'''
 #define CELL(level,x) density[(level)*density_width+(x)*density_width/PLOT_WIDTH]
 static void sample(unsigned mhz, uint8_t *bins, unsigned gain, int filter, unsigned dc) {
-    m5stack_basic_set_density_context(gain, filter, dc, 1);
-    m5stack_basic_draw(mhz, bins, m5stack_basic_fft_points(), density_pc, true, 0);
+    standalone_display_set_density_context(gain, filter, dc, 1);
+    standalone_display_draw(mhz, bins, standalone_display_fft_points(), density_pc, true, 0);
 }
 static void verify_projection(void) {
     uint8_t reference[64][PLOT_WIDTH], bins[8192];
@@ -18,7 +18,7 @@ static void verify_projection(void) {
         for (unsigned r = 0; r < 6; r++) {
             controls.fft = f; controls.rate = r; controls.density_mode = true;
             density_mode(2412, false); density_clear();
-            unsigned n = m5stack_basic_fft_points(), span = m5stack_basic_span();
+            unsigned n = standalone_display_fft_points(), span = standalone_display_span();
             unsigned visible = n * span / (span < 16 ? 16 : span);
             unsigned first_bin = (n - visible) / 2 + n / 2;
             assert(density_width == (visible < PLOT_WIDTH ? visible : PLOT_WIDTH));
@@ -83,14 +83,14 @@ static void verify_palette(void) {
 }
 int main(void) {
     pmu[3] = TEST_PMU;
-    m5stack_basic_init();
+    standalone_display_init();
     assert(!controls.density_mode && !density);
     uint8_t bins[8192] = {0};
     unsigned initial_allocations = allocations;
     sample(2412, bins, 30, -1, 1);
     assert(allocations == initial_allocations); /* Normal mode needs no density RAM. */
     controls.density_mode = true;
-    m5stack_basic_draw(2412, bins, 1024, false, false, 0);
+    standalone_display_draw(2412, bins, 1024, false, false, 0);
     assert(density && allocations == initial_allocations + 1 && last_allocation == 64 * PLOT_WIDTH);
     for (unsigned i = 0; i < 15; i++) sample(2412, bins, 30, -1, 1);
     bins[510] = 120;
@@ -98,7 +98,7 @@ int main(void) {
     assert(CELL(30,0) == 8 && CELL(0,0) == 120);
     bins[510] = 0; /* The next averaged frame no longer contains the transient. */
     unsigned before_rows = rows, before_windows = column_windows;
-    m5stack_basic_draw(2412, bins, 1024, false, true, 0);
+    standalone_display_draw(2412, bins, 1024, false, true, 0);
     assert(rows == before_rows + TEST_HEIGHT && column_windows == before_windows + 1);
     assert(CELL(30,0) == 8);
     bool transient_visible = false;
@@ -106,7 +106,7 @@ int main(void) {
         if (pixels[y * TEST_WIDTH + PLOT_LEFT] == 0x001f) transient_visible = true;
     assert(transient_visible);
     controls.y_pos = 5;
-    m5stack_basic_draw(2412, bins, 1024, false, true, 0);
+    standalone_display_draw(2412, bins, 1024, false, true, 0);
     assert(CELL(30,0) == 8); /* Moving the view must not move/change the stored levels. */
     controls.y_pos = 0;
 
@@ -140,12 +140,12 @@ int main(void) {
     assert(CELL(30,0) == 0);
 
     sample(2412, bins, 30, -1, 1);
-    m5stack_basic_draw(2412, bins, 1024, true, true, 0);
+    standalone_display_draw(2412, bins, 1024, true, true, 0);
     test_now += 20000000;
     sample(2412, bins, 30, -1, 1);
-    m5stack_basic_draw(2412, bins, 1024, true, true, 0);
+    standalone_display_draw(2412, bins, 1024, true, true, 0);
     assert(CELL(30,0) == 8); /* PC lease freezes both ingestion and fading. */
-    m5stack_basic_draw(2412, bins, 1024, false, false, 0);
+    standalone_display_draw(2412, bins, 1024, false, false, 0);
     assert(!density_keyed && CELL(30,0) == 0);
 
     sample(2412, bins, 30, -1, 1);
@@ -178,7 +178,7 @@ int main(void) {
     controls.density_mode = true; fail_allocation = true;
     density_mode(2413, false);
     assert(!density && !controls.density_mode && controls.density_failed);
-    m5stack_basic_draw(2413, bins, 2048, false, true, 0);
+    standalone_display_draw(2413, bins, 2048, false, true, 0);
     assert(!density && controls.density_failed); /* Failure stays visible; no retry loop. */
     fail_allocation = false; controls.density_mode = true;
     density_mode(2413, false);
@@ -209,14 +209,26 @@ class SpectrumDensity(unittest.TestCase):
             'static void *heap_caps_calloc(size_t n, size_t size, unsigned caps) { '
             'assert(caps==3); allocations++; last_allocation=n*size; return fail_allocation ? NULL : calloc(n,size); }\n'
             'static void counted_free(void *p) { if(p)frees++; free(p); }\n#define free counted_free')
+        stub += r'''
+static void m5stack_device_adapter_init(void) {}
+static unsigned m5stack_device_adapter_buttons(void) { return 0; }
+static int m5stack_device_adapter_encoder(void) { return 0; }
+static void m5stack_device_adapter_row(unsigned y, const uint16_t *p) {
+    assert(y < TEST_HEIGHT);
+    memcpy(pixels + y * TEST_WIDTH, p, TEST_WIDTH * sizeof(*p));
+    rows++;
+}
+static void m5stack_device_adapter_flush(void) { column_windows++; }
+'''
         for profile, *values in profiles:
             with self.subTest(profile=profile):
-                filename = 'm5stack_basic.c' if profile in ('BASIC', 'CORE2') else 'm5stack_cardputer.c'
-                source = (ROOT / 'main/boards' / filename).read_text()
+                source = (ROOT / 'main/boards/standalone_display.c').read_text()
                 for header in ['driver/gpio.h', 'driver/spi_master.h', 'driver/i2c_master.h',
                                'esp_check.h', 'esp_heap_caps.h', 'esp_timer.h',
                                'freertos/FreeRTOS.h', 'freertos/task.h']:
                     source = source.replace(f'#include "{header}"', '')
                 names = ['WIDTH', 'HEIGHT', 'X', 'Y', 'DC', 'CS', 'MOSI', 'SCLK', 'HOST', 'SDA', 'SCL', 'PMU']
-                compile_run(stub + source + CHECK, [f'CONFIG_ESP_SDR_M5STACK_{profile}=1',
+                chip = 'ESP32S3' if profile in ('CARDPUTER', 'CARDPUTER_ADV') else 'ESP32'
+                compile_run(stub + source + CHECK, ['CONFIG_ESP_SDR_M5STACK=1',
+                            f'CONFIG_ESP_SDR_M5STACK_{profile}=1', f'CONFIG_IDF_TARGET_{chip}=1',
                             *(f'TEST_{key}={value}' for key, value in zip(names, values))])

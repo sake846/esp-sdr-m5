@@ -1,8 +1,8 @@
 #pragma once
-#include "m5stack_basic_controls.h"
+#include "standalone_display_controls.h"
 
 #if CONFIG_ESP_SDR_ATS_MINI
-#include "ats_mini.h"
+#include "standalone_device_ats_mini_lcd.h"
 #elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
 #define SCREEN_WIDTH 480
 #define SCREEN_HEIGHT 222
@@ -124,13 +124,13 @@
 #endif
 #define FREQUENCY_TOP (SPECTRUM_BOTTOM + 3)
 #define WATERFALL_TOP (FREQUENCY_TOP + 13)
-#define WATERFALL_HEIGHT (SCREEN_HEIGHT - WATERFALL_TOP - 16)
+#define WATERFALL_HEIGHT (SCREEN_HEIGHT - WATERFALL_TOP - 17)
 
 #ifndef LILYGO_EPAPER
 #define LILYGO_EPAPER 0
 #endif
 
-void lilygo_init(void);
-unsigned lilygo_poll(m5stack_controls_t *controls, unsigned mhz, bool pc_control);
-void lilygo_display_row(unsigned y, const uint16_t *pixels);
-void lilygo_display_flush(void);
+void standalone_device_lilygo_ats_mini_init(void);
+unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *controls, unsigned mhz, bool pc_control);
+void standalone_device_lilygo_ats_mini_display_row(unsigned y, const uint16_t *pixels);
+void standalone_device_lilygo_ats_mini_display_flush(void);

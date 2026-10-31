@@ -3,7 +3,7 @@ import unittest
 
 from host_test import COMPILER, ROOT, compile_run
 
-SOURCE = (ROOT / 'main/boards/m5stack_cardputer.c').read_text()
+SOURCE = (ROOT / 'main/boards/standalone_display.c').read_text()
 KEYS = SOURCE[SOURCE.index('enum {'):SOURCE.index('\n#endif', SOURCE.index('enum {'))] + '\n'
 SCANNER = SOURCE[SOURCE.index('static unsigned keyboard_buttons('):
                  SOURCE.index('#if CONFIG_ESP_SDR_M5STACK_CARDPUTER ||',
@@ -13,7 +13,7 @@ CONTROLS = SOURCE[SOURCE.index('static unsigned cardputer_actions('):
 PREAMBLE = r'''
 #include <assert.h>
 #include <string.h>
-#include "m5stack_basic_controls.h"
+#include "standalone_display_controls.h"
 static m5stack_controls_t controls;
 '''
 

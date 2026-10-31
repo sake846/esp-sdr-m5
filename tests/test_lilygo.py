@@ -135,8 +135,8 @@ static void vTaskSuspend(void *t){longjmp(worker_exit,2);}
 CHECK = r'''
 int main(void){
  registers[0x6a][3]=registers[0x6a][7]=0xff;
- m5stack_basic_init();
- assert(m5stack_basic_fft_points()==1024);
+ standalone_display_init();
+ assert(standalone_display_fft_points()==1024);
 #if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
  assert((registers[0x6a][3]&0x30)==0 && (registers[0x6a][7]&0x30)==0);
  assert((registers[0x6a][2]&0xc0)==0xc0);
@@ -156,7 +156,7 @@ int main(void){
  assert(levels[10] && levels[9] && levels[39]);
 #endif
  uint8_t bins[4096]={0};bins[127]=255;
- m5stack_basic_draw(2412,bins,256,false,true,0);
+ standalone_display_draw(2412,bins,256,false,true,0);
  assert(waterfall_count==1);
  controls.density_mode=true;density_mode(2412,false);assert(density && density_width>0);
  assert(last_caps==(CONFIG_SPIRAM ? 6 : 3));
@@ -166,7 +166,7 @@ int main(void){
  assert((epaper_frame[0]&0xf0)==0xf0); /* Black UI background becomes white paper. */
  assert(!(epaper_frame[(1*SCREEN_WIDTH+4)/8] & (0x80>>4))); /* Ink in the title banner. */
  epaper_tx[0]=123;epaper_frame[0]=0;
- lilygo_display_flush();assert(!epaper_pending[0] && epaper_tx[0]==123 && flushes==3);
+ standalone_device_lilygo_ats_mini_display_flush();assert(!epaper_pending[0] && epaper_tx[0]==123 && flushes==3);
  int result=setjmp(worker_exit);
  if(!result)epaper_worker(NULL);
  assert(result==1 && refreshes==7 && full_refreshes==2 && partial_refreshes==5);
@@ -180,8 +180,8 @@ int main(void){
 #endif
  unsigned mhz=2412;controls.menu=M5_MENU_NONE;
 #ifdef ENCODER_A
- encoder_count=8;mhz=lilygo_poll(&controls,mhz,false);assert(mhz==2432);
- encoder_count=-4;mhz=lilygo_poll(&controls,mhz,true);assert(mhz==2432 && !encoder_count);
+ encoder_count=8;mhz=standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);assert(mhz==2432);
+ encoder_count=-4;mhz=standalone_device_lilygo_ats_mini_poll(&controls,mhz,true);assert(mhz==2432 && !encoder_count);
 #endif
  if(keyboard){
 #if CONFIG_ESP_SDR_LILYGO_T_DECK
@@ -189,24 +189,24 @@ int main(void){
 #else
    event_fifo[0]=0x80|20;event_count=1; /* A: row 1, physical column 9. */
 #endif
-   now+=20;unsigned previous=mhz;mhz=lilygo_poll(&controls,mhz,false);assert(mhz==previous-10);
+   now+=20;unsigned previous=mhz;mhz=standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);assert(mhz==previous-10);
 #if CONFIG_ESP_SDR_LILYGO_T_DECK
    deck_key='d';
 #else
    event_fifo[0]=0x80|18;event_count=1;
 #endif
-   now+=20;assert(lilygo_poll(&controls,mhz,true)==mhz); /* PC lease drains input. */
+   now+=20;assert(standalone_device_lilygo_ats_mini_poll(&controls,mhz,true)==mhz); /* PC lease drains input. */
  }
  controls.menu=M5_MENU_FFT;controls.b_long=false;
  pressed_inputs=UINT64_C(1)<<MENU_BUTTON;now+=50;
- lilygo_poll(&controls,mhz,false);now+=31;lilygo_poll(&controls,mhz,false);
- now+=601;lilygo_poll(&controls,mhz,false);assert(controls.menu==M5_MENU_NONE);
- pressed_inputs=0;now+=1;lilygo_poll(&controls,mhz,false);
- now+=31;lilygo_poll(&controls,mhz,false);assert(controls.menu==M5_MENU_NONE);
+ standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);now+=31;standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);
+ now+=601;standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);assert(controls.menu==M5_MENU_NONE);
+ pressed_inputs=0;now+=1;standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);
+ now+=31;standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);assert(controls.menu==M5_MENU_NONE);
  controls.menu=M5_MENU_NONE; battery_percent=100;
  const char *telemetry[]={"BAT 100%", "CPU 49%"};
  for(unsigned frame=0;frame<2;frame++) {
-   now=(frame+1)*5000; m5stack_basic_draw(2412,bins,256,false,true,49);
+   now=(frame+1)*5000; standalone_display_draw(2412,bins,256,false,true,49);
    unsigned left=SCREEN_WIDTH-text_width(telemetry[frame])-4;
    for(unsigned y=1;y<12;y++) {
      memset(row,0,sizeof(row)); text_row(y-1,left,telemetry[frame],0xffff);
@@ -242,7 +242,7 @@ class LilygoProfiles(unittest.TestCase):
 
     @unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
     def test_board_io_rendering_and_receiver_handoff(self):
-        sources = '\n'.join((ROOT/'main/boards'/f).read_text() for f in ['lilygo.c', 'm5stack_cardputer.c'])
+        sources = '\n'.join((ROOT/'main/boards'/f).read_text() for f in ['standalone_device_lilygo_ats_mini.c', 'standalone_display.c'])
         headers = ['driver/gpio.h', 'driver/spi_master.h', 'driver/i2c_master.h',
                    'esp_check.h', 'esp_heap_caps.h', 'esp_timer.h',
                    'freertos/FreeRTOS.h', 'freertos/task.h', 'freertos/semphr.h']
@@ -260,11 +260,11 @@ class LilygoProfiles(unittest.TestCase):
     def test_encoder_invalid_edges_key_bounds_and_monochrome(self):
         compile_run(r'''
 #include <assert.h>
-#include "lilygo_controls.h"
+#include "standalone_device_lilygo_ats_mini_controls.h"
 int main(void){
- assert(lilygo_encoder_delta(0,3)==0 && lilygo_encoder_delta(3,0)==0);
- assert(lilygo_encoder_delta(0,1)+lilygo_encoder_delta(1,3)+
-        lilygo_encoder_delta(3,2)+lilygo_encoder_delta(2,0)==-4);
+ assert(standalone_device_lilygo_ats_mini_encoder_delta(0,3)==0 && standalone_device_lilygo_ats_mini_encoder_delta(3,0)==0);
+ assert(standalone_device_lilygo_ats_mini_encoder_delta(0,1)+standalone_device_lilygo_ats_mini_encoder_delta(1,3)+
+        standalone_device_lilygo_ats_mini_encoder_delta(3,2)+standalone_device_lilygo_ats_mini_encoder_delta(2,0)==-4);
  m5stack_controls_t s={0};m5stack_controls_defaults(&s);
  assert(lilygo_key(&s,RX_FREQ_MIN,'a',false)==RX_FREQ_MIN);
  assert(lilygo_key(&s,RX_FREQ_MAX,'d',false)==RX_FREQ_MAX);
