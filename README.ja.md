@@ -30,7 +30,7 @@ M5Stack・LILYGO・ATS-miniの内蔵ESP32を使い、スペクトラムとウォ
 
 ## 対応機種
 
-M5Stack BASIC・Core2・Cardputer通常版K132・Cardputer ADV・M5StickC Plus2・LILYGO T-Embed CC1101は、このプロジェクトで実機動作を確認しています。それ以外のプロファイルは未確認です。
+M5Stack BASIC・Core2・Cardputer通常版K132・Cardputer ADV・M5StickC Plus2・LILYGO T-Embed SI4732／CC1101は、このプロジェクトで実機動作を確認しています。それ以外のプロファイルは未確認です。
 
 | 画面サイズ・向き | デバイス（プロファイル） | 実機確認 |
 | --- | --- | --- |
@@ -38,7 +38,7 @@ M5Stack BASIC・Core2・Cardputer通常版K132・Cardputer ADV・M5StickC Plus2�
 | 240 × 135、横 | [Cardputer K132／ADV](docs/m5stack.md#cardputer-k132) (`m5stack-cardputer`, `m5stack-cardputer-adv`)、[DinMeter](docs/m5stack.md#additional-m5stack-devices) (`m5stack-din-meter`) | Cardputerは確認済み。DinMeterは未確認 |
 | 135 × 240、縦 | [M5StickC Plus](docs/m5stack.md#additional-m5stack-devices) (`m5stickc-plus`)、[Plus2](docs/m5stack.md#m5stickc-plus2) (`m5stickc-plus2`)、[StickS3](docs/m5stack.md#additional-m5stack-devices) (`m5sticks3`) | Plus2は確認済み。Plus・StickS3は未確認 |
 | 80 × 160、縦 | [M5StickC](docs/m5stack.md#additional-m5stack-devices) (`m5stickc`) | 未確認 |
-| 320 × 170、横 | [LILYGO T-Embed SI4732／CC1101／CC1101 Plus](docs/lilygo.md) (`lilygo-t-embed-si4732`, `lilygo-t-embed-cc1101`, `lilygo-t-embed-cc1101-plus`)、[ATS-mini](docs/ats-mini.md) (`ats-mini`) | T-Embed CC1101は確認済み。SI4732・CC1101 Plus・ATS-miniは未確認 |
+| 320 × 170、横 | [LILYGO T-Embed SI4732／CC1101／CC1101 Plus](docs/lilygo.md) (`lilygo-t-embed-si4732`, `lilygo-t-embed-cc1101`, `lilygo-t-embed-cc1101-plus`)、[ATS-mini](docs/ats-mini.md) (`ats-mini`) | T-Embed SI4732・CC1101は確認済み。CC1101 Plus・ATS-miniは未確認 |
 | 480 × 222、横 | [LILYGO T-Display S3 Pro](docs/lilygo.md) (`lilygo-t-display-s3-pro`)、[T-LoRa Pager](docs/lilygo.md) (`lilygo-t-pager`) | 未確認 |
 | 240 × 320、縦、電子ペーパー | [LILYGO T-Deck Pro V1.0／V1.1](docs/lilygo.md) (`lilygo-t-deck-pro`, `lilygo-t-deck-pro-v11`) | 未確認 |
 | 600 × 400、横、カラー電子ペーパー | [M5Stack PaperColor](docs/m5stack.md#additional-m5stack-devices) (`m5stack-paper-color`)、描画座標は300 × 200 | 未確認 |
