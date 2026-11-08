@@ -148,9 +148,12 @@ unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *s, unsigned 
     mhz = m5stack_controls_update(s, mhz, buttons, now, pc_control);
     if (!pc_control && !was_long && s->b_long && (s->stable & 2)) s->menu = M5_MENU_NONE;
 #ifdef ENCODER_A
+#ifndef ENCODER_DIVIDER
+#define ENCODER_DIVIDER 4
+#endif
     portENTER_CRITICAL(&encoder_lock);
-    int steps = encoder_count / 4;
-    encoder_count = pc_control ? 0 : encoder_count % 4;
+    int steps = encoder_count / ENCODER_DIVIDER;
+    encoder_count = pc_control ? 0 : encoder_count % ENCODER_DIVIDER;
     portEXIT_CRITICAL(&encoder_lock);
     if (!pc_control && steps) {
         s->last_input = now;

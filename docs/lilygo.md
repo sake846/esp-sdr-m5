@@ -25,13 +25,13 @@ SI4732・CC1101・nRF24・LoRaモジュールでの受信や、AM/FM/SWの音声
 All profiles select 16 MB flash and native USB Serial/JTAG, with UART disabled
 to avoid driving onboard GPS/audio/radio connections. Pager and Pro use their
 QSPI PSRAM for display history/images; T-Display S3 Pro uses OPI PSRAM; RF and FFT buffers stay in internal SRAM.
-The other profiles do not require PSRAM. These devices have **not been tested on physical hardware**.
+The other profiles do not require PSRAM. T-Embed CC1101 is verified on real hardware; the other profiles have **not been tested on physical hardware**.
 T-Deck Pro MAX is a separate board and is not covered by the Pro profiles.
 
 全プロファイルで16 MBフラッシュとネイティブUSB Serial/JTAGを使用します。
 基板上のGPS・音声・無線モジュールとの競合を避けるためUARTは無効です。
 PagerとProは画面履歴・画像をQSPI PSRAMに置き、受信・FFT用の内蔵SRAMを確保します。
-T-Display S3 ProはOPI PSRAMを使用し、その他のプロファイルではPSRAMを使用しません。**いずれも実機での動作は未確認です。**
+T-Display S3 ProはOPI PSRAMを使用し、その他のプロファイルではPSRAMを使用しません。T-Embed CC1101は実機で動作確認済みですが、**それ以外のプロファイルは実機での動作は未確認です。**
 T-Deck Pro MAXは別基板のため、上記のPro用プロファイルには含みません。
 
 ## Build and flash / ビルド・書き込み

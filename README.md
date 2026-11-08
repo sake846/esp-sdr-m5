@@ -29,7 +29,7 @@ for the shared menu and display settings.
 
 ## Supported devices
 
-M5Stack BASIC, Core2, original Cardputer K132, Cardputer ADV and M5StickC Plus2 have been verified on real hardware in this project. Other profiles are not yet hardware-verified.
+M5Stack BASIC, Core2, original Cardputer K132, Cardputer ADV, M5StickC Plus2 and LILYGO T-Embed CC1101 have been verified on real hardware in this project. Other profiles are not yet hardware-verified.
 
 | Screen size / orientation | Devices (profiles) | Hardware status |
 | --- | --- | --- |
@@ -37,7 +37,7 @@ M5Stack BASIC, Core2, original Cardputer K132, Cardputer ADV and M5StickC Plus2 
 | 240 × 135, landscape | [Cardputer K132 / ADV](docs/m5stack.md#cardputer-k132) (`m5stack-cardputer`, `m5stack-cardputer-adv`), [DinMeter](docs/m5stack.md#additional-m5stack-devices) (`m5stack-din-meter`) | Cardputers verified; DinMeter unverified |
 | 135 × 240, portrait | [M5StickC Plus](docs/m5stack.md#additional-m5stack-devices) (`m5stickc-plus`), [Plus2](docs/m5stack.md#m5stickc-plus2) (`m5stickc-plus2`), [StickS3](docs/m5stack.md#additional-m5stack-devices) (`m5sticks3`) | Plus2 verified; Plus and StickS3 unverified |
 | 80 × 160, portrait | [M5StickC](docs/m5stack.md#additional-m5stack-devices) (`m5stickc`) | Unverified |
-| 320 × 170, landscape | [LILYGO T-Embed SI4732 / CC1101 / CC1101 Plus](docs/lilygo.md) (`lilygo-t-embed-si4732`, `lilygo-t-embed-cc1101`, `lilygo-t-embed-cc1101-plus`), [ATS-mini](docs/ats-mini.md) (`ats-mini`) | Unverified |
+| 320 × 170, landscape | [LILYGO T-Embed SI4732 / CC1101 / CC1101 Plus](docs/lilygo.md) (`lilygo-t-embed-si4732`, `lilygo-t-embed-cc1101`, `lilygo-t-embed-cc1101-plus`), [ATS-mini](docs/ats-mini.md) (`ats-mini`) | T-Embed CC1101 verified; SI4732, CC1101 Plus and ATS-mini unverified |
 | 480 × 222, landscape | [LILYGO T-Display S3 Pro](docs/lilygo.md) (`lilygo-t-display-s3-pro`), [T-LoRa Pager](docs/lilygo.md) (`lilygo-t-pager`) | Unverified |
 | 240 × 320, portrait e-paper | [LILYGO T-Deck Pro V1.0 / V1.1](docs/lilygo.md) (`lilygo-t-deck-pro`, `lilygo-t-deck-pro-v11`) | Unverified |
 | 600 × 400, landscape color e-paper | [M5Stack PaperColor](docs/m5stack.md#additional-m5stack-devices) (`m5stack-paper-color`); renders at 300 × 200 | Unverified |
