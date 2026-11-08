@@ -8,6 +8,7 @@ typedef enum {
     M5_MENU_NONE, M5_MENU_STEP, M5_MENU_SPAN, M5_MENU_Y_POS, M5_MENU_WF_BRIGHT,
     M5_MENU_WF_CONTRAST, M5_MENU_WF_SPEED, M5_MENU_FFT, M5_MENU_AVERAGE,
     M5_MENU_SPECTRUM, M5_MENU_AGC, M5_MENU_GAIN, M5_MENU_FILTER, M5_MENU_ABOUT, M5_MENU_RESET,
+    M5_MENU_POWER_OFF,
 } m5stack_menu_t;
 enum { M5_RX_AGC = 1, M5_RX_GAIN = 2, M5_RX_FILTER = 4 };
 
@@ -52,8 +53,8 @@ static inline int m5stack_adjust(int value, int direction, int step, int minimum
 }
 
 static inline void m5stack_menu_move(m5stack_controls_t *s, bool reverse) {
-    s->menu = reverse ? (s->menu <= M5_MENU_STEP ? M5_MENU_RESET : s->menu - 1) :
-                       (s->menu == M5_MENU_RESET ? M5_MENU_STEP : s->menu + 1);
+    s->menu = reverse ? (s->menu <= M5_MENU_STEP ? M5_MENU_POWER_OFF : s->menu - 1) :
+                       (s->menu == M5_MENU_POWER_OFF ? M5_MENU_STEP : s->menu + 1);
     s->reset_done = false;
 }
 
@@ -98,6 +99,10 @@ static inline unsigned m5stack_menu_adjust(m5stack_controls_t *s, unsigned mhz, 
             s->reset_done = true;
             mhz = 2440;
         }
+        break;
+    case M5_MENU_POWER_OFF:
+        if (direction < 0) s->menu = M5_MENU_NONE;
+        else standalone_display_power_off();
         break;
     }
     return mhz;

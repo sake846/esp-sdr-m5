@@ -4,6 +4,7 @@
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include "esp_check.h"
+#include "esp_sleep.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -98,3 +99,11 @@ void standalone_device_m5stack_basic_ili9341_row(unsigned y, const uint16_t *pix
 }
 
 void standalone_device_m5stack_basic_ili9341_flush(void) {}
+
+void standalone_device_m5stack_basic_ili9341_power_off(void) {
+    ESP_ERROR_CHECK(gpio_set_level(LCD_BL, 0));
+    lcd_command(0x28, NULL, 0);
+    lcd_command(0x10, NULL, 0);
+    vTaskDelay(pdMS_TO_TICKS(120));
+    esp_deep_sleep_start();
+}

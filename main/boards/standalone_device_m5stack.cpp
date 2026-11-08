@@ -5,6 +5,7 @@
 #include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_heap_caps.h"
+#include "esp_sleep.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -205,4 +206,11 @@ void m5stack_device_adapter_flush(void) {
         xTaskNotifyGive(paper_task);
     }
 #endif
+}
+
+void m5stack_device_adapter_power_off(void) {
+    M5.Display.setBrightness(0);
+    M5.Display.sleep();
+    M5.Power.powerOff();
+    esp_deep_sleep_start();
 }

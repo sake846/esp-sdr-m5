@@ -5,6 +5,7 @@
 enum { M5_AGC_MANUAL, M5_AGC_SOFTWARE, M5_AGC_HARDWARE };
 
 void standalone_display_init(void);
+void standalone_display_power_off(void);
 unsigned standalone_display_poll(unsigned mhz, bool pc_control);
 unsigned standalone_display_rate(void);
 unsigned standalone_display_span(void);

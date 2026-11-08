@@ -5,7 +5,7 @@
 /* Shared scanline overlay, using each display's row buffer. */
 static const char *const m5stack_menu_names[] = {
     "", "FREQ STEP", "FREQ SPAN", "Y POS", "WF BRIGHT", "WF CONTRAST", "WF SPEED",
-    "FFT NUM", "FFT AVERAGE", "SPEC MODE", "AGC TYPE", "RF GAIN", "FILTER", "ABOUT", "RESET",
+    "FFT NUM", "FFT AVERAGE", "SPEC MODE", "AGC TYPE", "RF GAIN", "FILTER", "ABOUT", "RESET", "POWER OFF",
 };
 
 static void m5stack_menu_value(char *value, size_t size) {
@@ -44,6 +44,7 @@ static void m5stack_menu_value(char *value, size_t size) {
 #endif
         break;
     case M5_MENU_RESET: snprintf(value, size, "%s", controls.reset_done ? "DONE" : "RIGHT RESET"); break;
+    case M5_MENU_POWER_OFF: snprintf(value, size, "RIGHT OFF"); break;
     default: value[0] = '\0'; break;
     }
 }

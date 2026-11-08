@@ -111,6 +111,7 @@ items; numeric settings stop at their limits.
 | FILTER | AUTO (follow span, default), WIDE (DAC 0), DAC 1–127; larger codes narrow the filter |
 | ABOUT | Left/right switch between the firmware name and board name |
 | RESET | Right restores startup frequency and settings; left exits |
+| POWER OFF | Right powers down the device (deep sleep / PMU shutdown); left exits |
 
 RESET returns to 2440 MHz, STEP 10 MHz, SPAN 80 MHz, FFT 1024, AVE 16,
 zero Y POS/brightness offsets, 100% contrast, 1× waterfall speed, NORMAL spectrum, SOFTWARE AGC

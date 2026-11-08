@@ -16,6 +16,9 @@ static inline void standalone_display_backend_row(unsigned y, const uint16_t *pi
 static inline void standalone_display_backend_flush(void) {
     standalone_device_m5stack_basic_ili9341_flush();
 }
+static inline void standalone_display_backend_power_off(void) {
+    standalone_device_m5stack_basic_ili9341_power_off();
+}
 #elif CONFIG_ESP_SDR_M5STACK
 #include "standalone_device_m5stack.h"
 static inline void standalone_display_backend_init(void) {
@@ -33,6 +36,9 @@ static inline void standalone_display_backend_row(unsigned y, const uint16_t *pi
 static inline void standalone_display_backend_flush(void) {
     m5stack_device_adapter_flush();
 }
+static inline void standalone_display_backend_power_off(void) {
+    m5stack_device_adapter_power_off();
+}
 #elif CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
 #include "standalone_device_lilygo_ats_mini.h"
 static inline void standalone_display_backend_init(void) {
@@ -45,6 +51,9 @@ static inline void standalone_display_backend_row(unsigned y, const uint16_t *pi
 }
 static inline void standalone_display_backend_flush(void) {
     standalone_device_lilygo_ats_mini_display_flush();
+}
+static inline void standalone_display_backend_power_off(void) {
+    standalone_device_lilygo_ats_mini_power_off();
 }
 #else
 #error Select a standalone display device

@@ -6,6 +6,7 @@
 #include "driver/spi_master.h"
 #include "esp_check.h"
 #include "esp_heap_caps.h"
+#include "esp_sleep.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -406,4 +407,33 @@ void standalone_device_lilygo_ats_mini_display_flush(void) {
     xSemaphoreGive(epaper_lock);
     xTaskNotifyGive(epaper_task);
 #endif
+}
+
+void standalone_device_lilygo_ats_mini_power_off(void) {
+#if !CONFIG_ESP_SDR_ATS_MINI
+#if !LILYGO_EPAPER
+#if LCD_BL >= 0
+    output(LCD_BL, 0);
+#endif
+    command(0x28, NULL, 0);
+    command(0x10, NULL, 0);
+    vTaskDelay(pdMS_TO_TICKS(120));
+#endif
+#if CONFIG_ESP_SDR_LILYGO_T_EMBED_SI4732
+    output(46, 0);
+#elif CONFIG_ESP_SDR_LILYGO_T_EMBED_CC1101 || CONFIG_ESP_SDR_LILYGO_T_EMBED_CC1101_PLUS
+    output(15, 0);
+#elif CONFIG_ESP_SDR_LILYGO_T_DECK
+    output(10, 0);
+#endif
+#else
+    output(15, 0);
+    output(10, 0);
+#endif
+#ifdef MENU_BUTTON
+#if MENU_BUTTON >= 0
+    esp_sleep_enable_ext0_wakeup((gpio_num_t)MENU_BUTTON, 0);
+#endif
+#endif
+    esp_deep_sleep_start();
 }

@@ -136,3 +136,4 @@ void standalone_device_lilygo_ats_mini_init(void);
 unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *controls, unsigned mhz, bool pc_control);
 void standalone_device_lilygo_ats_mini_display_row(unsigned y, const uint16_t *pixels);
 void standalone_device_lilygo_ats_mini_display_flush(void);
+void standalone_device_lilygo_ats_mini_power_off(void);

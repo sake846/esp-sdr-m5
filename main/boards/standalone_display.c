@@ -328,6 +328,10 @@ void standalone_display_init(void) {
 #endif
 }
 
+void standalone_display_power_off(void) {
+    standalone_display_backend_power_off();
+}
+
 unsigned standalone_display_poll(unsigned mhz, bool pc_control) {
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER || CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
     mhz = cardputer_controls_update(mhz, keyboard_buttons(),
