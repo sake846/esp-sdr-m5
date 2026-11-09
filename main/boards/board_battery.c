@@ -110,7 +110,7 @@ int board_battery_percent(void) {
             .dev_addr_length = I2C_ADDR_BIT_LEN_7, .scl_speed_hz = 400000,
 #if CONFIG_ESP_SDR_M5STACK_BASIC
             .device_address = 0x75, /* Optional I2C IP5306; older Basics have no telemetry. */
-#elif CONFIG_ESP_SDR_M5STACK_CORE2
+#elif CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
             .device_address = 0x34,
 #elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
             .device_address = 0x6a,
@@ -132,19 +132,23 @@ int board_battery_percent(void) {
         case 0xf: return 0;
         default: return -1;
     }
-#elif CONFIG_ESP_SDR_M5STACK_CORE2
+#elif CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
     if (battery_read(0x03, data, 1) != ESP_OK) return -1;
     if (data[0] == 0x4a) {
         if (battery_read(0x00, data, 1) != ESP_OK || !(data[0] & 0x08) ||
             battery_read(0xa4, data, 1) != ESP_OK || data[0] > 100) return -1;
         return data[0];
     }
+#if CONFIG_ESP_SDR_M5STACK_CORE2
     if (data[0] != 0x03 || battery_read(0x01, data, 1) != ESP_OK || !(data[0] & 0x20)) return -1;
     if (battery_read(0x82, data, 1) != ESP_OK) return -1;
     const uint8_t enable_adc[] = {0x82, data[0] | 0x80};
     if (i2c_master_transmit(battery_device, enable_adc, sizeof(enable_adc), 20) != ESP_OK ||
         battery_read(0x78, data, 2) != ESP_OK) return -1;
     return battery_voltage_percent(((data[0] << 4) | (data[1] & 0x0f)) * 11 / 10);
+#else
+    return -1;
+#endif
 #elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
     /* Charging is disabled, so SY6970 cannot measure VBAT while VBUS is present. */
     if (battery_read(0x0b, data, 1) != ESP_OK || (data[0] & 0xe0) ||

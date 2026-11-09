@@ -14,6 +14,7 @@ SI4732・CC1101・nRF24・LoRaモジュールでの受信や、AM/FM/SWの音声
 | Device / 機種 | Display / 画面 | Profile / プロファイル |
 | --- | --- | --- |
 | T-Display S3 Pro | ST7796U, 480 × 222 | `lilygo-t-display-s3-pro` |
+| T-Watch S3 | ST7789V3, 240 × 240, touch | `lilygo-t-watch-s3` |
 | T-LoRa Pager (T-Pager) | ST7796U, 480 × 222 | `lilygo-t-pager` |
 | T-Embed SI4732 | ST7789, 320 × 170 | `lilygo-t-embed-si4732` |
 | T-Embed CC1101 | ST7789, 320 × 170 | `lilygo-t-embed-cc1101` |
@@ -23,14 +24,14 @@ SI4732・CC1101・nRF24・LoRaモジュールでの受信や、AM/FM/SWの音声
 | T-Deck Pro V1.1 | UC8253 / GDEQ031T10, 240 × 320 | `lilygo-t-deck-pro-v11` |
 
 All profiles select 16 MB flash and native USB Serial/JTAG, with UART disabled
-to avoid driving onboard GPS/audio/radio connections. Pager and Pro use their
+to avoid driving onboard GPS/audio/radio connections. T-Watch S3, Pager and T-Deck Pro use their
 QSPI PSRAM for display history/images; T-Display S3 Pro uses OPI PSRAM; RF and FFT buffers stay in internal SRAM.
 The other profiles do not require PSRAM. T-Embed SI4732 and CC1101 are verified on real hardware; the other profiles have **not been tested on physical hardware**.
 T-Deck Pro MAX is a separate board and is not covered by the Pro profiles.
 
 全プロファイルで16 MBフラッシュとネイティブUSB Serial/JTAGを使用します。
 基板上のGPS・音声・無線モジュールとの競合を避けるためUARTは無効です。
-PagerとProは画面履歴・画像をQSPI PSRAMに置き、受信・FFT用の内蔵SRAMを確保します。
+T-Watch S3・Pager・T-Deck Proは画面履歴・画像をQSPI PSRAMに置き、受信・FFT用の内蔵SRAMを確保します。
 T-Display S3 ProはOPI PSRAMを使用し、その他のプロファイルではPSRAMを使用しません。T-Embed SI4732・CC1101は実機で動作確認済みですが、**それ以外のプロファイルは実機での動作は未確認です。**
 T-Deck Pro MAXは別基板のため、上記のPro用プロファイルには含みません。
 
@@ -58,6 +59,9 @@ these profiles to the existing CI build/export matrix automatically.
 
 ## Controls / 操作
 
+- On T-Watch S3, tap `TUNE-` or `TUNE+` at the bottom of the screen to change the
+  frequency or selected setting. Tap `MENU` to advance and hold it to return to tuning.
+  Use the side power button to turn the watch back on after `POWER OFF`.
 - T-Display S3 Pro: BOOT (GPIO0) decreases, GPIO12 selects the next setting,
   GPIO16 increases. Hold GPIO12 to return to tuning. SY6970 charging and its
   watchdog are disabled for battery-free USB operation; SD is deselected and
@@ -69,6 +73,10 @@ these profiles to the existing CI build/export matrix automatically.
 - The BOOT button also acts as the menu button on T-Deck and Pro.
 - The menu closes after five seconds without input. PC control takes priority
   and discards local key/encoder events during its serial lease.
+
+T-Watch S3では、画面下部の `TUNE-` と `TUNE+` で周波数や選択中の設定値を変更します。
+`MENU` のタップで次の設定項目へ進み、長押しで周波数操作に戻ります。
+`POWER OFF` の後は、側面の電源ボタンで起動します。
 
 T-Display S3 ProはBOOT（GPIO0）で値を減らし、GPIO12で次の設定、GPIO16で値を増やします。
 GPIO12の長押しで周波数操作へ戻ります。USB給電で電池がなくても使えるよう、SY6970の充電と
@@ -91,18 +99,20 @@ PagerはXL9555経由でキーボードを有効化し、使用しない無線モ
 
 ## Battery display / バッテリー表示
 
-All eight profiles alternate CPU/BAT percentages every five seconds when a battery
-reading is available. Pager, CC1101/Plus and T-Deck Pro use the BQ27220 fuel gauge;
+The status display cycles through CPU, BAT and GAIN every five seconds.
+T-Watch S3 uses the AXP2101 fuel gauge. Pager, CC1101/Plus and
+T-Deck Pro use the BQ27220 fuel gauge.
 T-Deck, T-Embed SI4732 and T-Display S3 Pro estimate charge from voltage. SI4732
 uses the board example's 1.702 mV/count calibration. SY6970 voltage measurements
 on T-Display S3 Pro are unavailable with USB input while charging is disabled.
-Missing, failed or out-of-range readings keep the CPU percentage visible.
+Missing, failed or out-of-range readings are shown as `BAT --%`.
 E-paper shows the selected value when the next panel refresh completes.
 
-残量を取得できる場合は、全8プロファイルでCPU%とBAT%を5秒ごとに切り替えます。
-Pager・CC1101/Plus・T-Deck Proは残量計の値を使い、その他は電圧から推定します。
+ステータス表示はCPU・BAT・GAINを5秒ごとに切り替えます。
+T-Watch S3はAXP2101、Pager・CC1101/Plus・T-Deck ProはBQ27220の残量計を使います。
+その他の機種では電圧から残量を推定します。
 T-Display S3 Proは充電を無効にしているため、USB給電中はバッテリー電圧を取得できません。
-取得失敗や範囲外の電圧の場合はCPU%を表示します。電子ペーパーへの反映は画面更新時になります。
+残量を取得できない場合は `BAT --%` と表示します。電子ペーパーへの反映は画面更新時になります。
 
 ## T-Deck Pro e-paper / 電子ペーパー
 
@@ -133,3 +143,5 @@ V1.1は画面リセットにGPIO16を使用します。リセット端子がな�
 - [GxEPD2 UC8253 initialization and update sequence, Jean-Marc Zingg, GPLv3](https://github.com/ZinggJM/GxEPD2/blob/master/src/gdeq/GxEPD2_310_GDEQ031T10.cpp)
 
 T-Display S3 Pro wiring and panel initialization follow the [official repository](https://github.com/Xinyuan-LilyGO/T-Display-S3-Pro).
+
+T-Watch S3 follows the [LILYGO hardware reference](https://github.com/Xinyuan-LilyGO/LilyGoLib/blob/master/docs/hardware/lilygo-t-watch-s3.md) and [ST7789V3 initialization](https://github.com/Xinyuan-LilyGO/LilyGoLib/blob/master/src/display/LilyGoDispInterface.cpp).

@@ -39,6 +39,7 @@ M5Stack BASIC, Core2, original Cardputer K132, Cardputer ADV, M5StickC Plus2, an
 | 80 × 160, portrait | [M5StickC](docs/m5stack.md#additional-m5stack-devices) (`m5stickc`) | Unverified |
 | 320 × 170, landscape | [LILYGO T-Embed SI4732 / CC1101 / CC1101 Plus](docs/lilygo.md) (`lilygo-t-embed-si4732`, `lilygo-t-embed-cc1101`, `lilygo-t-embed-cc1101-plus`), [ATS-mini](docs/ats-mini.md) (`ats-mini`) | T-Embed SI4732 and CC1101 verified; CC1101 Plus and ATS-mini unverified |
 | 480 × 222, landscape | [LILYGO T-Display S3 Pro](docs/lilygo.md) (`lilygo-t-display-s3-pro`), [T-LoRa Pager](docs/lilygo.md) (`lilygo-t-pager`) | Unverified |
+| 240 × 240, touch | [LILYGO T-Watch S3](docs/lilygo.md) (`lilygo-t-watch-s3`) | Unverified |
 | 240 × 320, portrait e-paper | [LILYGO T-Deck Pro V1.0 / V1.1](docs/lilygo.md) (`lilygo-t-deck-pro`, `lilygo-t-deck-pro-v11`) | Unverified |
 | 600 × 400, landscape color e-paper | [M5Stack PaperColor](docs/m5stack.md#additional-m5stack-devices) (`m5stack-paper-color`); renders at 300 × 200 | Unverified |
 | 960 × 540, landscape grayscale e-paper | [M5Stack PaperS3](docs/m5stack.md#additional-m5stack-devices) (`m5stack-papers3`); renders at 480 × 270 | Unverified |

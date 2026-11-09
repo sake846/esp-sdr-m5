@@ -28,6 +28,7 @@ TARGETS = {
 
 for _board, _pins in {
     'T_DISPLAY_S3_PRO': set(range(0, 19)) | {21} | set(range(38, 43)) | set(range(45, 49)),
+    'T_WATCH_S3': set(range(0, 19)) | {21} | set(range(38, 49)),
     'T_PAGER': set(range(0, 9)) | set(range(10, 15)) | {17, 18, 21} | set(range(33, 43)) | set(range(45, 49)),
     'T_EMBED_SI4732': {0, 1, 2, 21} | set(range(4, 19)) | set(range(38, 49)),
     'T_EMBED_CC1101': set(range(0, 19)) | {21} | set(range(38, 49)),

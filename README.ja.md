@@ -40,6 +40,7 @@ M5Stack BASIC・Core2・Cardputer通常版K132・Cardputer ADV・M5StickC Plus2�
 | 80 × 160、縦 | [M5StickC](docs/m5stack.md#additional-m5stack-devices) (`m5stickc`) | 未確認 |
 | 320 × 170、横 | [LILYGO T-Embed SI4732／CC1101／CC1101 Plus](docs/lilygo.md) (`lilygo-t-embed-si4732`, `lilygo-t-embed-cc1101`, `lilygo-t-embed-cc1101-plus`)、[ATS-mini](docs/ats-mini.md) (`ats-mini`) | T-Embed SI4732・CC1101は確認済み。CC1101 Plus・ATS-miniは未確認 |
 | 480 × 222、横 | [LILYGO T-Display S3 Pro](docs/lilygo.md) (`lilygo-t-display-s3-pro`)、[T-LoRa Pager](docs/lilygo.md) (`lilygo-t-pager`) | 未確認 |
+| 240 × 240、タッチ | [LILYGO T-Watch S3](docs/lilygo.md) (`lilygo-t-watch-s3`) | 未確認 |
 | 240 × 320、縦、電子ペーパー | [LILYGO T-Deck Pro V1.0／V1.1](docs/lilygo.md) (`lilygo-t-deck-pro`, `lilygo-t-deck-pro-v11`) | 未確認 |
 | 600 × 400、横、カラー電子ペーパー | [M5Stack PaperColor](docs/m5stack.md#additional-m5stack-devices) (`m5stack-paper-color`)、描画座標は300 × 200 | 未確認 |
 | 960 × 540、横、白黒電子ペーパー | [M5Stack PaperS3](docs/m5stack.md#additional-m5stack-devices) (`m5stack-papers3`)、描画座標は480 × 270 | 未確認 |

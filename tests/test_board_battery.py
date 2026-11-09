@@ -1,4 +1,4 @@
-"""Exercise five-second CPU/BAT switching and real board telemetry with mocked SDK I/O."""
+"""Exercise the five-second status rotation and real board telemetry with mocked SDK I/O."""
 import unittest
 
 from host_test import COMPILER, ROOT, compile_run
@@ -22,27 +22,28 @@ class BoardBattery(unittest.TestCase):
 static int percent = 73, reads;
 int board_battery_percent(void) { reads++; return percent; }
 static void check(int64_t us, unsigned cpu, const char *expected, int expected_reads) {
-    char text[12]; board_status_text(text, sizeof(text), cpu, us);
+    char text[12]; board_status_text(text, sizeof(text), cpu, 30, us);
     assert(!strcmp(text, expected) && reads == expected_reads);
 }
 int main(void) {
     check(0, 12, "CPU 12%", 0);
-    check(4999999, 100, "CPU 100%", 0);
+    check(4999999, 100, "CPU100%", 0);
     check(5000000, 12, "BAT 73%", 1);
     percent = 0;
     check(9999999, 91, "BAT 73%", 1);
-    check(10000000, 91, "CPU 91%", 1);
-    check(15000000, 12, "BAT 0%", 2);
+    check(10000000, 91, "GAIN  30", 1);
+    check(15000000, 91, "CPU 91%", 1);
+    check(20000000, 12, "BAT 00%", 2);
     percent = 100;
-    check(25000000, 12, "BAT 100%", 3);
+    check(35000000, 12, "BAT100%", 3);
     percent = -1;
-    check(35000000, 12, "CPU 12%", 4);
-    check(35000001, 99, "CPU 99%", 4);
+    check(50000000, 12, "BAT --%", 4);
+    check(50000001, 99, "BAT --%", 4);
     percent = 101;
-    check(45000000, 12, "CPU 12%", 5);
+    check(65000000, 12, "BAT --%", 5);
     percent = 22;
-    check(INT64_C(5000000000000), 14, "CPU 14%", 5);
-    check(INT64_C(5000005000000), 14, "BAT 22%", 6);
+    check(INT64_C(4999995000000), 14, "CPU 14%", 5);
+    check(INT64_C(5000000000000), 14, "BAT 22%", 6);
     return 0;
 }
 ''')
@@ -170,10 +171,12 @@ int main(void) {
     for (unsigned i = 0; i < 6; i++) {
         registers[0x78] = patterns[i]; assert(board_battery_percent() == levels[i]);
     }
-#elif CONFIG_ESP_SDR_M5STACK_CORE2
+#elif CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
     registers[3] = 0x03; assert(board_battery_percent() == -1); /* No battery. */
+#if CONFIG_ESP_SDR_M5STACK_CORE2
     registers[1] = 0x20; registers[0x78] = 0xd2; registers[0x79] = 4;
     assert(board_battery_percent() == 50 && (registers[0x82] & 0x80)); /* 3700 mV. */
+#endif
     registers[3] = 0x4a; registers[0] = 8; registers[0xa4] = 81;
     assert(board_battery_percent() == 81);
     registers[0xa4] = 255; assert(board_battery_percent() == -1);
@@ -198,7 +201,8 @@ int main(void) {
 }
 '''
         for profile, addr, port in [('M5STACK_BASIC', 0x75, 1), ('M5STACK_CORE2', 0x34, 1),
-                                    ('LILYGO_T_DISPLAY_S3_PRO', 0x6a, 0), ('LILYGO_T_PAGER', 0x55, 0),
+                                    ('LILYGO_T_DISPLAY_S3_PRO', 0x6a, 0), ('LILYGO_T_WATCH_S3', 0x34, 0),
+                                    ('LILYGO_T_PAGER', 0x55, 0),
                                     ('LILYGO_T_EMBED_CC1101', 0x55, 0), ('LILYGO_T_EMBED_CC1101_PLUS', 0x55, 0),
                                     ('LILYGO_T_DECK_PRO', 0x55, 0), ('LILYGO_T_DECK_PRO_V11', 0x55, 0)]:
             with self.subTest(profile=profile):

@@ -291,6 +291,15 @@
       "allow_larger_flash": true,
       "preview": false,
       "sdkconfig": "sdkconfig.defaults.lilygo-t-display-s3-pro"
+    },
+    {
+      "id": "lilygo-t-watch-s3",
+      "target": "esp32s3",
+      "label": "LILYGO T-Watch S3 (16 MB, LCD/touch, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.lilygo-t-watch-s3"
     }
   ],
   "unavailable": {

@@ -6,6 +6,7 @@ from host_test import COMPILER, ROOT, compile_run
 
 BOARDS = [
     ('T_DISPLAY_S3_PRO', 480, 222, 17, 18, 39, 9, 0, 49, 5, 6),
+    ('T_WATCH_S3', 240, 240, 13, 18, 12, 38, 0, 80, 10, 11),
     ('T_PAGER', 480, 222, 34, 35, 38, 37, 0, 49, 3, 2),
     ('T_EMBED_SI4732', 320, 170, 11, 12, 10, 13, 0, 35, 18, 8),
     ('T_EMBED_CC1101', 320, 170, 9, 11, 41, 16, 0, 35, 8, 18),
@@ -27,6 +28,7 @@ int board_battery_percent(void) { return battery_percent; }
 #define ESP_OK 0
 #define ESP_ERR_NO_MEM 1
 #define ESP_ERR_INVALID_STATE 2
+#define ESP_ERR_INVALID_RESPONSE 3
 #define ESP_ERROR_CHECK(x) assert((x)==0)
 #define GPIO_MODE_OUTPUT 2
 #define GPIO_MODE_INPUT 1
@@ -35,6 +37,7 @@ int board_battery_percent(void) { return battery_percent; }
 #define SPI2_HOST 2
 #define SPI_DMA_CH_AUTO 1
 #define I2C_NUM_0 0
+#define I2C_NUM_1 1
 #define I2C_CLK_SRC_DEFAULT 0
 #define I2C_ADDR_BIT_LEN_7 0
 #define MALLOC_CAP_INTERNAL 1
@@ -51,6 +54,7 @@ int board_battery_percent(void) { return battery_percent; }
 #define portENTER_CRITICAL_ISR(x) ((void)0)
 #define portEXIT_CRITICAL_ISR(x) ((void)0)
 typedef int esp_err_t;
+typedef int gpio_num_t;
 typedef void *spi_device_handle_t;
 typedef uintptr_t i2c_master_dev_handle_t;
 typedef void *i2c_master_bus_handle_t;
@@ -66,6 +70,7 @@ typedef struct {int i2c_port,sda_io_num,scl_io_num,clk_source,glitch_ignore_cnt;
 typedef struct {int dev_addr_length,device_address,scl_speed_hz;} i2c_device_config_t;
 static unsigned levels[64], dc, cmd, row_number, rows, flushes, madctl;
 static uint8_t registers[128][256], event_fifo[16], event_count, deck_key;
+static uint8_t touch_data[5];
 static uint16_t pixels[480*320];
 static unsigned busy_stuck, mutex_taken, task_calls, refreshes, full_refreshes, partial_refreshes;
 static uint64_t pressed_inputs;
@@ -76,15 +81,20 @@ static int gpio_config(const gpio_config_t *c){return 0;}
 static int gpio_set_level(unsigned p,unsigned v){assert(p<64);levels[p]=v;if(p==TEST_DC)dc=v;return 0;}
 static int gpio_set_direction(unsigned p,unsigned m){assert(p<64);return 0;}
 static int gpio_get_level(unsigned p){return p==37 ? !busy_stuck : !(pressed_inputs & (UINT64_C(1)<<p));}
+static int esp_sleep_enable_ext0_wakeup(gpio_num_t pin,int level){return 0;}
+static void esp_deep_sleep_start(void){abort();}
 static int gpio_install_isr_service(unsigned f){return ESP_ERR_INVALID_STATE;}
 static int gpio_isr_handler_add(unsigned p,void (*cb)(void*),void *arg){return 0;}
 static int64_t esp_timer_get_time(void){return now*1000;}
 static void vTaskDelay(unsigned ms){now+=ms;}
 static void *heap_caps_calloc(size_t n,size_t s,unsigned caps){assert(caps==3 || caps==6);last_caps=caps;return calloc(n,s);}
 static int i2c_new_master_bus(const i2c_master_bus_config_t *c,i2c_master_bus_handle_t *b){
- assert(c->sda_io_num==TEST_SDA && c->scl_io_num==TEST_SCL);*b=(void*)1;return 0;
+ if(c->i2c_port==1)assert(c->sda_io_num==39 && c->scl_io_num==40);
+ else assert(c->sda_io_num==TEST_SDA && c->scl_io_num==TEST_SCL);
+ *b=(void*)(uintptr_t)(c->i2c_port+1);return 0;
 }
 static int i2c_master_bus_add_device(i2c_master_bus_handle_t b,const i2c_device_config_t *c,i2c_master_dev_handle_t *d){
+ assert(b==(c->device_address==0x38 ? (void*)2 : (void*)1));
  *d=c->device_address;return 0;
 }
 static int i2c_master_transmit(i2c_master_dev_handle_t d,const uint8_t *p,size_t n,int t){
@@ -92,9 +102,15 @@ static int i2c_master_transmit(i2c_master_dev_handle_t d,const uint8_t *p,size_t
 }
 static int i2c_master_transmit_receive(i2c_master_dev_handle_t d,const uint8_t *p,size_t n,uint8_t *out,size_t size,int t){
  if(d==0x6a){assert(n==1 && size==1);*out=registers[d][*p];return 0;}
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+ assert(n==1);
+ if(d==0x38){assert(*p==2 && size==5);memcpy(out,touch_data,5);return 0;}
+ assert(d==0x34 && size==1);*out=registers[d][*p];return 0;
+#else
  assert(d==0x34 && n==1 && size==1);
  if(*p==3)*out=event_count;
  else {assert(*p==4 && event_count);*out=event_fifo[--event_count];}return 0;
+#endif
 }
 static int i2c_master_receive(i2c_master_dev_handle_t d,uint8_t *out,size_t n,int t){
  assert(d==0x55 && n==1);*out=deck_key;deck_key=0;return 0;
@@ -135,12 +151,20 @@ static void vTaskSuspend(void *t){longjmp(worker_exit,2);}
 CHECK = r'''
 int main(void){
  registers[0x6a][3]=registers[0x6a][7]=0xff;
+ registers[0x34][3]=0x4a;
+ registers[0x34][0x90]=0x69;registers[0x34][0x93]=0x80;registers[0x34][0x94]=0x20;
  standalone_display_init();
  assert(standalone_display_fft_points()==1024);
 #if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
  assert((registers[0x6a][3]&0x30)==0 && (registers[0x6a][7]&0x30)==0);
  assert((registers[0x6a][2]&0xc0)==0xc0);
  assert(levels[14] && levels[46] && levels[13] && madctl==0x68);
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+ assert(levels[45] && madctl==0xc0);
+ assert(registers[0x34][0x90]==0x47);
+ assert(registers[0x34][0x93]==0x9c && registers[0x34][0x94]==0x3c);
+ registers[0x34][0x10]=0x24;standalone_display_power_off();
+ assert(registers[0x34][0x10]==0x25);
 #elif CONFIG_ESP_SDR_LILYGO_T_PAGER
  assert(registers[0x20][2]==0x84 && registers[0x20][3]==1);
  assert(registers[0x34][0x1d]==0x0f && registers[0x34][0x1f]==3);
@@ -180,7 +204,7 @@ int main(void){
 #endif
  unsigned mhz=2412;controls.menu=M5_MENU_NONE;
 #ifdef ENCODER_A
- encoder_count=8;mhz=standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);assert(mhz==2432);
+ encoder_count=2*ENCODER_DIVIDER;mhz=standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);assert(mhz==2432);
  encoder_count=-4;mhz=standalone_device_lilygo_ats_mini_poll(&controls,mhz,true);assert(mhz==2432 && !encoder_count);
 #endif
  if(keyboard){
@@ -197,19 +221,45 @@ int main(void){
 #endif
    now+=20;assert(standalone_device_lilygo_ats_mini_poll(&controls,mhz,true)==mhz); /* PC lease drains input. */
  }
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+ /* One action per contact, in the zone where it started. */
+ touch_data[0]=1;touch_data[2]=180;touch_data[4]=225;
+ now+=20;assert(standalone_display_poll(mhz,false)==mhz);
+ touch_data[2]=20;
+ now+=31;assert(standalone_display_poll(mhz,false)==mhz);
+ touch_data[0]=0;
+ now+=20;assert(standalone_display_poll(mhz,false)==mhz);
+ now+=31;assert(standalone_display_poll(mhz,false)==mhz+10);
+ touch_data[0]=1;touch_data[2]=20;
+ now+=20;standalone_display_poll(mhz,true);
+ now+=31;standalone_display_poll(mhz,false);
+ touch_data[0]=0;
+ now+=20;standalone_display_poll(mhz,false);
+ now+=31;assert(standalone_display_poll(mhz,false)==mhz);
+ controls.menu=M5_MENU_FFT;
+ touch_data[0]=1;touch_data[2]=120;
+ now+=20;standalone_display_poll(mhz,false);
+ now+=31;standalone_display_poll(mhz,false);
+ now+=601;standalone_display_poll(mhz,false);assert(controls.menu==M5_MENU_NONE);
+ touch_data[0]=0;
+ now+=20;standalone_display_poll(mhz,false);
+ now+=31;standalone_display_poll(mhz,false);assert(controls.menu==M5_MENU_NONE);
+#else
  controls.menu=M5_MENU_FFT;controls.b_long=false;
  pressed_inputs=UINT64_C(1)<<MENU_BUTTON;now+=50;
  standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);now+=31;standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);
  now+=601;standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);assert(controls.menu==M5_MENU_NONE);
  pressed_inputs=0;now+=1;standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);
  now+=31;standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);assert(controls.menu==M5_MENU_NONE);
+#endif
  controls.menu=M5_MENU_NONE; battery_percent=100;
- const char *telemetry[]={"BAT 100%", "CPU 49%"};
- for(unsigned frame=0;frame<2;frame++) {
+ standalone_display_set_gain_index(30);
+ const char *telemetry[]={"BAT100%", "GAIN  30", "CPU 49%"};
+ for(unsigned frame=0;frame<3;frame++) {
    now=(frame+1)*5000; standalone_display_draw(2412,bins,256,false,true,49);
-   unsigned left=SCREEN_WIDTH-text_width(telemetry[frame])-4;
+   unsigned left=SCREEN_WIDTH-m5stack_text_width(telemetry[frame],&DejaVu12)-4;
    for(unsigned y=1;y<12;y++) {
-     memset(row,0,sizeof(row)); text_row(y-1,left,telemetry[frame],0xffff);
+     memset(row,0,sizeof(row)); m5stack_text_row(y-1,left,9,telemetry[frame],&DejaVu12,0xffff,0);
      for(unsigned x=left;x<SCREEN_WIDTH;x++) {
 #if LILYGO_EPAPER
        assert(!!(epaper_frame[y*(SCREEN_WIDTH/8)+x/8] & (0x80u>>(x&7))) == !row[x]);
@@ -244,7 +294,7 @@ class LilygoProfiles(unittest.TestCase):
     def test_board_io_rendering_and_receiver_handoff(self):
         sources = '\n'.join((ROOT/'main/boards'/f).read_text() for f in ['standalone_device_lilygo_ats_mini.c', 'standalone_display.c'])
         headers = ['driver/gpio.h', 'driver/spi_master.h', 'driver/i2c_master.h',
-                   'esp_check.h', 'esp_heap_caps.h', 'esp_timer.h',
+                   'esp_check.h', 'esp_heap_caps.h', 'esp_sleep.h', 'esp_timer.h',
                    'freertos/FreeRTOS.h', 'freertos/task.h', 'freertos/semphr.h']
         for h in headers:
             sources = sources.replace(f'#include "{h}"', '')
@@ -253,14 +303,16 @@ class LilygoProfiles(unittest.TestCase):
                 names = ['WIDTH', 'HEIGHT', 'MOSI', 'SCLK', 'CS', 'DC', 'X', 'Y', 'SDA', 'SCL']
                 compile_run(STUB+sources+CHECK, ['CONFIG_ESP_SDR_LILYGO=1',
                     f'CONFIG_ESP_SDR_LILYGO_{board}=1', f'TEST_EPAPER={int(board.startswith("T_DECK_PRO"))}',
-                    f'CONFIG_SPIRAM={int("PRO" in board or board == "T_PAGER")}',
+                    f'CONFIG_SPIRAM={int("PRO" in board or board in ("T_PAGER", "T_WATCH_S3"))}',
                     *(f'TEST_{k}={v}' for k,v in zip(names,values))])
 
     @unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
     def test_encoder_invalid_edges_key_bounds_and_monochrome(self):
         compile_run(r'''
 #include <assert.h>
+#include <stdlib.h>
 #include "standalone_device_lilygo_ats_mini_controls.h"
+void standalone_display_power_off(void){abort();}
 int main(void){
  assert(standalone_device_lilygo_ats_mini_encoder_delta(0,3)==0 && standalone_device_lilygo_ats_mini_encoder_delta(3,0)==0);
  assert(standalone_device_lilygo_ats_mini_encoder_delta(0,1)+standalone_device_lilygo_ats_mini_encoder_delta(1,3)+

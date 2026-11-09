@@ -71,6 +71,8 @@ static uint64_t excluded_pins(void) {
 #elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
     /* Include optional camera connections and touch/charger/sensor interrupts. */
     mask |= PINS(0, 18) | PIN(21) | PINS(38, 42) | PINS(45, 48);
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+    mask |= PINS(0, 18) | PIN(21) | PINS(38, 48);
 #elif CONFIG_ESP_SDR_LILYGO_T_EMBED_SI4732
     mask |= PINS(0, 2) | PINS(4, 18) | PIN(21) | PINS(38, 48);
 #elif CONFIG_ESP_SDR_LILYGO_T_EMBED_CC1101 || CONFIG_ESP_SDR_LILYGO_T_EMBED_CC1101_PLUS
