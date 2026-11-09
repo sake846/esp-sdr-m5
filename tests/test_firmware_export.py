@@ -83,6 +83,7 @@ class FirmwareExport(unittest.TestCase):
         profiles += [('lilygo-' + board, 'esp32s3', '16MB') for board in [
             't-pager', 't-display-s3-pro', 't-embed-si4732', 't-embed-cc1101', 't-embed-cc1101-plus',
             't-deck', 't-deck-pro', 't-deck-pro-v11', 't-watch-s3']]
+        profiles += [(f'lilygo-t-watch-2020-v{version}', 'esp32', '16MB') for version in (1, 2, 3)]
         profiles += [('m5stack-cores3', 'esp32s3', '16MB'),
                      ('m5stack-din-meter', 'esp32s3', '8MB'), ('m5sticks3', 'esp32s3', '8MB'),
                      ('m5stickc-plus', 'esp32', '4MB'), ('m5stickc', 'esp32', '4MB'),

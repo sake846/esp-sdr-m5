@@ -41,6 +41,7 @@ M5Stack BASIC・Core2・Cardputer通常版K132・Cardputer ADV・M5StickC Plus2�
 | 320 × 170、横 | [LILYGO T-Embed SI4732／CC1101／CC1101 Plus](docs/lilygo.md) (`lilygo-t-embed-si4732`, `lilygo-t-embed-cc1101`, `lilygo-t-embed-cc1101-plus`)、[ATS-mini](docs/ats-mini.md) (`ats-mini`) | T-Embed SI4732・CC1101は確認済み。CC1101 Plus・ATS-miniは未確認 |
 | 480 × 222、横 | [LILYGO T-Display S3 Pro](docs/lilygo.md) (`lilygo-t-display-s3-pro`)、[T-LoRa Pager](docs/lilygo.md) (`lilygo-t-pager`) | 未確認 |
 | 240 × 240、タッチ | [LILYGO T-Watch S3](docs/lilygo.md) (`lilygo-t-watch-s3`) | 未確認 |
+| 240 × 240、タッチ | [LILYGO T-Watch 2020 V1／V2／V3](docs/lilygo.md) (`lilygo-t-watch-2020-v1`、`lilygo-t-watch-2020-v2`、`lilygo-t-watch-2020-v3`) | 未確認 |
 | 240 × 320、縦、電子ペーパー | [LILYGO T-Deck Pro V1.0／V1.1](docs/lilygo.md) (`lilygo-t-deck-pro`, `lilygo-t-deck-pro-v11`) | 未確認 |
 | 600 × 400、横、カラー電子ペーパー | [M5Stack PaperColor](docs/m5stack.md#additional-m5stack-devices) (`m5stack-paper-color`)、描画座標は300 × 200 | 未確認 |
 | 960 × 540、横、白黒電子ペーパー | [M5Stack PaperS3](docs/m5stack.md#additional-m5stack-devices) (`m5stack-papers3`)、描画座標は480 × 270 | 未確認 |
@@ -51,7 +52,7 @@ M5Stack BASIC・Core2・Cardputer通常版K132・Cardputer ADV・M5StickC Plus2�
 - [LILYGO機種](docs/lilygo.md)
 - [ATS-mini](docs/ats-mini.md)
 
-T-Deck Proは白黒電子ペーパーのため、画面更新が低速です。LILYGO機種はESP32-S3内蔵無線回路で受信し、基板上のSI4732・CC1101・LoRa無線モジュールは使用しません。詳しくは[LILYGOガイド](docs/lilygo.md)を参照してください。Tab5は今回は未対応です。画面・アプリ側のESP32-P4用受信処理がなく、内蔵ESP32-C6には専用受信ファームウェアとP4へのデータ転送経路が必要です。
+T-Deck Proは白黒電子ペーパーのため、画面更新が低速です。LILYGO機種はESP32またはESP32-S3の内蔵無線回路で受信します。詳しくは[LILYGOガイド](docs/lilygo.md)を参照してください。Tab5は今回は未対応です。画面・アプリ側のESP32-P4用受信処理がなく、内蔵ESP32-C6には専用受信ファームウェアとP4へのデータ転送経路が必要です。
 
 ## 動作画面
 

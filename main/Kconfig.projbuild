@@ -11,36 +11,58 @@ menu "ESP-SDR board"
 
     choice ESP_SDR_LILYGO_BOARD
         prompt "LILYGO standalone device"
-        depends on IDF_TARGET_ESP32S3
+        depends on IDF_TARGET_ESP32 || IDF_TARGET_ESP32S3
         default ESP_SDR_LILYGO_NONE
 
         config ESP_SDR_LILYGO_NONE
             bool "None"
+        config ESP_SDR_LILYGO_T_WATCH_2020_V1
+            bool "T-Watch 2020 V1"
+            depends on IDF_TARGET_ESP32
+        config ESP_SDR_LILYGO_T_WATCH_2020_V2
+            bool "T-Watch 2020 V2"
+            depends on IDF_TARGET_ESP32
+        config ESP_SDR_LILYGO_T_WATCH_2020_V3
+            bool "T-Watch 2020 V3"
+            depends on IDF_TARGET_ESP32
         config ESP_SDR_LILYGO_T_PAGER
             bool "T-LoRa Pager"
+            depends on IDF_TARGET_ESP32S3
         config ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
             bool "T-Display S3 Pro"
+            depends on IDF_TARGET_ESP32S3
         config ESP_SDR_LILYGO_T_WATCH_S3
             bool "T-Watch S3"
+            depends on IDF_TARGET_ESP32S3
         config ESP_SDR_LILYGO_T_EMBED_SI4732
             bool "T-Embed SI4732"
+            depends on IDF_TARGET_ESP32S3
         config ESP_SDR_LILYGO_T_EMBED_CC1101
             bool "T-Embed CC1101"
+            depends on IDF_TARGET_ESP32S3
         config ESP_SDR_LILYGO_T_EMBED_CC1101_PLUS
             bool "T-Embed CC1101 Plus"
+            depends on IDF_TARGET_ESP32S3
         config ESP_SDR_LILYGO_T_DECK
             bool "T-Deck / T-Deck Plus"
+            depends on IDF_TARGET_ESP32S3
         config ESP_SDR_LILYGO_T_DECK_PRO
             bool "T-Deck Pro V1.0 (e-paper)"
+            depends on IDF_TARGET_ESP32S3
         config ESP_SDR_LILYGO_T_DECK_PRO_V11
             bool "T-Deck Pro V1.1 (e-paper)"
+            depends on IDF_TARGET_ESP32S3
     endchoice
+
+    config ESP_SDR_LILYGO_T_WATCH_2020
+        bool
+        default y if ESP_SDR_LILYGO_T_WATCH_2020_V1 || ESP_SDR_LILYGO_T_WATCH_2020_V2 || ESP_SDR_LILYGO_T_WATCH_2020_V3
 
     config ESP_SDR_LILYGO
         bool
-        default y if !ESP_SDR_LILYGO_NONE && IDF_TARGET_ESP32S3
+        default y if !ESP_SDR_LILYGO_NONE && (IDF_TARGET_ESP32 || IDF_TARGET_ESP32S3)
         help
-            Uses the ESP32-S3 RF backend, onboard display and controls.
+            Uses the ESP32 or ESP32-S3 RF backend, onboard display and controls.
             External SI4732/CC1101/LoRa radios are not used for reception.
 
     choice ESP_SDR_M5STACK_BOARD

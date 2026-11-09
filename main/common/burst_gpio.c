@@ -73,6 +73,10 @@ static uint64_t excluded_pins(void) {
     mask |= PINS(0, 18) | PIN(21) | PINS(38, 42) | PINS(45, 48);
 #elif CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
     mask |= PINS(0, 18) | PIN(21) | PINS(38, 48);
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+    /* LCD, USB-UART, touch/PMU buses, boot straps, audio/IR and V2 SD/GPS. */
+    mask |= PINS(0, 5) | PINS(12, 15) | PINS(18, 19) |
+            PINS(21, 23) | PINS(25, 27) | PINS(32, 33);
 #elif CONFIG_ESP_SDR_LILYGO_T_EMBED_SI4732
     mask |= PINS(0, 2) | PINS(4, 18) | PIN(21) | PINS(38, 48);
 #elif CONFIG_ESP_SDR_LILYGO_T_EMBED_CC1101 || CONFIG_ESP_SDR_LILYGO_T_EMBED_CC1101_PLUS

@@ -12,6 +12,7 @@ TARGETS = {
     'ESP32_M5STACK': (40, None, (1, 3), set(range(6, 12)) | {16, 17, 4, 14, 18, 19, 21, 22, 23, 25, 27, 32, 33} | set(range(34, 40))),
     'ESP32_CORE2': (40, None, (1, 3), set(range(6, 12)) | {16, 17, 0, 1, 2, 3, 4, 5, 12, 15, 18, 21, 22, 23} | set(range(34, 40))),
     'ESP32_STICKC_PLUS2': (40, None, (1, 3), set(range(6, 12)) | {16, 17, 0, 2, 4, 5, 12, 13, 14, 15, 19, 21, 22, 27} | set(range(34, 40))),
+    'ESP32_LILYGO_T_WATCH_2020': (40, None, (1, 3), set(range(40))),
     'ESP32C2': (21, None, (20, 19), set(range(11, 18))),
     'ESP32C3': (22, (18, 19), (21, 20), set(range(11, 18))),
     'ESP32C5': (29, (13, 14), (11, 12), set(range(15, 23))),
@@ -172,6 +173,8 @@ int main(void) {
                         if '_M5STACK_' in target:
                             board = target.split('_M5STACK_')[1]
                         invalid = {p for p in excluded if (chip=='ESP32' and p>=34) or (chip=='ESP32S2' and p==46) or (chip=='ESP32S3' and p in range(22,26)) or (chip=='ESP32S31' and p==41)}
+                        if target == 'ESP32_LILYGO_T_WATCH_2020':
+                            invalid |= {20, 24, 28, 29, 30, 31}
                         with (tmp/'soc/soc_caps.h').open('a') as f:
                             if invalid:
                                 f.write(f'#undef SOC_GPIO_VALID_OUTPUT_GPIO_MASK\n#define SOC_GPIO_VALID_OUTPUT_GPIO_MASK {sum(1 << p for p in range(count) if p not in invalid)}ULL\n')
@@ -179,8 +182,8 @@ int main(void) {
                             f'CONFIG_IDF_TARGET_{chip}=1',
                             *([f'CONFIG_ESP_SDR_M5STACK_{board}=1'] if board else []),
                             *(['CONFIG_ESP_SDR_ATS_MINI=1'] if target == 'ESP32S3_ATS_MINI' else []),
-                            *(['CONFIG_ESP_SDR_LILYGO=1', f'CONFIG_ESP_SDR_LILYGO_{target[15:]}=1']
-                              if target.startswith('ESP32S3_LILYGO_') else []),
+                            *(['CONFIG_ESP_SDR_LILYGO=1', f'CONFIG_ESP_SDR_LILYGO_{target.split("_LILYGO_")[1]}=1']
+                              if '_LILYGO_' in target else []),
                             f'CONFIG_ESP_SDR_UART_ENABLED={uart_enabled}',
                             f'CONFIG_ESP_SDR_UART_TX_PIN={uart[0]}', f'CONFIG_ESP_SDR_UART_RX_PIN={uart[1]}',
                             f'EXPECTED_MASK={expected}ULL']

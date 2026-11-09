@@ -7,6 +7,8 @@ from host_test import COMPILER, ROOT, compile_run
 BOARDS = [
     ('T_DISPLAY_S3_PRO', 480, 222, 17, 18, 39, 9, 0, 49, 5, 6),
     ('T_WATCH_S3', 240, 240, 13, 18, 12, 38, 0, 80, 10, 11),
+    *((f'T_WATCH_2020_V{version}', 240, 240, 19, 18, 5, 27, 0, 80, 21, 22)
+      for version in (1, 2, 3)),
     ('T_PAGER', 480, 222, 34, 35, 38, 37, 0, 49, 3, 2),
     ('T_EMBED_SI4732', 320, 170, 11, 12, 10, 13, 0, 35, 18, 8),
     ('T_EMBED_CC1101', 320, 170, 9, 11, 41, 16, 0, 35, 8, 18),
@@ -71,6 +73,7 @@ typedef struct {int dev_addr_length,device_address,scl_speed_hz;} i2c_device_con
 static unsigned levels[64], dc, cmd, row_number, rows, flushes, madctl;
 static uint8_t registers[128][256], event_fifo[16], event_count, deck_key;
 static uint8_t touch_data[5];
+static unsigned ext_history, ext_writes;
 static uint16_t pixels[480*320];
 static unsigned busy_stuck, mutex_taken, task_calls, refreshes, full_refreshes, partial_refreshes;
 static uint64_t pressed_inputs;
@@ -89,7 +92,10 @@ static int64_t esp_timer_get_time(void){return now*1000;}
 static void vTaskDelay(unsigned ms){now+=ms;}
 static void *heap_caps_calloc(size_t n,size_t s,unsigned caps){assert(caps==3 || caps==6);last_caps=caps;return calloc(n,s);}
 static int i2c_new_master_bus(const i2c_master_bus_config_t *c,i2c_master_bus_handle_t *b){
- if(c->i2c_port==1)assert(c->sda_io_num==39 && c->scl_io_num==40);
+ if(c->i2c_port==1){
+   assert(c->sda_io_num==(CONFIG_ESP_SDR_LILYGO_T_WATCH_2020 ? 23 : 39));
+   assert(c->scl_io_num==(CONFIG_ESP_SDR_LILYGO_T_WATCH_2020 ? 32 : 40));
+ }
  else assert(c->sda_io_num==TEST_SDA && c->scl_io_num==TEST_SCL);
  *b=(void*)(uintptr_t)(c->i2c_port+1);return 0;
 }
@@ -98,14 +104,17 @@ static int i2c_master_bus_add_device(i2c_master_bus_handle_t b,const i2c_device_
  *d=c->device_address;return 0;
 }
 static int i2c_master_transmit(i2c_master_dev_handle_t d,const uint8_t *p,size_t n,int t){
- assert(n==2);registers[d][p[0]]=p[1];return 0;
+ assert(n==2);registers[d][p[0]]=p[1];
+ if(d==0x35 && p[0]==0x12){ext_history=(ext_history<<1)|(p[1]&1);ext_writes++;}
+ return 0;
 }
 static int i2c_master_transmit_receive(i2c_master_dev_handle_t d,const uint8_t *p,size_t n,uint8_t *out,size_t size,int t){
  if(d==0x6a){assert(n==1 && size==1);*out=registers[d][*p];return 0;}
-#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
  assert(n==1);
  if(d==0x38){assert(*p==2 && size==5);memcpy(out,touch_data,5);return 0;}
- assert(d==0x34 && size==1);*out=registers[d][*p];return 0;
+ assert(d==(CONFIG_ESP_SDR_LILYGO_T_WATCH_2020 ? 0x35 : 0x34) && size==1);
+ *out=registers[d][*p];return 0;
 #else
  assert(d==0x34 && n==1 && size==1);
  if(*p==3)*out=event_count;
@@ -153,6 +162,7 @@ int main(void){
  registers[0x6a][3]=registers[0x6a][7]=0xff;
  registers[0x34][3]=0x4a;
  registers[0x34][0x90]=0x69;registers[0x34][0x93]=0x80;registers[0x34][0x94]=0x20;
+ registers[0x35][3]=0x41;registers[0x35][0x12]=0x4a;registers[0x35][0x28]=0x0b;
  standalone_display_init();
  assert(standalone_display_fft_points()==1024);
 #if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
@@ -165,6 +175,18 @@ int main(void){
  assert(registers[0x34][0x93]==0x9c && registers[0x34][0x94]==0x3c);
  registers[0x34][0x10]=0x24;standalone_display_power_off();
  assert(registers[0x34][0x10]==0x25);
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+ assert(madctl==0xc8 && registers[0x35][0x28]==0xfb);
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_2020_V1
+ assert(levels[12] && registers[0x35][0x12]==0x06);
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_2020_V2
+ assert(levels[25] && levels[13] && registers[0x35][0x12]==0x47);
+ assert(registers[0x35][0x29]==0x68 && ext_history==5 && ext_writes==3);
+#else
+ assert(levels[15] && levels[14] && registers[0x35][0x12]==0x06);
+#endif
+ registers[0x35][0x32]=0x24;standalone_display_power_off();
+ assert(registers[0x35][0x32]==0xa4);
 #elif CONFIG_ESP_SDR_LILYGO_T_PAGER
  assert(registers[0x20][2]==0x84 && registers[0x20][3]==1);
  assert(registers[0x34][0x1d]==0x0f && registers[0x34][0x1f]==3);
@@ -221,7 +243,11 @@ int main(void){
 #endif
    now+=20;assert(standalone_device_lilygo_ats_mini_poll(&controls,mhz,true)==mhz); /* PC lease drains input. */
  }
-#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+ controls.filter=127;
+ standalone_display_poll(mhz,false);
+ assert(controls.filter==(CONFIG_ESP_SDR_LILYGO_T_WATCH_2020 ? 127 : 63));
+ controls.filter=-1;
  /* One action per contact, in the zone where it started. */
  touch_data[0]=1;touch_data[2]=180;touch_data[4]=225;
  now+=20;assert(standalone_display_poll(mhz,false)==mhz);
@@ -283,11 +309,13 @@ class LilygoProfiles(unittest.TestCase):
         for board, *_ in BOARDS:
             name = 'lilygo-' + board.lower().replace('_', '-')
             profile = profiles[name]
-            self.assertEqual(profile['target'], 'esp32s3')
+            watch_2020 = board.startswith('T_WATCH_2020_')
+            self.assertEqual(profile['target'], 'esp32' if watch_2020 else 'esp32s3')
             defaults = (ROOT/profile['sdkconfig']).read_text()
             self.assertIn(f'CONFIG_ESP_SDR_LILYGO_{board}=y', defaults)
             self.assertIn('CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y', defaults)
-            self.assertIn('# CONFIG_ESP_SDR_UART_ENABLED is not set', defaults)
+            self.assertIn('CONFIG_ESP_SDR_UART_ENABLED=y' if watch_2020 else
+                          '# CONFIG_ESP_SDR_UART_ENABLED is not set', defaults)
             self.assertIn(name, (ROOT/'docs/lilygo.md').read_text(encoding='utf-8'))
 
     @unittest.skipUnless(COMPILER, 'Host C compiler unavailable')
@@ -300,10 +328,12 @@ class LilygoProfiles(unittest.TestCase):
             sources = sources.replace(f'#include "{h}"', '')
         for board, *values in BOARDS:
             with self.subTest(board=board):
+                watch_2020 = board.startswith('T_WATCH_2020_')
                 names = ['WIDTH', 'HEIGHT', 'MOSI', 'SCLK', 'CS', 'DC', 'X', 'Y', 'SDA', 'SCL']
                 compile_run(STUB+sources+CHECK, ['CONFIG_ESP_SDR_LILYGO=1',
                     f'CONFIG_ESP_SDR_LILYGO_{board}=1', f'TEST_EPAPER={int(board.startswith("T_DECK_PRO"))}',
-                    f'CONFIG_SPIRAM={int("PRO" in board or board in ("T_PAGER", "T_WATCH_S3"))}',
+                    f'CONFIG_ESP_SDR_LILYGO_T_WATCH_2020={int(watch_2020)}',
+                    f'CONFIG_SPIRAM={int("PRO" in board or board.startswith("T_WATCH_") or board == "T_PAGER")}',
                     *(f'TEST_{k}={v}' for k,v in zip(names,values))])
 
     @unittest.skipUnless(COMPILER, 'Host C compiler unavailable')

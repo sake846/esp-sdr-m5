@@ -37,7 +37,7 @@ static int pll_offset;
 #define WIFI_SECOND_CHAN_NONE 0
 typedef int esp_err_t;
 static unsigned gain_max=72, gain_code=40, captures, bits, clock_code, channel, pll, crystal, xtal=40, tunes;
-static bool hardware_agc=true;
+static bool hardware_agc=true, software_agc;
 static int rx_filter=-1;
 static unsigned rom_chip_i2c_readReg(unsigned block,unsigned host,unsigned reg){assert(block==0x67 && host==1 && (reg==1 || reg==2));return 24;}
 static char response[256];

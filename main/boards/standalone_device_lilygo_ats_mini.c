@@ -18,7 +18,7 @@
 static spi_device_handle_t display;
 #endif
 static i2c_master_dev_handle_t keyboard;
-#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+#ifdef WATCH_PMU_ADDR
 static i2c_master_dev_handle_t watch_pmu, watch_touch;
 #endif
 
@@ -39,13 +39,13 @@ static void command(uint8_t cmd, const uint8_t *bytes, size_t count) {
     if (count) write_display(true, bytes, count);
 }
 
-static void reg_write(i2c_master_dev_handle_t device, uint8_t reg, uint8_t value) {
+static inline void reg_write(i2c_master_dev_handle_t device, uint8_t reg, uint8_t value) {
     const uint8_t data[] = {reg, value};
     ESP_ERROR_CHECK(i2c_master_transmit(device, data, sizeof(data), 20));
 }
 #endif
 
-#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+#ifdef WATCH_PMU_ADDR
 static esp_err_t watch_pmu_update(uint8_t reg, uint8_t mask, uint8_t bits) {
     uint8_t value;
     esp_err_t result = i2c_master_transmit_receive(watch_pmu, &reg, 1, &value, 1, 20);
@@ -56,17 +56,39 @@ static esp_err_t watch_pmu_update(uint8_t reg, uint8_t mask, uint8_t bits) {
 
 static void watch_input_init(i2c_master_bus_handle_t bus) {
     const i2c_device_config_t pmu_config = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7, .device_address = 0x34, .scl_speed_hz = 400000,
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7, .device_address = WATCH_PMU_ADDR, .scl_speed_hz = 400000,
     };
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &pmu_config, &watch_pmu));
     const uint8_t id_reg = 0x03;
     uint8_t chip_id;
     ESP_ERROR_CHECK(i2c_master_transmit_receive(watch_pmu, &id_reg, 1, &chip_id, 1, 20));
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+    ESP_ERROR_CHECK(chip_id == 0x41 ? ESP_OK : ESP_ERR_INVALID_RESPONSE);
+    /* LDO2 supplies the backlight and also powers the V1 LCD. Preserve DCDC3 (ESP32). */
+    ESP_ERROR_CHECK(watch_pmu_update(0x28, 0xf0, 0xf0));
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_2020_V2
+    /* LDO3 supplies the V2 LCD and touch. Keep the LDO4 GPS rail off. */
+    ESP_ERROR_CHECK(watch_pmu_update(0x29, 0xff, 0x68)); /* 3.3 V in regulator mode. */
+    ESP_ERROR_CHECK(watch_pmu_update(0x12, 0x4d, 0x45));
+    vTaskDelay(pdMS_TO_TICKS(10));
+    ESP_ERROR_CHECK(watch_pmu_update(0x12, 0x01, 0));
+    vTaskDelay(pdMS_TO_TICKS(10));
+    ESP_ERROR_CHECK(watch_pmu_update(0x12, 0x01, 0x01));
+#else
+    /* Keep the unused audio rail off on V1 (LDO3) and V3 (LDO4). */
+    ESP_ERROR_CHECK(watch_pmu_update(0x12, 0x4c, 0x04));
+#endif
+#ifdef TOUCH_RST
+    vTaskDelay(pdMS_TO_TICKS(10));
+    output(TOUCH_RST, 1);
+#endif
+#else
     ESP_ERROR_CHECK(chip_id == 0x4a ? ESP_OK : ESP_ERR_INVALID_RESPONSE);
     /* ALDO2/3 supply the backlight and LCD/touch at 3.3 V. Keep LoRa and haptics off. */
     ESP_ERROR_CHECK(watch_pmu_update(0x93, 0x1f, 28));
     ESP_ERROR_CHECK(watch_pmu_update(0x94, 0x1f, 28));
     ESP_ERROR_CHECK(watch_pmu_update(0x90, 0x2e, 0x06));
+#endif
     vTaskDelay(pdMS_TO_TICKS(120));
 
     const i2c_master_bus_config_t touch_bus_config = {
@@ -117,7 +139,7 @@ static void input_init(void) {
     };
     i2c_master_bus_handle_t bus;
     ESP_ERROR_CHECK(i2c_new_master_bus(&config, &bus));
-#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+#ifdef WATCH_PMU_ADDR
     watch_input_init(bus);
 #endif
 #if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
@@ -213,7 +235,7 @@ static void encoder_init(void) {
 unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *s, unsigned mhz, bool pc_control) {
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
     bool was_long = s->b_long;
-#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+#ifdef WATCH_PMU_ADDR
     unsigned buttons = watch_buttons(now);
 #else
     unsigned buttons = gpio_get_level(MENU_BUTTON) ? 0 : 2;
@@ -265,8 +287,10 @@ unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *s, unsigned 
         }
 #endif
     }
+#if !CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
     /* The S3 analog filter has six programmable bits. */
     if (s->filter > 63) s->filter = 63;
+#endif
     return mhz;
 }
 
@@ -368,8 +392,14 @@ void standalone_device_lilygo_ats_mini_init(void) {
     output(14, 1); /* SD CS, shared SPI bus. */
     output(46, 1); /* Optional camera power down. */
     output(13, 1); /* Release touch reset. */
-#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+#elif defined(WATCH_PMU_ADDR)
     output(LCD_BL, 0); /* Keep the backlight dark while the PMU brings up the panel. */
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_2020_V2
+    output(13, 1); /* SD CS. */
+#endif
+#ifdef TOUCH_RST
+    output(TOUCH_RST, 0);
+#endif
 #else
     output(3, 1); /* LoRa CS. */
     output(48, 1); /* SD CS. */
@@ -402,8 +432,13 @@ void standalone_device_lilygo_ats_mini_init(void) {
     };
     ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &bus, SPI_DMA_CH_AUTO));
     const spi_device_interface_config_t device = {
+#if CONFIG_IDF_TARGET_ESP32
+        .clock_speed_hz = 27000000,
+#else
         .clock_speed_hz = LILYGO_EPAPER ? 10000000 : 40000000,
+#endif
         .mode = 0, .spics_io_num = LCD_CS, .queue_size = 1,
+        .flags = SPI_DEVICE_NO_DUMMY,
     };
     ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &device, &display));
 #if LILYGO_EPAPER
@@ -435,6 +470,21 @@ void standalone_device_lilygo_ats_mini_init(void) {
     command(0xe1, (const uint8_t[]){0xe0, 0x09, 0x0b, 0x06, 0x04, 0x03, 0x2b, 0x43, 0x42, 0x3b, 0x16, 0x14, 0x17, 0x1b}, 14);
     command(0xf0, (const uint8_t[]){0x3c}, 1);
     command(0xf0, (const uint8_t[]){0x69}, 1);
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+    /* ST7789 panel settings from TTGO_TWatch_Library. */
+    command(0x13, NULL, 0);
+    command(0xb6, (const uint8_t[]){0x0a, 0x82}, 2);
+    command(0xb2, (const uint8_t[]){0x0c, 0x0c, 0, 0x33, 0x33}, 5);
+    command(0xb7, (const uint8_t[]){0x35}, 1);
+    command(0xbb, (const uint8_t[]){0x28}, 1);
+    command(0xc0, (const uint8_t[]){0x0c}, 1);
+    command(0xc2, (const uint8_t[]){0x01, 0xff}, 2);
+    command(0xc3, (const uint8_t[]){0x10}, 1);
+    command(0xc4, (const uint8_t[]){0x20}, 1);
+    command(0xc6, (const uint8_t[]){0x0f}, 1);
+    command(0xd0, (const uint8_t[]){0xa4, 0xa1}, 2);
+    command(0xe0, (const uint8_t[]){0xd0, 0x00, 0x02, 0x07, 0x0a, 0x28, 0x32, 0x44, 0x42, 0x06, 0x0e, 0x12, 0x14, 0x17}, 14);
+    command(0xe1, (const uint8_t[]){0xd0, 0x00, 0x02, 0x07, 0x0a, 0x28, 0x31, 0x54, 0x47, 0x0e, 0x1c, 0x17, 0x1b, 0x1e}, 14);
 #elif CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
     /* ST7789V3 panel settings from LilyGoLib. */
     command(0xb2, (const uint8_t[]){0x1f, 0x1f, 0, 0x33, 0x33}, 5);
@@ -502,7 +552,9 @@ void standalone_device_lilygo_ats_mini_display_flush(void) {
 }
 
 void standalone_device_lilygo_ats_mini_power_off(void) {
-#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+    (void)watch_pmu_update(0x32, 0x80, 0x80);
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
     /* The side button is wired to the PMU and can power the watch back on. */
     (void)watch_pmu_update(0x10, 0x01, 0x01);
 #else

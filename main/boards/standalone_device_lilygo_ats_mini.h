@@ -19,25 +19,52 @@
 #define BOARD_SCL 6
 #define MENU_BUTTON 12
 #define LILYGO_NAME "T DISPLAY S3 PRO"
-#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
-#define LCD_MOSI 13
 #define LCD_SCLK 18
-#define LCD_CS 12
-#define LCD_DC 38
 #define LCD_RST -1
-#define LCD_BL 45
-/* Match LilyGoLib rotation 0 and the native FT6336U coordinates. */
+/* Match the LILYGO display orientation and native FT6336 coordinates. */
 #define LCD_X_OFFSET 0
 #define LCD_Y_OFFSET 80
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+#define LCD_MADCTL 0xc8
+#else
 #define LCD_MADCTL 0xc0
+#endif
+#define LILYGO_FOOTER_HEIGHT 32
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
+#define LCD_MOSI 13
+#define LCD_CS 12
+#define LCD_DC 38
+#define LCD_BL 45
 #define BOARD_SDA 10
 #define BOARD_SCL 11
 #define TOUCH_SDA 39
 #define TOUCH_SCL 40
-#define LILYGO_FOOTER_HEIGHT 32
+#define WATCH_PMU_ADDR 0x34
 #define LILYGO_NAME "T WATCH S3"
+#else
+#define LCD_MOSI 19
+#define LCD_CS 5
+#define LCD_DC 27
+#define BOARD_SDA 21
+#define BOARD_SCL 22
+#define TOUCH_SDA 23
+#define TOUCH_SCL 32
+#define WATCH_PMU_ADDR 0x35
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_2020_V1
+#define LCD_BL 12
+#define LILYGO_NAME "T WATCH 2020 V1"
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_2020_V2
+#define LCD_BL 25
+#define LILYGO_NAME "T WATCH 2020 V2"
+#else
+#define LCD_BL 15
+#define TOUCH_RST 14
+#define LILYGO_NAME "T WATCH 2020 V3"
+#endif
+#endif
 #elif CONFIG_ESP_SDR_LILYGO_T_PAGER
 #define SCREEN_WIDTH 480
 #define SCREEN_HEIGHT 222

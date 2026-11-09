@@ -30,7 +30,7 @@
 #include "soc/dport_reg.h"
 #include "soc/dport_access.h"
 #include "heap_memory_layout.h"
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
 #include "standalone_display.h"
 #define M5_LOCAL_FFT_MAX 4096u
 #define M5_LOCAL_AVERAGE_MAX 16u
@@ -56,7 +56,7 @@ static unsigned frequency_mhz = 2440;
 /* Original ESP32 BBTOP RX filter: registers 1/2, seven-bit capacitor DAC.
  * Preserve bit 7 and restore PHY calibration before any retune or transfer. */
 static int rx_filter = -1;
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
 static bool rx_filter_span_follow = true;
 #endif
 extern unsigned rom_chip_i2c_readReg(unsigned, unsigned, unsigned);
@@ -80,7 +80,7 @@ extern void rom_pbus_xpd_tx_off(void);
 extern void rom_set_rxclk_en(int);
 
 static void reply(const char *fmt, ...) {
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
     if (local_capture || software_agc_probing) return; /* Internal capture failures must not enter the UART protocol. */
 #else
     if (software_agc_probing) return;
@@ -118,7 +118,7 @@ static bool acquire_iq(unsigned n, unsigned source, unsigned clock, unsigned *ca
         return false;
     }
     if (rx_recalibration_stale()) prepare_rx();
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
     if (software_agc && !software_agc_probing && !local_capture) {
 #else
     if (software_agc && !software_agc_probing) {
@@ -182,7 +182,7 @@ static bool spectrum_acquire(unsigned n, unsigned rate, const uint32_t **data, u
     unsigned clock = rate == 6 ? 0 : rate == 1 ? 2 : 1;
     bool ok = acquire_iq(n, 0, clock, elapsed);
     *data = samples;
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
     if (ok && local_capture) local_capture_gain = (uint8_t)(samples[0] >> 20);
 #endif
     return ok;
@@ -260,26 +260,26 @@ static void command(char *line) {
     if (!strcmp(line, "CAPS"))
         reply(
             "CAPS VERSION GPIO SPEC SPECN SPECCAPS SPECSTAT DCT UARTBAUD RXLIMITS SERIALLEASE TUNEEXT RX40 RX16 LPFANA GAIN HWAGC "
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
             "SWAGC "
 #endif
             "IQ8\n");
     else if (sscanf(line, "BANDWIDTH %u %c", &n, &extra) == 1 &&
              (!n || (n >= RX_BANDWIDTH_MIN && n <= RX_BANDWIDTH_MAX))) {
         rx_filter = rx_bandwidth_dcap(n);
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
         rx_filter_span_follow = false;
 #endif
         reply("OK\n");
     } else if (!strcmp(line, "LPF AUTO")) {
         rx_filter = -1;
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
         rx_filter_span_follow = true;
 #endif
         reply("OK\n");
     } else if (sscanf(line, "LPF %u %c", &n, &extra) == 1 && n <= 127) {
         rx_filter = n;
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
         rx_filter_span_follow = false;
 #endif
         reply("OK\n");
@@ -298,7 +298,7 @@ static void command(char *line) {
         software_agc = false;
         apply_gain();
         reply("OK\n");
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
     } else if (!strcmp(line, "GAIN SOFTWARE")) {
         hardware_agc = false;
         software_agc = true;
@@ -317,7 +317,7 @@ static void command(char *line) {
 
 void app_main(void) {
     esp_log_level_set("*", ESP_LOG_NONE);
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
     standalone_display_init();
 #endif
     esp_err_t e = nvs_flash_init();
@@ -337,20 +337,20 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE));
     prepare_rx();
     gain_max = (REG_READ(RX_GAIN) >> 8) & 127;
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
     hardware_agc = false;
     software_agc = true;
     gain_code = 30;
     apply_gain();
 #else
-    REG_CLR_BIT(RX_GAIN, BIT(23)); /* Hardware AGC is the default outside M5Stack profiles. */
+    REG_CLR_BIT(RX_GAIN, BIT(23)); /* Hardware AGC is the default outside standalone profiles. */
 #endif
     fflush(stdout);
     burst_serial_init();
     burst_serial_serve(command);
 }
 
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
 void burst_serial_idle(bool leased) {
     static int64_t next_poll, next_frame;
     static int64_t average_start;
@@ -405,7 +405,7 @@ void burst_serial_idle(bool leased) {
         agc_peak_ready = false;
         agc_release_streak = 0;
     }
-#if CONFIG_ESP_SDR_M5STACK
+#if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO
     if (rx_filter_span_follow) rx_filter = rx_bandwidth_dcap(standalone_display_span());
 #endif
     if (leased) {

@@ -183,6 +183,14 @@ int main(void) {
     registers[0xa4] = 0; assert(board_battery_percent() == 0);
     registers[0] = 0; assert(board_battery_percent() == -1);
     registers[3] = 0xff; assert(board_battery_percent() == -1);
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+    registers[0xb9] = 64;
+    assert(board_battery_percent() == -1);
+    registers[0x01] = 0x20; assert(board_battery_percent() == 64);
+    registers[0xb9] = 0; assert(board_battery_percent() == 0);
+    registers[0xb9] = 100; assert(board_battery_percent() == 100);
+    registers[0xb9] = 101; assert(board_battery_percent() == -1);
+    registers[0xb9] = 0xc0; assert(board_battery_percent() == -1);
 #elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
     registers[0x0b] = 0x20; assert(board_battery_percent() == -1); /* VBUS present. */
     registers[0x0b] = 0; registers[0x0e] = 70;
@@ -202,6 +210,7 @@ int main(void) {
 '''
         for profile, addr, port in [('M5STACK_BASIC', 0x75, 1), ('M5STACK_CORE2', 0x34, 1),
                                     ('LILYGO_T_DISPLAY_S3_PRO', 0x6a, 0), ('LILYGO_T_WATCH_S3', 0x34, 0),
+                                    ('LILYGO_T_WATCH_2020', 0x35, 0),
                                     ('LILYGO_T_PAGER', 0x55, 0),
                                     ('LILYGO_T_EMBED_CC1101', 0x55, 0), ('LILYGO_T_EMBED_CC1101_PLUS', 0x55, 0),
                                     ('LILYGO_T_DECK_PRO', 0x55, 0), ('LILYGO_T_DECK_PRO_V11', 0x55, 0)]:

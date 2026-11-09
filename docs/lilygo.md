@@ -1,13 +1,13 @@
 # LILYGO standalone devices
 
-The profiles below use the ESP32-S3's built-in radio with the same receive
-frequency range, USB protocol and 256–4096-point FFT as Cardputer. The onboard
+The profiles below use the ESP32 or ESP32-S3 built-in radio and provide the
+ESP-SDR serial protocol and 256–4096-point FFT. The onboard
 SI4732, CC1101, nRF24 and LoRa radios are not receive backends for this firmware.
 Their antennas do not feed the ESP32's RF input. AM/FM/SW audio reception is not
 provided by these profiles.
 
-以下のプロファイルは、ESP32-S3の内蔵無線回路で受信し、本体画面に表示します。
-受信範囲・USBプロトコル・FFTサイズ（256〜4096点）はCardputerと共通です。
+以下のプロファイルは、ESP32またはESP32-S3の内蔵無線回路で受信し、本体画面に表示します。
+ESP-SDRのシリアルプロトコルと256〜4096点のFFTを利用できます。
 SI4732・CC1101・nRF24・LoRaモジュールでの受信や、AM/FM/SWの音声復調には対応しません。
 これらのモジュール用アンテナはESP32の受信入力には接続されていません。
 
@@ -15,6 +15,9 @@ SI4732・CC1101・nRF24・LoRaモジュールでの受信や、AM/FM/SWの音声
 | --- | --- | --- |
 | T-Display S3 Pro | ST7796U, 480 × 222 | `lilygo-t-display-s3-pro` |
 | T-Watch S3 | ST7789V3, 240 × 240, touch | `lilygo-t-watch-s3` |
+| T-Watch 2020 V1 | ST7789, 240 × 240, touch | `lilygo-t-watch-2020-v1` |
+| T-Watch 2020 V2 | ST7789, 240 × 240, touch | `lilygo-t-watch-2020-v2` |
+| T-Watch 2020 V3 | ST7789, 240 × 240, touch | `lilygo-t-watch-2020-v3` |
 | T-LoRa Pager (T-Pager) | ST7796U, 480 × 222 | `lilygo-t-pager` |
 | T-Embed SI4732 | ST7789, 320 × 170 | `lilygo-t-embed-si4732` |
 | T-Embed CC1101 | ST7789, 320 × 170 | `lilygo-t-embed-cc1101` |
@@ -23,15 +26,16 @@ SI4732・CC1101・nRF24・LoRaモジュールでの受信や、AM/FM/SWの音声
 | T-Deck Pro V1.0 | UC8253 / GDEQ031T10, 240 × 320 | `lilygo-t-deck-pro` |
 | T-Deck Pro V1.1 | UC8253 / GDEQ031T10, 240 × 320 | `lilygo-t-deck-pro-v11` |
 
-All profiles select 16 MB flash and native USB Serial/JTAG, with UART disabled
-to avoid driving onboard GPS/audio/radio connections. T-Watch S3, Pager and T-Deck Pro use their
-QSPI PSRAM for display history/images; T-Display S3 Pro uses OPI PSRAM; RF and FFT buffers stay in internal SRAM.
+All profiles select 16 MB flash. T-Watch 2020 V1/V2/V3 use the onboard USB-to-UART
+bridge at 2 Mbps. The ESP32-S3 profiles use native USB Serial/JTAG with UART disabled.
+T-Watch, Pager and T-Deck Pro use QSPI PSRAM for display history/images.
+T-Display S3 Pro uses OPI PSRAM. RF and FFT buffers stay in internal SRAM.
 The other profiles do not require PSRAM. T-Embed SI4732 and CC1101 are verified on real hardware; the other profiles have **not been tested on physical hardware**.
 T-Deck Pro MAX is a separate board and is not covered by the Pro profiles.
 
-全プロファイルで16 MBフラッシュとネイティブUSB Serial/JTAGを使用します。
-基板上のGPS・音声・無線モジュールとの競合を避けるためUARTは無効です。
-T-Watch S3・Pager・T-Deck Proは画面履歴・画像をQSPI PSRAMに置き、受信・FFT用の内蔵SRAMを確保します。
+全プロファイルで16 MBフラッシュを使用します。T-Watch 2020 V1・V2・V3のPC接続には
+本体のUSB–UART変換回路を使い、通信速度は2 Mbpsです。ESP32-S3搭載機はネイティブUSB Serial/JTAGを使います。
+T-Watchシリーズ・Pager・T-Deck Proは画面履歴・画像をQSPI PSRAMに置き、受信・FFT用の内蔵SRAMを確保します。
 T-Display S3 ProはOPI PSRAMを使用し、その他のプロファイルではPSRAMを使用しません。T-Embed SI4732・CC1101は実機で動作確認済みですが、**それ以外のプロファイルは実機での動作は未確認です。**
 T-Deck Pro MAXは別基板のため、上記のPro用プロファイルには含みません。
 
@@ -51,6 +55,17 @@ idf.py -B build-lilygo-t-pager -DIDF_TARGET=esp32s3 -DSDKCONFIG=build-lilygo-t-p
 idf.py -B build-lilygo-t-pager -p PORT flash
 ```
 
+For T-Watch 2020, use `IDF_TARGET=esp32` and select the profile for the revision
+printed on your watch. The backlight GPIO and touch reset wiring differ across revisions.
+
+T-Watch 2020では `IDF_TARGET=esp32` を指定し、機種のリビジョンに合うプロファイルを選びます。
+リビジョンごとにバックライトのGPIOやタッチのリセット配線が異なります。V2の場合は次のコマンドを使います。
+
+```sh
+idf.py -B build-lilygo-t-watch-2020-v2 -DIDF_TARGET=esp32 -DSDKCONFIG=build-lilygo-t-watch-2020-v2/sdkconfig -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.lilygo-t-watch-2020-v2 build
+idf.py -B build-lilygo-t-watch-2020-v2 -p PORT flash
+```
+
 Use a separate build directory for each profile. The firmware catalog also adds
 these profiles to the existing CI build/export matrix automatically.
 
@@ -59,7 +74,7 @@ these profiles to the existing CI build/export matrix automatically.
 
 ## Controls / 操作
 
-- On T-Watch S3, tap `TUNE-` or `TUNE+` at the bottom of the screen to change the
+- On T-Watch 2020 and S3, tap `TUNE-` or `TUNE+` at the bottom of the screen to change the
   frequency or selected setting. Tap `MENU` to advance and hold it to return to tuning.
   Use the side power button to turn the watch back on after `POWER OFF`.
 - T-Display S3 Pro: BOOT (GPIO0) decreases, GPIO12 selects the next setting,
@@ -74,7 +89,7 @@ these profiles to the existing CI build/export matrix automatically.
 - The menu closes after five seconds without input. PC control takes priority
   and discards local key/encoder events during its serial lease.
 
-T-Watch S3では、画面下部の `TUNE-` と `TUNE+` で周波数や選択中の設定値を変更します。
+T-Watch 2020とS3では、画面下部の `TUNE-` と `TUNE+` で周波数や選択中の設定値を変更します。
 `MENU` のタップで次の設定項目へ進み、長押しで周波数操作に戻ります。
 `POWER OFF` の後は、側面の電源ボタンで起動します。
 
@@ -100,7 +115,7 @@ PagerはXL9555経由でキーボードを有効化し、使用しない無線モ
 ## Battery display / バッテリー表示
 
 The status display cycles through CPU, BAT and GAIN every five seconds.
-T-Watch S3 uses the AXP2101 fuel gauge. Pager, CC1101/Plus and
+T-Watch 2020 uses the AXP202 fuel gauge and T-Watch S3 uses the AXP2101. Pager, CC1101/Plus and
 T-Deck Pro use the BQ27220 fuel gauge.
 T-Deck, T-Embed SI4732 and T-Display S3 Pro estimate charge from voltage. SI4732
 uses the board example's 1.702 mV/count calibration. SY6970 voltage measurements
@@ -109,7 +124,7 @@ Missing, failed or out-of-range readings are shown as `BAT --%`.
 E-paper shows the selected value when the next panel refresh completes.
 
 ステータス表示はCPU・BAT・GAINを5秒ごとに切り替えます。
-T-Watch S3はAXP2101、Pager・CC1101/Plus・T-Deck ProはBQ27220の残量計を使います。
+T-Watch 2020はAXP202、T-Watch S3はAXP2101、Pager・CC1101/Plus・T-Deck ProはBQ27220の残量計を使います。
 その他の機種では電圧から残量を推定します。
 T-Display S3 Proは充電を無効にしているため、USB給電中はバッテリー電圧を取得できません。
 残量を取得できない場合は `BAT --%` と表示します。電子ペーパーへの反映は画面更新時になります。
@@ -145,3 +160,5 @@ V1.1は画面リセットにGPIO16を使用します。リセット端子がな�
 T-Display S3 Pro wiring and panel initialization follow the [official repository](https://github.com/Xinyuan-LilyGO/T-Display-S3-Pro).
 
 T-Watch S3 follows the [LILYGO hardware reference](https://github.com/Xinyuan-LilyGO/LilyGoLib/blob/master/docs/hardware/lilygo-t-watch-s3.md) and [ST7789V3 initialization](https://github.com/Xinyuan-LilyGO/LilyGoLib/blob/master/src/display/LilyGoDispInterface.cpp).
+
+T-Watch 2020 pin and power maps are documented by LILYGO for [V1](https://github.com/Xinyuan-LilyGO/TTGO_TWatch_Library/blob/master/docs/watch_2020_v1.md), [V2](https://github.com/Xinyuan-LilyGO/TTGO_TWatch_Library/blob/master/docs/watch_2020_v2.md) and [V3](https://github.com/Xinyuan-LilyGO/TTGO_TWatch_Library/blob/master/docs/watch_2020_v3.md).

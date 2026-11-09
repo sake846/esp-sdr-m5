@@ -112,6 +112,8 @@ int board_battery_percent(void) {
             .device_address = 0x75, /* Optional I2C IP5306; older Basics have no telemetry. */
 #elif CONFIG_ESP_SDR_M5STACK_CORE2 || CONFIG_ESP_SDR_LILYGO_T_WATCH_S3
             .device_address = 0x34,
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+            .device_address = 0x35,
 #elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
             .device_address = 0x6a,
 #else
@@ -149,6 +151,10 @@ int board_battery_percent(void) {
 #else
     return -1;
 #endif
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+    if (battery_read(0x01, data, 1) != ESP_OK || !(data[0] & 0x20) ||
+        battery_read(0xb9, data, 1) != ESP_OK || data[0] > 100) return -1;
+    return data[0];
 #elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
     /* Charging is disabled, so SY6970 cannot measure VBAT while VBUS is present. */
     if (battery_read(0x0b, data, 1) != ESP_OK || (data[0] & 0xe0) ||
