@@ -30,13 +30,13 @@ All profiles select 16 MB flash. T-Watch 2020 V1/V2/V3 use the onboard USB-to-UA
 bridge at 2 Mbps. The ESP32-S3 profiles use native USB Serial/JTAG with UART disabled.
 T-Watch, Pager and T-Deck Pro use QSPI PSRAM for display history/images.
 T-Display S3 Pro uses OPI PSRAM. RF and FFT buffers stay in internal SRAM.
-The other profiles do not require PSRAM. T-Embed SI4732 and CC1101 are verified on real hardware; the other profiles have **not been tested on physical hardware**.
+The other profiles do not require PSRAM. T-Embed SI4732 and CC1101, and T-Watch 2020 V3, are verified on real hardware; the other profiles have **not been tested on physical hardware**.
 T-Deck Pro MAX is a separate board and is not covered by the Pro profiles.
 
 全プロファイルで16 MBフラッシュを使用します。T-Watch 2020 V1・V2・V3のPC接続には
 本体のUSB–UART変換回路を使い、通信速度は2 Mbpsです。ESP32-S3搭載機はネイティブUSB Serial/JTAGを使います。
 T-Watchシリーズ・Pager・T-Deck Proは画面履歴・画像をQSPI PSRAMに置き、受信・FFT用の内蔵SRAMを確保します。
-T-Display S3 ProはOPI PSRAMを使用し、その他のプロファイルではPSRAMを使用しません。T-Embed SI4732・CC1101は実機で動作確認済みですが、**それ以外のプロファイルは実機での動作は未確認です。**
+T-Display S3 ProはOPI PSRAMを使用し、その他のプロファイルではPSRAMを使用しません。T-Embed SI4732・CC1101とT-Watch 2020 V3は実機で動作確認済みですが、**それ以外のプロファイルは実機での動作は未確認です。**
 T-Deck Pro MAXは別基板のため、上記のPro用プロファイルには含みません。
 
 ## Build and flash / ビルド・書き込み
