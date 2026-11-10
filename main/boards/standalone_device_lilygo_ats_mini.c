@@ -19,7 +19,9 @@ static spi_device_handle_t display;
 #endif
 static i2c_master_dev_handle_t keyboard;
 #ifdef WATCH_PMU_ADDR
-static i2c_master_dev_handle_t watch_pmu, watch_touch;
+static i2c_master_dev_handle_t watch_pmu, watch_touch, watch_rtc;
+static unsigned watch_touch_events;
+static bool watch_display_awake;
 #endif
 
 static void output(unsigned pin, unsigned level) {
@@ -38,6 +40,24 @@ static void command(uint8_t cmd, const uint8_t *bytes, size_t count) {
     write_display(false, &cmd, 1);
     if (count) write_display(true, bytes, count);
 }
+
+#ifdef WATCH_PMU_ADDR
+static void watch_display_power(bool awake) {
+    if (watch_display_awake == awake) return;
+    if (awake) {
+        command(0x11, NULL, 0);
+        vTaskDelay(pdMS_TO_TICKS(120));
+        command(0x29, NULL, 0);
+        output(LCD_BL, 1);
+    } else {
+        command(0x28, NULL, 0);
+        command(0x10, NULL, 0);
+        vTaskDelay(pdMS_TO_TICKS(120));
+        output(LCD_BL, 0);
+    }
+    watch_display_awake = awake;
+}
+#endif
 
 static inline void reg_write(i2c_master_dev_handle_t device, uint8_t reg, uint8_t value) {
     const uint8_t data[] = {reg, value};
@@ -59,6 +79,10 @@ static void watch_input_init(i2c_master_bus_handle_t bus) {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7, .device_address = WATCH_PMU_ADDR, .scl_speed_hz = 400000,
     };
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &pmu_config, &watch_pmu));
+    const i2c_device_config_t rtc_config = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7, .device_address = 0x51, .scl_speed_hz = 400000,
+    };
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &rtc_config, &watch_rtc));
     const uint8_t id_reg = 0x03;
     uint8_t chip_id;
     ESP_ERROR_CHECK(i2c_master_transmit_receive(watch_pmu, &id_reg, 1, &chip_id, 1, 20));
@@ -106,7 +130,9 @@ static void watch_input_init(i2c_master_bus_handle_t bus) {
 
 static unsigned watch_buttons(uint32_t now) {
     static uint32_t next_poll;
+    static uint32_t touch_started;
     static bool touched;
+    static bool long_reported;
     static unsigned buttons;
     if ((int32_t)(now - next_poll) < 0) return buttons;
     next_poll = now + 10;
@@ -117,16 +143,113 @@ static unsigned watch_buttons(uint32_t now) {
     unsigned count = data[0] & 0x0f;
     if (!count) {
         touched = false;
+        long_reported = false;
         buttons = 0;
-    } else if (!touched) {
-        /* Keep the original zone until release so a drag cannot select another control. */
-        touched = true;
-        unsigned x = ((data[1] & 0x0f) << 8) | data[2];
-        unsigned y = ((data[3] & 0x0f) << 8) | data[4];
-        if (count == 1 && x < SCREEN_WIDTH && y < SCREEN_HEIGHT && y >= SCREEN_HEIGHT - LILYGO_FOOTER_HEIGHT)
-            buttons = 1u << (x / (SCREEN_WIDTH / 3));
+    } else {
+        if (!touched) {
+            /* Keep the original zone until release so a drag cannot select another control. */
+            touched = true;
+            touch_started = now;
+            long_reported = false;
+            watch_touch_events |= LILYGO_WATCH_TOUCH;
+            unsigned x = ((data[1] & 0x0f) << 8) | data[2];
+            unsigned y = ((data[3] & 0x0f) << 8) | data[4];
+            if (count == 1 && x < SCREEN_WIDTH && y < SCREEN_HEIGHT) {
+                if (y >= SCREEN_HEIGHT - LILYGO_FOOTER_HEIGHT) {
+                    unsigned zone = x / (SCREEN_WIDTH / 3);
+                    buttons = 1u << zone;
+                    watch_touch_events |= zone == 0 ? LILYGO_WATCH_TOUCH_LEFT :
+                                          zone == 1 ? LILYGO_WATCH_TOUCH_CENTER : LILYGO_WATCH_TOUCH_RIGHT;
+                } else if (y < 48) {
+                    if (x < SCREEN_WIDTH / 3) watch_touch_events |= LILYGO_WATCH_TOUCH_TOP_LEFT;
+                    else if (x >= SCREEN_WIDTH * 2 / 3) watch_touch_events |= LILYGO_WATCH_TOUCH_TOP_RIGHT;
+                }
+            }
+        }
+        if (!long_reported && (uint32_t)(now - touch_started) >= 600) {
+            watch_touch_events |= LILYGO_WATCH_LONG_PRESS;
+            long_reported = true;
+        }
     }
     return buttons;
+}
+
+unsigned standalone_device_lilygo_ats_mini_watch_events(void) {
+    unsigned events = watch_touch_events;
+    watch_touch_events = 0;
+    return events;
+}
+
+static unsigned watch_bcd(uint8_t value) {
+    return (value >> 4) * 10 + (value & 0x0f);
+}
+
+static bool watch_valid_bcd(uint8_t value, uint8_t tens_mask, unsigned max_tens) {
+    return (value & 0x0f) <= 9 && ((value & tens_mask) >> 4) <= max_tens;
+}
+
+static uint8_t watch_to_bcd(unsigned value) {
+    return (uint8_t)((value / 10) << 4 | value % 10);
+}
+
+static unsigned watch_days_in_month(unsigned year, unsigned month) {
+    static const uint8_t days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if (month < 1 || month > 12) return 0;
+    if (month == 2 && (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)) return 29;
+    return days[month - 1];
+}
+
+static bool watch_valid_datetime(unsigned year, unsigned month, unsigned day,
+                                 unsigned hour, unsigned minute, unsigned second) {
+    unsigned max_day = watch_days_in_month(year, month);
+    return year >= 2000 && year <= 2099 && max_day && day >= 1 && day <= max_day &&
+           hour < 24 && minute < 60 && second < 60;
+}
+
+static unsigned watch_weekday(unsigned year, unsigned month, unsigned day) {
+    /* Sakamoto's algorithm; PCF8563 encodes Sunday as 0. */
+    static const unsigned offsets[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+    year -= month < 3;
+    return (year + year / 4 - year / 100 + year / 400 + offsets[month - 1] + day) % 7;
+}
+
+bool standalone_device_lilygo_ats_mini_watch_read_datetime(unsigned *year, unsigned *month, unsigned *day,
+                                                             unsigned *hour, unsigned *minute, unsigned *second) {
+    const uint8_t reg = 0x02;
+    uint8_t data[7];
+    if (i2c_master_transmit_receive(watch_rtc, &reg, 1, data, sizeof(data), 10) != ESP_OK || (data[0] & 0x80))
+        return false;
+    if ((data[1] & 0x80) || (data[2] & 0xc0) || (data[3] & 0xc0) ||
+        (data[4] & 0xf8) || (data[4] & 0x07) > 6 || (data[5] & 0xe0)) return false;
+    if (!watch_valid_bcd(data[0] & 0x7f, 0x70, 5) || !watch_valid_bcd(data[1], 0x70, 5) ||
+        !watch_valid_bcd(data[2], 0x30, 2) || !watch_valid_bcd(data[3], 0x30, 3) ||
+        !watch_valid_bcd(data[5], 0x10, 1) || !watch_valid_bcd(data[6], 0xf0, 9)) return false;
+    unsigned sec = watch_bcd(data[0] & 0x7f), min = watch_bcd(data[1] & 0x7f);
+    unsigned hrs = watch_bcd(data[2] & 0x3f), date = watch_bcd(data[3] & 0x3f);
+    unsigned mon = watch_bcd(data[5] & 0x1f), yr = watch_bcd(data[6]);
+    unsigned full_year = 2000 + yr;
+    if (!watch_valid_datetime(full_year, mon, date, hrs, min, sec)) return false;
+    *year = full_year;
+    *month = mon;
+    *day = date;
+    *hour = hrs;
+    *minute = min;
+    *second = sec;
+    return true;
+}
+
+bool standalone_device_lilygo_ats_mini_watch_write_datetime(unsigned year, unsigned month, unsigned day,
+                                                              unsigned hour, unsigned minute, unsigned second) {
+    if (!watch_valid_datetime(year, month, day, hour, minute, second)) return false;
+    const uint8_t data[] = {
+        0x02, watch_to_bcd(second), watch_to_bcd(minute), watch_to_bcd(hour), watch_to_bcd(day),
+        (uint8_t)watch_weekday(year, month, day), watch_to_bcd(month), watch_to_bcd(year % 100),
+    };
+    return i2c_master_transmit(watch_rtc, data, sizeof(data), 20) == ESP_OK;
+}
+
+void standalone_device_lilygo_ats_mini_watch_display(bool awake) {
+    watch_display_power(awake);
 }
 #endif
 
@@ -516,6 +639,9 @@ void standalone_device_lilygo_ats_mini_init(void) {
     command(0x21, NULL, 0);
     command(0x29, NULL, 0);
     output(LCD_BL, 1);
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+    watch_display_awake = true;
+#endif
 #endif
 #endif
 }

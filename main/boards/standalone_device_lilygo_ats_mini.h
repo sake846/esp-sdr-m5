@@ -186,3 +186,17 @@ unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *controls, un
 void standalone_device_lilygo_ats_mini_display_row(unsigned y, const uint16_t *pixels);
 void standalone_device_lilygo_ats_mini_display_flush(void);
 void standalone_device_lilygo_ats_mini_power_off(void);
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+enum {
+    LILYGO_WATCH_TOUCH = 1, LILYGO_WATCH_LONG_PRESS = 2,
+    LILYGO_WATCH_TOUCH_LEFT = 4, LILYGO_WATCH_TOUCH_CENTER = 8,
+    LILYGO_WATCH_TOUCH_RIGHT = 16, LILYGO_WATCH_TOUCH_TOP_LEFT = 32,
+    LILYGO_WATCH_TOUCH_TOP_RIGHT = 64,
+};
+unsigned standalone_device_lilygo_ats_mini_watch_events(void);
+bool standalone_device_lilygo_ats_mini_watch_read_datetime(unsigned *year, unsigned *month, unsigned *day,
+                                                             unsigned *hour, unsigned *minute, unsigned *second);
+bool standalone_device_lilygo_ats_mini_watch_write_datetime(unsigned year, unsigned month, unsigned day,
+                                                              unsigned hour, unsigned minute, unsigned second);
+void standalone_device_lilygo_ats_mini_watch_display(bool awake);
+#endif

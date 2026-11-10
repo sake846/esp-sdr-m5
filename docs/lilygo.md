@@ -74,9 +74,13 @@ these profiles to the existing CI build/export matrix automatically.
 
 ## Controls / 操作
 
-- On T-Watch 2020 and S3, tap `TUNE-` or `TUNE+` at the bottom of the screen to change the
-  frequency or selected setting. Tap `MENU` to advance and hold it to return to tuning.
-  Use the side power button to turn the watch back on after `POWER OFF`.
+- On T-Watch 2020 and S3, tap `TUNE-`/`TUNE+` to change the frequency or selected setting,
+  and `MENU` to advance. Hold anywhere on the screen to switch between spectrum and digital
+  clock. In clock mode, tap the screen to show the date and time for five seconds; the LCD then
+  sleeps until the next tap. The lower-right `SET` opens the date/time editor. Tap `-`/`+` to
+  change the selected year, month, day, hour, minute or second; tap `NEXT` to advance. Use
+  `CANCEL` to discard or `SAVE` to write the onboard RTC. Use the side power button to turn the
+  watch back on after `POWER OFF`.
 - T-Display S3 Pro: BOOT (GPIO0) decreases, GPIO12 selects the next setting,
   GPIO16 increases. Hold GPIO12 to return to tuning. SY6970 charging and its
   watchdog are disabled for battery-free USB operation; SD is deselected and
@@ -89,8 +93,12 @@ these profiles to the existing CI build/export matrix automatically.
 - The menu closes after five seconds without input. PC control takes priority
   and discards local key/encoder events during its serial lease.
 
-T-Watch 2020とS3では、画面下部の `TUNE-` と `TUNE+` で周波数や選択中の設定値を変更します。
-`MENU` のタップで次の設定項目へ進み、長押しで周波数操作に戻ります。
+T-Watch 2020とS3では、画面下部の `TUNE-`・`TUNE+` で周波数や選択中の値を変更し、
+`MENU` で設定項目を進めます。
+画面のどこかを長押しすると、スペアナ表示とデジタル時計を切り替えます。時計モードで画面をタップすると
+5秒間日付と時刻を表示し、その後LCDが消灯します。次のタップで再表示します。時刻は本体のRTCから取得します。
+時計画面右下の `SET` をタップすると日時設定画面を開きます。画面下の `-`・`+` で選択中の年・月・日・時・分・秒を変更し、`NEXT` で項目を進めます。
+左上の `CANCEL` で破棄し、右上の `SAVE` でRTCに保存します。設定中は画面を消灯しません。
 `POWER OFF` の後は、側面の電源ボタンで起動します。
 
 T-Display S3 ProはBOOT（GPIO0）で値を減らし、GPIO12で次の設定、GPIO16で値を増やします。

@@ -65,6 +65,16 @@ static unsigned waterfall_head, waterfall_count, waterfall_mhz, waterfall_span, 
 static unsigned waterfall_frame;
 static bool waterfall_tuned;
 static spectrum_noise_floor_t noise_floor_avg;
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+static bool watch_clock_mode, watch_clock_visible;
+static bool watch_clock_sampled, watch_clock_drawn, watch_clock_time_valid;
+static bool watch_clock_editor, watch_clock_edit_error;
+static uint32_t watch_clock_deadline, watch_clock_sample_at, watch_clock_drawn_at;
+static unsigned watch_clock_year, watch_clock_month, watch_clock_day;
+static unsigned watch_clock_hour, watch_clock_minute, watch_clock_second;
+static unsigned watch_edit_year, watch_edit_month, watch_edit_day;
+static unsigned watch_edit_hour, watch_edit_minute, watch_edit_second, watch_edit_field;
+#endif
 
 #include "standalone_display_density.h"
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER_ADV
@@ -112,6 +122,68 @@ static void adv_keyboard_init(void) {
 
 #include "standalone_display_font.h"
 
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+static unsigned watch_edit_days_in_month(void) {
+    static const uint8_t days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if (watch_edit_month == 2 && watch_edit_year % 4 == 0) return 29;
+    return days[watch_edit_month - 1];
+}
+
+static void watch_edit_clamp_day(void) {
+    unsigned max_day = watch_edit_days_in_month();
+    if (watch_edit_day > max_day) watch_edit_day = max_day;
+}
+
+static void watch_edit_adjust(int direction) {
+    unsigned max_day;
+    switch (watch_edit_field) {
+    case 0:
+        if (direction > 0) watch_edit_year = watch_edit_year == 2099 ? 2000 : watch_edit_year + 1;
+        else watch_edit_year = watch_edit_year == 2000 ? 2099 : watch_edit_year - 1;
+        watch_edit_clamp_day();
+        break;
+    case 1:
+        if (direction > 0) watch_edit_month = watch_edit_month == 12 ? 1 : watch_edit_month + 1;
+        else watch_edit_month = watch_edit_month == 1 ? 12 : watch_edit_month - 1;
+        watch_edit_clamp_day();
+        break;
+    case 2:
+        max_day = watch_edit_days_in_month();
+        if (direction > 0) watch_edit_day = watch_edit_day == max_day ? 1 : watch_edit_day + 1;
+        else watch_edit_day = watch_edit_day == 1 ? max_day : watch_edit_day - 1;
+        break;
+    case 3:
+        if (direction > 0) watch_edit_hour = watch_edit_hour == 23 ? 0 : watch_edit_hour + 1;
+        else watch_edit_hour = watch_edit_hour == 0 ? 23 : watch_edit_hour - 1;
+        break;
+    case 4:
+        if (direction > 0) watch_edit_minute = watch_edit_minute == 59 ? 0 : watch_edit_minute + 1;
+        else watch_edit_minute = watch_edit_minute == 0 ? 59 : watch_edit_minute - 1;
+        break;
+    default:
+        if (direction > 0) watch_edit_second = watch_edit_second == 59 ? 0 : watch_edit_second + 1;
+        else watch_edit_second = watch_edit_second == 0 ? 59 : watch_edit_second - 1;
+        break;
+    }
+    watch_clock_edit_error = false;
+    watch_clock_drawn = false;
+}
+
+static void watch_edit_begin(void) {
+    if (!standalone_device_lilygo_ats_mini_watch_read_datetime(
+            &watch_edit_year, &watch_edit_month, &watch_edit_day,
+            &watch_edit_hour, &watch_edit_minute, &watch_edit_second)) {
+        watch_edit_year = 2000;
+        watch_edit_month = watch_edit_day = 1;
+        watch_edit_hour = watch_edit_minute = watch_edit_second = 0;
+    }
+    watch_edit_field = 0;
+    watch_clock_edit_error = false;
+    watch_clock_editor = true;
+    watch_clock_drawn = false;
+}
+#endif
+
 #if CONFIG_ESP_SDR_M5STACK || CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI
 #include "standalone_display_menu.h"
 #endif
@@ -136,6 +208,108 @@ static void draw_global_tune_hints(unsigned y) {
                          baseline, hints[i], &DejaVu9, COLOR_SRDECK_YELLOW_GREEN, 0);
     }
 }
+
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+static void draw_watch_editor(void) {
+    if (watch_clock_drawn) return;
+    watch_clock_drawn = true;
+    static const char *fields[] = {"YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND"};
+    char date[16], time[16], selected[24];
+    snprintf(date, sizeof(date), "%04u-%02u-%02u", watch_edit_year, watch_edit_month, watch_edit_day);
+    snprintf(time, sizeof(time), "%02u:%02u:%02u", watch_edit_hour, watch_edit_minute, watch_edit_second);
+    snprintf(selected, sizeof(selected), "EDIT %s", fields[watch_edit_field]);
+    for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
+        memset(row, 0, sizeof(row));
+        if (y < 36) {
+            m5stack_text_row(y, 8, 27, "CANCEL", &DejaVu9, 0xf800, 0);
+            m5stack_text_row(y, SCREEN_WIDTH - 8 - m5stack_text_width("SAVE", &DejaVu9), 27,
+                             "SAVE", &DejaVu9, 0x07e0, 0);
+        }
+        m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width("SET DATE/TIME", &DejaVu12)) / 2,
+                         65, "SET DATE/TIME", &DejaVu12, 0xffff, 0);
+        m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(date, &DejaVu12)) / 2,
+                         103, date, &DejaVu12, 0x07ff, 0);
+        m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(time, &DejaVu12)) / 2,
+                         136, time, &DejaVu12, 0x07ff, 0);
+        m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(selected, &DejaVu9)) / 2,
+                         171, selected, &DejaVu9, 0xffe0, 0);
+        if (watch_clock_edit_error)
+            m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width("RTC WRITE FAILED", &DejaVu9)) / 2,
+                             194, "RTC WRITE FAILED", &DejaVu9, 0xf800, 0);
+        m5stack_text_row(y, 40 - m5stack_text_width("-", &DejaVu12) / 2, 228, "-", &DejaVu12, 0xffff, 0);
+        m5stack_text_row(y, 120 - m5stack_text_width("NEXT", &DejaVu9) / 2, 228, "NEXT", &DejaVu9, 0xffff, 0);
+        m5stack_text_row(y, 200 - m5stack_text_width("+", &DejaVu12) / 2, 228, "+", &DejaVu12, 0xffff, 0);
+        standalone_display_backend_row(y, row);
+    }
+    standalone_display_backend_flush();
+}
+
+static void draw_watch_clock(void) {
+    uint32_t tick = (uint32_t)(esp_timer_get_time() / 1000000);
+    if (watch_clock_editor) {
+        draw_watch_editor();
+        return;
+    }
+    if (!watch_clock_sampled || watch_clock_sample_at != tick) {
+        watch_clock_time_valid = standalone_device_lilygo_ats_mini_watch_read_datetime(
+            &watch_clock_year, &watch_clock_month, &watch_clock_day,
+            &watch_clock_hour, &watch_clock_minute, &watch_clock_second);
+        watch_clock_sampled = true;
+        watch_clock_sample_at = tick;
+    }
+    if (watch_clock_drawn && watch_clock_drawn_at == tick) return;
+    watch_clock_drawn = true;
+    watch_clock_drawn_at = tick;
+
+    static const uint8_t segments[11] = {
+        0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x40,
+    };
+    static const int digit_x[] = {16, 48, 91, 123, 166, 198};
+    static const uint8_t segment_x0[] = {5, 23, 23, 5, 0, 0, 5};
+    static const uint8_t segment_x1[] = {23, 28, 28, 23, 5, 5, 23};
+    static const uint8_t segment_y0[] = {0, 5, 31, 55, 31, 5, 27};
+    static const uint8_t segment_y1[] = {5, 29, 55, 60, 55, 29, 32};
+    unsigned digits[] = {
+        watch_clock_time_valid ? watch_clock_hour / 10 : 10,
+        watch_clock_time_valid ? watch_clock_hour % 10 : 10,
+        watch_clock_time_valid ? watch_clock_minute / 10 : 10,
+        watch_clock_time_valid ? watch_clock_minute % 10 : 10,
+        watch_clock_time_valid ? watch_clock_second / 10 : 10,
+        watch_clock_time_valid ? watch_clock_second % 10 : 10,
+    };
+    char date[16];
+    if (watch_clock_time_valid)
+        snprintf(date, sizeof(date), "%04u-%02u-%02u", watch_clock_year, watch_clock_month, watch_clock_day);
+    else
+        snprintf(date, sizeof(date), "---- -- --");
+    const unsigned top = 88;
+    const uint16_t color = __builtin_bswap16(0x07ff);
+    for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
+        memset(row, 0, sizeof(row));
+        m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(date, &DejaVu12)) / 2,
+                         74, date, &DejaVu12, watch_clock_time_valid ? 0xffff : 0xf800, 0);
+        if (y >= top && y < top + 60) {
+            unsigned y_offset = y - top;
+            for (unsigned i = 0; i < 6; i++) {
+                for (unsigned j = 0; j < 7; j++) {
+                    if (!(segments[digits[i]] & (1u << j)) ||
+                        y_offset < segment_y0[j] || y_offset >= segment_y1[j]) continue;
+                    for (unsigned x = segment_x0[j]; x < segment_x1[j]; x++)
+                        row[digit_x[i] + x] = color;
+                }
+            }
+            if ((y_offset >= 19 && y_offset < 24) || (y_offset >= 37 && y_offset < 42))
+                for (unsigned x = 80; x < 85; x++) row[x] = row[x + 75] = color;
+        }
+        m5stack_text_row(y, 40 - m5stack_text_width("TAP", &DejaVu9) / 2, 228,
+                         "TAP", &DejaVu9, 0x7bef, 0);
+        m5stack_text_row(y, 200 - m5stack_text_width("SET", &DejaVu9) / 2, 228,
+                         "SET", &DejaVu9, 0x07ff, 0);
+        standalone_display_backend_row(y, row);
+    }
+    standalone_display_backend_flush();
+}
+#endif
 
 void standalone_display_set_gain_index(unsigned gain_index) {
     display_gain_index = gain_index;
@@ -356,7 +530,60 @@ unsigned standalone_display_poll(unsigned mhz, bool pc_control) {
     if (controls.filter > 63) controls.filter = 63;
 #endif
 #elif (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+    uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+    mhz = standalone_device_lilygo_ats_mini_poll(&controls, mhz, pc_control || watch_clock_mode);
+    unsigned events = standalone_device_lilygo_ats_mini_watch_events();
+    if (!pc_control && (events & LILYGO_WATCH_LONG_PRESS)) {
+        watch_clock_mode = !watch_clock_mode;
+        watch_clock_editor = false;
+        watch_clock_visible = watch_clock_mode;
+        if (watch_clock_mode) watch_clock_deadline = now + 5000;
+        watch_clock_sampled = watch_clock_drawn = false;
+        standalone_device_lilygo_ats_mini_watch_display(true);
+    } else if (!pc_control && watch_clock_mode && (events & LILYGO_WATCH_TOUCH)) {
+        watch_clock_visible = true;
+        standalone_device_lilygo_ats_mini_watch_display(true);
+        watch_clock_drawn = false;
+        if (watch_clock_editor) {
+            if (events & LILYGO_WATCH_TOUCH_TOP_LEFT) {
+                watch_clock_editor = false;
+                watch_clock_deadline = now + 5000;
+            } else if (events & LILYGO_WATCH_TOUCH_TOP_RIGHT) {
+                if (standalone_device_lilygo_ats_mini_watch_write_datetime(
+                        watch_edit_year, watch_edit_month, watch_edit_day,
+                        watch_edit_hour, watch_edit_minute, watch_edit_second)) {
+                    watch_clock_editor = false;
+                    watch_clock_sampled = false;
+                    watch_clock_deadline = now + 5000;
+                } else {
+                    watch_clock_edit_error = true;
+                }
+            } else if (events & LILYGO_WATCH_TOUCH_LEFT) {
+                watch_edit_adjust(-1);
+            } else if (events & LILYGO_WATCH_TOUCH_RIGHT) {
+                watch_edit_adjust(1);
+            } else if (events & LILYGO_WATCH_TOUCH_CENTER) {
+                watch_edit_field = (watch_edit_field + 1) % 6;
+                watch_clock_edit_error = false;
+            }
+        } else if (events & LILYGO_WATCH_TOUCH_RIGHT) {
+            watch_edit_begin();
+        } else {
+            watch_clock_deadline = now + 5000;
+            watch_clock_sampled = false;
+        }
+    }
+    if (watch_clock_mode) {
+        controls.menu = M5_MENU_NONE;
+        if (!watch_clock_editor && watch_clock_visible && (int32_t)(now - watch_clock_deadline) >= 0) {
+            watch_clock_visible = false;
+            standalone_device_lilygo_ats_mini_watch_display(false);
+        }
+    }
+#else
     mhz = standalone_device_lilygo_ats_mini_poll(&controls, mhz, pc_control);
+#endif
 #else
     mhz = m5stack_controls_update(&controls, mhz, pc_control ? 0 : keyboard_buttons(),
                                   (uint32_t)(esp_timer_get_time() / 1000), pc_control);
@@ -388,6 +615,12 @@ unsigned standalone_display_average_count(void) {
 
 void standalone_display_draw(unsigned mhz, const uint8_t *bins, unsigned fft_points, bool pc_control,
                         bool valid, unsigned cpu_percent) {
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+    if (watch_clock_mode) {
+        if (watch_clock_visible) draw_watch_clock();
+        return;
+    }
+#endif
     density_mode(mhz, pc_control);
     density_decay();
     char edges[3][12], right_status[12];
