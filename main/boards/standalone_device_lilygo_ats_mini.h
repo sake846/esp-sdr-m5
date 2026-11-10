@@ -199,4 +199,5 @@ bool standalone_device_lilygo_ats_mini_watch_read_datetime(unsigned *year, unsig
 bool standalone_device_lilygo_ats_mini_watch_write_datetime(unsigned year, unsigned month, unsigned day,
                                                               unsigned hour, unsigned minute, unsigned second);
 void standalone_device_lilygo_ats_mini_watch_display(bool awake);
+void standalone_device_lilygo_ats_mini_watch_sleep(void);
 #endif

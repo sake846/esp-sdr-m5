@@ -3,6 +3,7 @@
 #include "standalone_device_lilygo_ats_mini_controls.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
+#include "driver/rtc_io.h"
 #include "driver/spi_master.h"
 #include "esp_check.h"
 #include "esp_heap_caps.h"
@@ -250,6 +251,19 @@ bool standalone_device_lilygo_ats_mini_watch_write_datetime(unsigned year, unsig
 
 void standalone_device_lilygo_ats_mini_watch_display(bool awake) {
     watch_display_power(awake);
+}
+
+void standalone_device_lilygo_ats_mini_watch_sleep(void) {
+    watch_display_power(false);
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_2020_V3
+    /* V3 touch INT is active-low GPIO38 and remains powered during ESP32 deep sleep. */
+    ESP_ERROR_CHECK(rtc_gpio_init(GPIO_NUM_38));
+    ESP_ERROR_CHECK(rtc_gpio_set_direction(GPIO_NUM_38, RTC_GPIO_MODE_INPUT_ONLY));
+    ESP_ERROR_CHECK(rtc_gpio_pullup_en(GPIO_NUM_38));
+    ESP_ERROR_CHECK(rtc_gpio_pulldown_dis(GPIO_NUM_38));
+    ESP_ERROR_CHECK(esp_sleep_enable_ext0_wakeup(GPIO_NUM_38, 0));
+    esp_deep_sleep_start();
+#endif
 }
 #endif
 

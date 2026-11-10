@@ -10,6 +10,7 @@
 #endif
 #include "esp_check.h"
 #include "esp_heap_caps.h"
+#include "esp_sleep.h"
 #include "esp_timer.h"
 #include <stdio.h>
 #include <string.h>
@@ -69,6 +70,7 @@ static spectrum_noise_floor_t noise_floor_avg;
 static bool watch_clock_mode, watch_clock_visible;
 static bool watch_clock_sampled, watch_clock_drawn, watch_clock_time_valid;
 static bool watch_clock_editor, watch_clock_edit_error;
+static bool watch_clock_wake_pending;
 static uint32_t watch_clock_deadline, watch_clock_sample_at, watch_clock_drawn_at;
 static unsigned watch_clock_year, watch_clock_month, watch_clock_day;
 static unsigned watch_clock_hour, watch_clock_minute, watch_clock_second;
@@ -214,7 +216,11 @@ static void draw_watch_editor(void) {
     if (watch_clock_drawn) return;
     watch_clock_drawn = true;
     static const char *fields[] = {"YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND"};
-    char date[16], time[16], selected[24];
+    char date[16], time[16], selected[24], battery_text[12];
+    int battery = board_battery_percent();
+    if (battery < 0 || battery > 100) snprintf(battery_text, sizeof(battery_text), "BAT --%%");
+    else if (battery == 100) snprintf(battery_text, sizeof(battery_text), "BAT100%%");
+    else snprintf(battery_text, sizeof(battery_text), "BAT %02u%%", (unsigned)battery);
     snprintf(date, sizeof(date), "%04u-%02u-%02u", watch_edit_year, watch_edit_month, watch_edit_day);
     snprintf(time, sizeof(time), "%02u:%02u:%02u", watch_edit_hour, watch_edit_minute, watch_edit_second);
     snprintf(selected, sizeof(selected), "EDIT %s", fields[watch_edit_field]);
@@ -222,7 +228,9 @@ static void draw_watch_editor(void) {
         memset(row, 0, sizeof(row));
         if (y < 36) {
             m5stack_text_row(y, 8, 27, "CANCEL", &DejaVu9, 0xf800, 0);
-            m5stack_text_row(y, SCREEN_WIDTH - 8 - m5stack_text_width("SAVE", &DejaVu9), 27,
+            m5stack_text_row(y, SCREEN_WIDTH - 8 - m5stack_text_width(battery_text, &DejaVu9), 13,
+                             battery_text, &DejaVu9, 0xffff, 0);
+            m5stack_text_row(y, SCREEN_WIDTH - 8 - m5stack_text_width("SAVE", &DejaVu9), 33,
                              "SAVE", &DejaVu9, 0x07e0, 0);
         }
         m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width("SET DATE/TIME", &DejaVu12)) / 2,
@@ -282,10 +290,17 @@ static void draw_watch_clock(void) {
         snprintf(date, sizeof(date), "%04u-%02u-%02u", watch_clock_year, watch_clock_month, watch_clock_day);
     else
         snprintf(date, sizeof(date), "---- -- --");
+    char battery_text[12];
+    int battery = board_battery_percent();
+    if (battery < 0 || battery > 100) snprintf(battery_text, sizeof(battery_text), "BAT --%%");
+    else if (battery == 100) snprintf(battery_text, sizeof(battery_text), "BAT100%%");
+    else snprintf(battery_text, sizeof(battery_text), "BAT %02u%%", (unsigned)battery);
     const unsigned top = 88;
     const uint16_t color = __builtin_bswap16(0x07ff);
     for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
         memset(row, 0, sizeof(row));
+        m5stack_text_row(y, SCREEN_WIDTH - 8 - m5stack_text_width(battery_text, &DejaVu9),
+                         20, battery_text, &DejaVu9, 0xffff, 0);
         m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(date, &DejaVu12)) / 2,
                          74, date, &DejaVu12, watch_clock_time_valid ? 0xffff : 0xf800, 0);
         if (y >= top && y < top + 60) {
@@ -475,6 +490,12 @@ void standalone_display_init(void) {
 #endif
     ESP_ERROR_CHECK(waterfall ? ESP_OK : ESP_ERR_NO_MEM);
     standalone_display_backend_init();
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_2020_V3
+    if (esp_sleep_get_wakeup_causes() & (1U << ESP_SLEEP_WAKEUP_EXT0)) {
+        watch_clock_mode = watch_clock_visible = watch_clock_wake_pending = true;
+        watch_clock_sampled = watch_clock_drawn = false;
+    }
+#endif
 #if CONFIG_ESP_SDR_M5STACK
 #if CONFIG_ESP_SDR_M5STACK_CARDPUTER
     const gpio_config_t outputs = {
@@ -532,6 +553,10 @@ unsigned standalone_display_poll(unsigned mhz, bool pc_control) {
 #elif (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
 #if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+    if (watch_clock_wake_pending) {
+        watch_clock_deadline = now + 5000;
+        watch_clock_wake_pending = false;
+    }
     mhz = standalone_device_lilygo_ats_mini_poll(&controls, mhz, pc_control || watch_clock_mode);
     unsigned events = standalone_device_lilygo_ats_mini_watch_events();
     if (!pc_control && (events & LILYGO_WATCH_LONG_PRESS)) {
@@ -578,7 +603,7 @@ unsigned standalone_display_poll(unsigned mhz, bool pc_control) {
         controls.menu = M5_MENU_NONE;
         if (!watch_clock_editor && watch_clock_visible && (int32_t)(now - watch_clock_deadline) >= 0) {
             watch_clock_visible = false;
-            standalone_device_lilygo_ats_mini_watch_display(false);
+            standalone_device_lilygo_ats_mini_watch_sleep();
         }
     }
 #else
