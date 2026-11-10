@@ -131,7 +131,10 @@ static void reply(const char *s) {
 #include "burst_limits.h"
 
 static void prepare_rx(void) {
-    if (rx_ready && !rx_recalibration_stale()) return;
+    if (rx_ready && !rx_recalibration_stale()) {
+        if (gain_mode != GAIN_HARDWARE) gain_applied = rx_gain_verified_check(gain_code);
+        return;
+    }
     if (rx_prep == 1) {
         esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
         force_rx_gain(1, 55, 0);
@@ -149,17 +152,18 @@ static void prepare_rx(void) {
     phy_pbus_xpd_tx_off();
     phy_pbus_xpd_rx_on(1);
     phy_set_rxclk_en(1);
-    gain_apply();
     rx_lo_select(rx_lo_plan(frequency_mhz).alternate);
     esp_rom_delay_us(3000);
+    gain_apply();
     rx_ready = true;
 }
-/* A forced index update alone can leave continuous capture using stale RX
- * state until the next tune. Apply gain changes through the same receiver
- * setup as FREQ, before acknowledging the command. */
+/* Changing gain needs no channel/PBUS reconfiguration. That setup releases
+ * forced gain and briefly selects the PHY's default gain. */
 static void gain_reconfigure(void) {
-    rx_ready = false;
-    prepare_rx();
+    if (!rx_ready || rx_recalibration_stale())
+        prepare_rx();
+    else
+        gain_apply();
 }
 #include "filter_probe.h"
 #include "dump_probe.h"
@@ -208,6 +212,11 @@ static bool acquire_iq(unsigned n, unsigned divider, const uint32_t **data, unsi
 #endif
             gain_reconfigure();
         }
+    }
+
+    if (!gain_applied) {
+        reply("ERR gain\n");
+        return false;
     }
 
     for (unsigned j = 0; j < n; j++) IQ_BUFFER[j] = 0xa5a0055au;
@@ -354,6 +363,7 @@ static bool ring_command(const char *line) {
         return true;
     }
     ring_config_t c = {0};
+    char start_reply[96] = {0};
     const char *tag;
     bool usb = burst_serial_port() == BURST_SERIAL_USB;
     if (!strcmp(line, "SPECINFO?")) {
@@ -439,10 +449,8 @@ static bool ring_command(const char *line) {
             reply("ERR args\n");
             return true;
         }
-        char h[80];
-        snprintf(h, sizeof(h), "SPEC %u %u %u %u\n", nfft, ring_capture_rate_hz(rate), RING_THRESHOLD,
-                 frequency_mhz);
-        reply(h);
+        snprintf(start_reply, sizeof(start_reply), "SPEC %u %u %u %u\n", nfft, ring_capture_rate_hz(rate),
+                 RING_THRESHOLD, frequency_mhz);
     } else if (!strncmp(line, "IQS ", 4)) {
         /* IQS ms dec bits rate [shift] [mode]: continuous decimated IQ (IQS1 frames).
          * mode 0: FIR at 0 Hz IF; mode 2: +fs/4 shift first (LO tuned fs/4 below).
@@ -484,10 +492,8 @@ static bool ring_command(const char *line) {
         c.iq_shift = upf;
         c.iq_rot = mode == 2;
         tag = "IQSEND";
-        char h[96];
-        snprintf(h, sizeof(h), "IQS %u %u %u %u %u %u\n", ring_capture_rate_hz(rate), stride, nfft, upf, mode,
-                 frequency_mhz);
-        reply(h);
+        snprintf(start_reply, sizeof(start_reply), "IQS %u %u %u %u %u %u\n", ring_capture_rate_hz(rate),
+                 stride, nfft, upf, mode, frequency_mhz);
     } else
         return false;
     if (!ring_capture_init()) {
@@ -496,6 +502,11 @@ static bool ring_command(const char *line) {
     }
     ring_result_t r;
     prepare_rx();
+    if (!gain_applied) {
+        reply("ERR gain\n");
+        return true;
+    }
+    if (start_reply[0]) reply(start_reply);
     rx_filter_apply();
     ring_capture_run(&c, &r);
     rx_filter_restore();
