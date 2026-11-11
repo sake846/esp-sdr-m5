@@ -31,6 +31,16 @@ int board_battery_percent(void) { return battery_percent; }
 #define ESP_ERR_NO_MEM 1
 #define ESP_ERR_INVALID_STATE 2
 #define ESP_ERR_INVALID_RESPONSE 3
+typedef int nvs_handle_t;
+#define NVS_READONLY 0
+#define NVS_READWRITE 1
+static uint8_t nvs_watch_date_format;
+static bool nvs_watch_date_format_present;
+static int nvs_open(const char *name, int mode, nvs_handle_t *handle){assert(!strcmp(name,"watch"));*handle=1;return ESP_OK;}
+static int nvs_get_u8(nvs_handle_t handle,const char *key,uint8_t *value){assert(handle==1 && !strcmp(key,"date_format"));if(!nvs_watch_date_format_present)return 1;*value=nvs_watch_date_format;return ESP_OK;}
+static int nvs_set_u8(nvs_handle_t handle,const char *key,uint8_t value){assert(handle==1 && !strcmp(key,"date_format"));nvs_watch_date_format=value;nvs_watch_date_format_present=true;return ESP_OK;}
+static int nvs_commit(nvs_handle_t handle){assert(handle==1);return ESP_OK;}
+static int nvs_close(nvs_handle_t handle){assert(handle==1);return ESP_OK;}
 #define ESP_ERROR_CHECK(x) assert((x)==0)
 #define GPIO_MODE_OUTPUT 2
 #define GPIO_MODE_INPUT 1
@@ -322,7 +332,7 @@ class LilygoProfiles(unittest.TestCase):
     def test_board_io_rendering_and_receiver_handoff(self):
         sources = '\n'.join((ROOT/'main/boards'/f).read_text() for f in ['standalone_device_lilygo_ats_mini.c', 'standalone_display.c'])
         headers = ['driver/gpio.h', 'driver/spi_master.h', 'driver/i2c_master.h',
-                   'esp_check.h', 'esp_heap_caps.h', 'esp_sleep.h', 'esp_timer.h',
+                   'esp_check.h', 'esp_heap_caps.h', 'esp_sleep.h', 'esp_timer.h', 'nvs.h',
                    'freertos/FreeRTOS.h', 'freertos/task.h', 'freertos/semphr.h']
         for h in headers:
             sources = sources.replace(f'#include "{h}"', '')

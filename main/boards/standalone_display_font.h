@@ -17,6 +17,7 @@ typedef struct {
 #define PROGMEM
 #include "../../components/M5GFX/src/lgfx/Fonts/Custom/DejaVu9.h"
 #include "../../components/M5GFX/src/lgfx/Fonts/Custom/DejaVu12.h"
+#include "../../components/M5GFX/src/lgfx/Fonts/Custom/DejaVu18.h"
 #include "../../components/M5GFX/src/lgfx/Fonts/GFXFF/FreeSansBold9pt7b.h"
 #include "../../components/M5GFX/src/lgfx/Fonts/GFXFF/FreeSansBold12pt7b.h"
 #undef PROGMEM

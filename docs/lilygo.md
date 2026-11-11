@@ -75,11 +75,14 @@ these profiles to the existing CI build/export matrix automatically.
 ## Controls / 操作
 
 - On T-Watch 2020 and S3, tap `TUNE-`/`TUNE+` to change the frequency or selected setting,
-  and `MENU` to advance. Hold anywhere on the screen to switch between spectrum and digital
-  clock. In clock mode, tap the screen to show the date and time for five seconds; the watch
-  then enters deep sleep and a touch wakes it back to the clock. The lower-right `SET` opens the date/time editor. Tap `-`/`+` to
-  change the selected year, month, day, hour, minute or second; tap `NEXT` to advance. Use
-  `CANCEL` to discard or `SAVE` to write the onboard RTC. Use the side power button to turn the
+  and `MENU` to advance. Swipe right to show the digital clock and swipe left to return to
+  the spectrum. In clock mode, tap the screen to show the date and time for five seconds;
+  the watch then enters deep sleep and a touch wakes it back to the clock. The clock shows
+  the weekday as a three-letter abbreviation. The lower-right `SET` opens the date/time
+  editor. Tap `-`/`+` to
+  change the selected value; `NEXT` advances through year, month, day, hour, minute, second,
+  and date format (`YYYY-MM-DD`, `MM/DD/YYYY`, or `DD/MM/YYYY`). Use `CANCEL` to discard or
+  `SAVE` to write the onboard RTC and remember the date format. Use the side power button to turn the
   watch back on after `POWER OFF`.
 - T-Display S3 Pro: BOOT (GPIO0) decreases, GPIO12 selects the next setting,
   GPIO16 increases. Hold GPIO12 to return to tuning. SY6970 charging and its
@@ -95,10 +98,12 @@ these profiles to the existing CI build/export matrix automatically.
 
 T-Watch 2020とS3では、画面下部の `TUNE-`・`TUNE+` で周波数や選択中の値を変更し、
 `MENU` で設定項目を進めます。
-画面のどこかを長押しすると、スペアナ表示とデジタル時計を切り替えます。時計モードで画面をタップすると
-5秒間日付と時刻を表示し、その後タッチで復帰できるディープスリープに入ります。画面をタップすると時計表示に戻ります。時刻は本体のRTCから取得します。
-時計画面右下の `SET` をタップすると日時設定画面を開きます。画面下の `-`・`+` で選択中の年・月・日・時・分・秒を変更し、`NEXT` で項目を進めます。
-左上の `CANCEL` で破棄し、右上の `SAVE` でRTCに保存します。設定中は画面を消灯しません。
+右スワイプでデジタル時計、左スワイプでスペクトラム表示に切り替えます。時計モードで画面をタップすると
+5秒間日付と時刻を表示し、その後タッチで復帰できるディープスリープに入ります。曜日は `SUN`〜`SAT` の英語略称で表示し、
+日時は本体のRTCから取得します。
+時計画面右下の `SET` をタップすると日時設定画面を開きます。画面下の `-`・`+` で選択中の値を変更し、
+`NEXT` で年・月・日・時・分・秒・日付形式を切り替えます。日付形式は `YYYY-MM-DD`・`MM/DD/YYYY`・`DD/MM/YYYY` から選べます。
+左上の `CANCEL` で破棄し、右上の `SAVE` でRTCに日時を、設定した日付形式を本体に保存します。設定中は画面を消灯しません。
 `POWER OFF` の後は、側面の電源ボタンで起動します。
 
 T-Display S3 ProはBOOT（GPIO0）で値を減らし、GPIO12で次の設定、GPIO16で値を増やします。

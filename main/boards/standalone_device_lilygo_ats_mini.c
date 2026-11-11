@@ -131,9 +131,10 @@ static void watch_input_init(i2c_master_bus_handle_t bus) {
 
 static unsigned watch_buttons(uint32_t now) {
     static uint32_t next_poll;
-    static uint32_t touch_started;
     static bool touched;
-    static bool long_reported;
+    static bool touch_valid, touch_swiped, touch_swipe_left;
+    static unsigned touch_start_x, touch_start_y, touch_last_x, touch_last_y;
+    static uint32_t button_release_at;
     static unsigned buttons;
     if ((int32_t)(now - next_poll) < 0) return buttons;
     next_poll = now + 10;
@@ -143,33 +144,59 @@ static unsigned watch_buttons(uint32_t now) {
         return buttons;
     unsigned count = data[0] & 0x0f;
     if (!count) {
-        touched = false;
-        long_reported = false;
-        buttons = 0;
-    } else {
-        if (!touched) {
-            /* Keep the original zone until release so a drag cannot select another control. */
-            touched = true;
-            touch_started = now;
-            long_reported = false;
-            watch_touch_events |= LILYGO_WATCH_TOUCH;
-            unsigned x = ((data[1] & 0x0f) << 8) | data[2];
-            unsigned y = ((data[3] & 0x0f) << 8) | data[4];
-            if (count == 1 && x < SCREEN_WIDTH && y < SCREEN_HEIGHT) {
-                if (y >= SCREEN_HEIGHT - LILYGO_FOOTER_HEIGHT) {
-                    unsigned zone = x / (SCREEN_WIDTH / 3);
-                    buttons = 1u << zone;
+        if (touched && touch_valid) {
+            int dx = (int)touch_last_x - (int)touch_start_x;
+            int dy = (int)touch_last_y - (int)touch_start_y;
+            unsigned abs_dx = dx < 0 ? (unsigned)-dx : (unsigned)dx;
+            unsigned abs_dy = dy < 0 ? (unsigned)-dy : (unsigned)dy;
+            if (touch_swiped || (abs_dx >= 48 && abs_dx > abs_dy)) {
+                bool swipe_left = touch_swiped ? touch_swipe_left : dx < 0;
+                watch_touch_events |= swipe_left ? LILYGO_WATCH_SWIPE_LEFT : LILYGO_WATCH_SWIPE_RIGHT;
+                buttons = 0;
+            } else {
+                watch_touch_events |= LILYGO_WATCH_TOUCH;
+                if (touch_start_y >= SCREEN_HEIGHT - LILYGO_FOOTER_HEIGHT) {
+                    unsigned zone = touch_start_x / (SCREEN_WIDTH / 3);
                     watch_touch_events |= zone == 0 ? LILYGO_WATCH_TOUCH_LEFT :
                                           zone == 1 ? LILYGO_WATCH_TOUCH_CENTER : LILYGO_WATCH_TOUCH_RIGHT;
-                } else if (y < 48) {
-                    if (x < SCREEN_WIDTH / 3) watch_touch_events |= LILYGO_WATCH_TOUCH_TOP_LEFT;
-                    else if (x >= SCREEN_WIDTH * 2 / 3) watch_touch_events |= LILYGO_WATCH_TOUCH_TOP_RIGHT;
+                    buttons = 1u << zone;
+                    /* Allow the existing 30 ms debounce to see both press and release. */
+                    button_release_at = now + 70;
+                } else if (touch_start_y < 48) {
+                    if (touch_start_x < SCREEN_WIDTH / 3) watch_touch_events |= LILYGO_WATCH_TOUCH_TOP_LEFT;
+                    else if (touch_start_x >= SCREEN_WIDTH * 2 / 3)
+                        watch_touch_events |= LILYGO_WATCH_TOUCH_TOP_RIGHT;
                 }
             }
+        } else if (buttons && (int32_t)(now - button_release_at) >= 0) {
+            buttons = 0;
         }
-        if (!long_reported && (uint32_t)(now - touch_started) >= 600) {
-            watch_touch_events |= LILYGO_WATCH_LONG_PRESS;
-            long_reported = true;
+        touched = false;
+        touch_valid = touch_swiped = touch_swipe_left = false;
+    } else {
+        unsigned x = ((data[1] & 0x0f) << 8) | data[2];
+        unsigned y = ((data[3] & 0x0f) << 8) | data[4];
+        if (!touched) {
+            /* Use the initial contact for tap zones, then classify horizontal movement as a swipe. */
+            touched = true;
+            buttons = 0;
+            watch_touch_events |= LILYGO_WATCH_TOUCH;
+            if (count == 1 && x < SCREEN_WIDTH && y < SCREEN_HEIGHT) {
+                touch_valid = true;
+                touch_start_x = touch_last_x = x;
+                touch_start_y = touch_last_y = y;
+            }
+        } else if (count == 1 && x < SCREEN_WIDTH && y < SCREEN_HEIGHT) {
+            touch_last_x = x;
+            touch_last_y = y;
+            int dx = (int)x - (int)touch_start_x;
+            int dy = (int)y - (int)touch_start_y;
+            unsigned abs_dx = dx < 0 ? (unsigned)-dx : (unsigned)dx;
+            unsigned abs_dy = dy < 0 ? (unsigned)-dy : (unsigned)dy;
+            if (!touch_swiped && abs_dx >= 48 && abs_dx > abs_dy) {
+                touch_swiped = true;
+                touch_swipe_left = dx < 0;
+            }
         }
     }
     return buttons;
@@ -215,7 +242,8 @@ static unsigned watch_weekday(unsigned year, unsigned month, unsigned day) {
 }
 
 bool standalone_device_lilygo_ats_mini_watch_read_datetime(unsigned *year, unsigned *month, unsigned *day,
-                                                             unsigned *hour, unsigned *minute, unsigned *second) {
+                                                             unsigned *hour, unsigned *minute, unsigned *second,
+                                                             unsigned *weekday) {
     const uint8_t reg = 0x02;
     uint8_t data[7];
     if (i2c_master_transmit_receive(watch_rtc, &reg, 1, data, sizeof(data), 10) != ESP_OK || (data[0] & 0x80))
@@ -236,6 +264,7 @@ bool standalone_device_lilygo_ats_mini_watch_read_datetime(unsigned *year, unsig
     *hour = hrs;
     *minute = min;
     *second = sec;
+    if (weekday) *weekday = watch_weekday(full_year, mon, date);
     return true;
 }
 

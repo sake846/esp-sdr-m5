@@ -12,6 +12,9 @@
 #include "esp_heap_caps.h"
 #include "esp_sleep.h"
 #include "esp_timer.h"
+#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+#include "nvs.h"
+#endif
 #include <stdio.h>
 #include <string.h>
 
@@ -73,9 +76,11 @@ static bool watch_clock_editor, watch_clock_edit_error;
 static bool watch_clock_wake_pending;
 static uint32_t watch_clock_deadline, watch_clock_sample_at, watch_clock_drawn_at;
 static unsigned watch_clock_year, watch_clock_month, watch_clock_day;
-static unsigned watch_clock_hour, watch_clock_minute, watch_clock_second;
+static unsigned watch_clock_hour, watch_clock_minute, watch_clock_second, watch_clock_weekday;
 static unsigned watch_edit_year, watch_edit_month, watch_edit_day;
 static unsigned watch_edit_hour, watch_edit_minute, watch_edit_second, watch_edit_field;
+static unsigned watch_date_format, watch_edit_date_format;
+static bool watch_date_format_loaded;
 #endif
 
 #include "standalone_display_density.h"
@@ -125,6 +130,40 @@ static void adv_keyboard_init(void) {
 #include "standalone_display_font.h"
 
 #if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+static const char *const watch_weekday_names[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+static const char *const watch_date_format_names[] = {"Y-M-D", "M/D/Y", "D/M/Y"};
+
+static void watch_format_date(char *date, size_t size, unsigned format, unsigned year,
+                              unsigned month, unsigned day, const char *weekday) {
+    const char *suffix = weekday ? weekday : "";
+    const char *space = weekday ? " " : "";
+    switch (format) {
+    case 1: snprintf(date, size, "%02u/%02u/%04u%s%s", month, day, year, space, suffix); break;
+    case 2: snprintf(date, size, "%02u/%02u/%04u%s%s", day, month, year, space, suffix); break;
+    default: snprintf(date, size, "%04u-%02u-%02u%s%s", year, month, day, space, suffix); break;
+    }
+}
+
+static void watch_date_format_load(void) {
+    nvs_handle_t handle;
+    uint8_t format;
+    if (nvs_open("watch", NVS_READONLY, &handle) == ESP_OK) {
+        if (nvs_get_u8(handle, "date_format", &format) == ESP_OK && format < 3)
+            watch_date_format = format;
+        nvs_close(handle);
+    }
+    watch_date_format_loaded = true;
+    watch_clock_drawn = false;
+}
+
+static void watch_date_format_save(void) {
+    nvs_handle_t handle;
+    if (nvs_open("watch", NVS_READWRITE, &handle) != ESP_OK) return;
+    if (nvs_set_u8(handle, "date_format", (uint8_t)watch_date_format) == ESP_OK)
+        (void)nvs_commit(handle);
+    nvs_close(handle);
+}
+
 static unsigned watch_edit_days_in_month(void) {
     static const uint8_t days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     if (watch_edit_month == 2 && watch_edit_year % 4 == 0) return 29;
@@ -162,9 +201,12 @@ static void watch_edit_adjust(int direction) {
         if (direction > 0) watch_edit_minute = watch_edit_minute == 59 ? 0 : watch_edit_minute + 1;
         else watch_edit_minute = watch_edit_minute == 0 ? 59 : watch_edit_minute - 1;
         break;
-    default:
+    case 5:
         if (direction > 0) watch_edit_second = watch_edit_second == 59 ? 0 : watch_edit_second + 1;
         else watch_edit_second = watch_edit_second == 0 ? 59 : watch_edit_second - 1;
+        break;
+    default:
+        watch_edit_date_format = (watch_edit_date_format + (direction > 0 ? 1 : 2)) % 3;
         break;
     }
     watch_clock_edit_error = false;
@@ -174,11 +216,12 @@ static void watch_edit_adjust(int direction) {
 static void watch_edit_begin(void) {
     if (!standalone_device_lilygo_ats_mini_watch_read_datetime(
             &watch_edit_year, &watch_edit_month, &watch_edit_day,
-            &watch_edit_hour, &watch_edit_minute, &watch_edit_second)) {
+            &watch_edit_hour, &watch_edit_minute, &watch_edit_second, NULL)) {
         watch_edit_year = 2000;
         watch_edit_month = watch_edit_day = 1;
         watch_edit_hour = watch_edit_minute = watch_edit_second = 0;
     }
+    watch_edit_date_format = watch_date_format;
     watch_edit_field = 0;
     watch_clock_edit_error = false;
     watch_clock_editor = true;
@@ -216,14 +259,18 @@ static void draw_watch_editor(void) {
     if (watch_clock_drawn) return;
     watch_clock_drawn = true;
     static const char *fields[] = {"YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND"};
-    char date[16], time[16], selected[24], battery_text[12];
+    char date[32], time[16], selected[24], battery_text[12];
     int battery = board_battery_percent();
     if (battery < 0 || battery > 100) snprintf(battery_text, sizeof(battery_text), "BAT --%%");
     else if (battery == 100) snprintf(battery_text, sizeof(battery_text), "BAT100%%");
     else snprintf(battery_text, sizeof(battery_text), "BAT %02u%%", (unsigned)battery);
-    snprintf(date, sizeof(date), "%04u-%02u-%02u", watch_edit_year, watch_edit_month, watch_edit_day);
+    watch_format_date(date, sizeof(date), watch_edit_date_format,
+                      watch_edit_year, watch_edit_month, watch_edit_day, NULL);
     snprintf(time, sizeof(time), "%02u:%02u:%02u", watch_edit_hour, watch_edit_minute, watch_edit_second);
-    snprintf(selected, sizeof(selected), "EDIT %s", fields[watch_edit_field]);
+    if (watch_edit_field == 6)
+        snprintf(selected, sizeof(selected), "FORMAT %s", watch_date_format_names[watch_edit_date_format]);
+    else
+        snprintf(selected, sizeof(selected), "EDIT %s", fields[watch_edit_field]);
     for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
         memset(row, 0, sizeof(row));
         if (y < 36) {
@@ -261,7 +308,7 @@ static void draw_watch_clock(void) {
     if (!watch_clock_sampled || watch_clock_sample_at != tick) {
         watch_clock_time_valid = standalone_device_lilygo_ats_mini_watch_read_datetime(
             &watch_clock_year, &watch_clock_month, &watch_clock_day,
-            &watch_clock_hour, &watch_clock_minute, &watch_clock_second);
+            &watch_clock_hour, &watch_clock_minute, &watch_clock_second, &watch_clock_weekday);
         watch_clock_sampled = true;
         watch_clock_sample_at = tick;
     }
@@ -285,11 +332,13 @@ static void draw_watch_clock(void) {
         watch_clock_time_valid ? watch_clock_second / 10 : 10,
         watch_clock_time_valid ? watch_clock_second % 10 : 10,
     };
-    char date[16];
+    char date[32];
     if (watch_clock_time_valid)
-        snprintf(date, sizeof(date), "%04u-%02u-%02u", watch_clock_year, watch_clock_month, watch_clock_day);
+        watch_format_date(date, sizeof(date), watch_date_format,
+                          watch_clock_year, watch_clock_month, watch_clock_day,
+                          watch_weekday_names[watch_clock_weekday]);
     else
-        snprintf(date, sizeof(date), "---- -- --");
+        snprintf(date, sizeof(date), "--- ---- -- --");
     char battery_text[12];
     int battery = board_battery_percent();
     if (battery < 0 || battery > 100) snprintf(battery_text, sizeof(battery_text), "BAT --%%");
@@ -301,8 +350,8 @@ static void draw_watch_clock(void) {
         memset(row, 0, sizeof(row));
         m5stack_text_row(y, SCREEN_WIDTH - 8 - m5stack_text_width(battery_text, &DejaVu9),
                          20, battery_text, &DejaVu9, 0xffff, 0);
-        m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(date, &DejaVu12)) / 2,
-                         74, date, &DejaVu12, watch_clock_time_valid ? 0xffff : 0xf800, 0);
+        m5stack_text_row(y, (SCREEN_WIDTH - m5stack_text_width(date, &DejaVu18)) / 2,
+                         74, date, &DejaVu18, 0x07ff, 0);
         if (y >= top && y < top + 60) {
             unsigned y_offset = y - top;
             for (unsigned i = 0; i < 6; i++) {
@@ -553,14 +602,15 @@ unsigned standalone_display_poll(unsigned mhz, bool pc_control) {
 #elif (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
 #if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+    if (!watch_date_format_loaded) watch_date_format_load();
     if (watch_clock_wake_pending) {
         watch_clock_deadline = now + 5000;
         watch_clock_wake_pending = false;
     }
     mhz = standalone_device_lilygo_ats_mini_poll(&controls, mhz, pc_control || watch_clock_mode);
     unsigned events = standalone_device_lilygo_ats_mini_watch_events();
-    if (!pc_control && (events & LILYGO_WATCH_LONG_PRESS)) {
-        watch_clock_mode = !watch_clock_mode;
+    if (!pc_control && (events & (LILYGO_WATCH_SWIPE_LEFT | LILYGO_WATCH_SWIPE_RIGHT))) {
+        watch_clock_mode = (events & LILYGO_WATCH_SWIPE_RIGHT) != 0;
         watch_clock_editor = false;
         watch_clock_visible = watch_clock_mode;
         if (watch_clock_mode) watch_clock_deadline = now + 5000;
@@ -578,6 +628,8 @@ unsigned standalone_display_poll(unsigned mhz, bool pc_control) {
                 if (standalone_device_lilygo_ats_mini_watch_write_datetime(
                         watch_edit_year, watch_edit_month, watch_edit_day,
                         watch_edit_hour, watch_edit_minute, watch_edit_second)) {
+                    watch_date_format = watch_edit_date_format;
+                    watch_date_format_save();
                     watch_clock_editor = false;
                     watch_clock_sampled = false;
                     watch_clock_deadline = now + 5000;
@@ -589,7 +641,7 @@ unsigned standalone_display_poll(unsigned mhz, bool pc_control) {
             } else if (events & LILYGO_WATCH_TOUCH_RIGHT) {
                 watch_edit_adjust(1);
             } else if (events & LILYGO_WATCH_TOUCH_CENTER) {
-                watch_edit_field = (watch_edit_field + 1) % 6;
+                watch_edit_field = (watch_edit_field + 1) % 7;
                 watch_clock_edit_error = false;
             }
         } else if (events & LILYGO_WATCH_TOUCH_RIGHT) {
