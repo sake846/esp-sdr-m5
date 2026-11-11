@@ -22,7 +22,7 @@ SI4732・CC1101・nRF24・LoRaモジュールでの受信や、AM/FM/SWの音声
 | T-Embed SI4732 | ST7789, 320 × 170 | `lilygo-t-embed-si4732` |
 | T-Embed CC1101 | ST7789, 320 × 170 | `lilygo-t-embed-cc1101` |
 | T-Embed CC1101 Plus | ST7789, 320 × 170 | `lilygo-t-embed-cc1101-plus` |
-| T-Deck / T-Deck Plus | ST7789, 320 × 240 | `lilygo-t-deck` |
+| T-Deck / T-Deck Plus | ST7789, 320 × 240 (GT911 touch on Plus) | `lilygo-t-deck` |
 | T-Deck Pro V1.0 | UC8253 / GDEQ031T10, 240 × 320 | `lilygo-t-deck-pro` |
 | T-Deck Pro V1.1 | UC8253 / GDEQ031T10, 240 × 320 | `lilygo-t-deck-pro-v11` |
 
@@ -89,9 +89,15 @@ these profiles to the existing CI build/export matrix automatically.
   watchdog are disabled for battery-free USB operation; SD is deselected and
   the optional camera is held powered down. Touch is not used.
 - Pager and T-Embed: turn the encoder to tune or change the selected setting;
-  click it to move through the settings, hold it to return to tuning.
-- Pager, T-Deck and Pro keyboards: `A`/`D` (also `H`/`L`) decrease/increase,
-  `Space` or `Enter` selects the next setting, `Q` closes the menu.
+  click it to move through the settings, hold it to return to tuning. T-Pager's
+  encoder direction is reversed.
+- Pager and T-Deck keyboards: `D`/`L` decrease/increase, `H` also decreases,
+  `T`/`P`/`F`/`A` cycle STEP/SPAN/FFT/AVE. Enter four digits for a frequency in
+  MHz; Pager and T-Deck also accept `Space`+`Q`–`P` as `1`–`0`. Space alone or
+  Enter advances the menu, and `Q` closes it.
+- T-Deck trackball left/right adjusts the frequency or selected value; a short
+  center click advances the menu and a long press closes it. Touch-equipped
+  T-Decks use the bottom screen strip as decrease/menu/increase zones.
 - The BOOT button also acts as the menu button on T-Deck and Pro.
 - The menu closes after five seconds without input. PC control takes priority
   and discards local key/encoder events during its serial lease.
@@ -111,19 +117,23 @@ GPIO12の長押しで周波数操作へ戻ります。USB給電で電池がな�
 ウォッチドッグを無効にします。SDを非選択にし、カメラは停止します。タッチ操作は使用しません。
 
 PagerとT-Embedは、ダイヤルを回して周波数や選択中の設定値を変更します。
-ダイヤルの短押しで設定項目を送り、長押しで周波数操作へ戻ります。
-Pager・T-Deck・Proのキーボードでは、`A`/`D`（または`H`/`L`）で値を変更し、
-`Space`/`Enter`で次の設定項目、`Q`でメニューを閉じます。
+ダイヤルの短押しで設定項目を送り、長押しで周波数操作へ戻ります。T-Pagerはダイヤルの方向を反転しています。
+PagerとT-Deckのキーボードでは、`D`/`L`で値を上げ、`H`でも値を下げられます。
+`T`/`P`/`F`/`A`でSTEP/SPAN/FFT/AVEを切り替え、数字4桁でMHz単位の周波数を入力します。
+PagerとT-Deckでは`Space`+`Q`〜`P`でも`1`〜`0`を入力できます。Space単独またはEnterでメニュー項目を進め、`Q`で閉じます。
+T-Deckはトラックボールの左右で値を変更し、中央の短押しで項目を進め、長押しでメニューを閉じます。
+タッチ対応T-Deckは、画面下端の左・中央・右ゾーンを値を下げる・メニューを進める・値を上げる操作に使います。
 T-DeckとProではBOOTボタンもメニュー操作に使えます。
 5秒間操作しないとメニューが閉じます。PC操作中は本体操作よりPC側を優先します。
 
-T-Deck touch/trackball and Plus side buttons are not needed for this control
-scheme. Pager power management enables its keyboard through the XL9555 expander;
-unused radios, audio amplifier and SD power remain off.
+Touch-equipped T-Decks probe the GT911 controller on the shared I2C bus. Standard
+T-Deck units without a touch panel continue to use the trackball and keyboard.
+Pager power management enables its keyboard through the XL9555 expander; unused
+radios, audio amplifier and SD power remain off.
 
-T-Deckのタッチ・トラックボール、CC1101 Plusの追加ボタンは使用しません。
-PagerはXL9555経由でキーボードを有効化し、使用しない無線モジュール・アンプ・SDの
-電源を無効にします。
+タッチ対応T-Deckでは共有I2Cバス上のGT911を検出して画面下端の操作に使います。
+タッチパネルがない標準T-Deckではトラックボールとキーボードを使います。
+PagerはXL9555経由でキーボードを有効化し、使用しない無線モジュール・アンプ・SDの電源を無効にします。
 
 ## Battery display / バッテリー表示
 

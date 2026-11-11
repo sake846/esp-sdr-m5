@@ -17,9 +17,12 @@ typedef struct {
     m5stack_menu_t menu;
     int y_pos, wf_bright, wf_contrast, filter;
     unsigned wf_speed, agc, gain, gain_max, rx_dirty, about;
+    unsigned keyboard_frequency_value, keyboard_frequency_length;
     uint32_t changed[3], b_pressed, last_input;
+    uint32_t keyboard_space_deadline;
     bool suppress_release[3];
     bool b_long, reset_done, density_mode, density_failed;
+    bool keyboard_space_pending, keyboard_space_down, keyboard_space_used;
 } m5stack_controls_t;
 
 static const unsigned m5stack_steps[] = {1, 5, 10, 20, 100};
@@ -42,6 +45,9 @@ static inline void m5stack_controls_defaults(m5stack_controls_t *s) {
     s->filter = -1; /* Follow the selected span. */
     s->about = 0;
     s->density_mode = s->density_failed = false;
+    s->keyboard_frequency_value = s->keyboard_frequency_length = 0;
+    s->keyboard_space_pending = s->keyboard_space_down = s->keyboard_space_used = false;
+    s->keyboard_space_deadline = 0;
 }
 
 static inline int m5stack_adjust(int value, int direction, int step, int minimum, int maximum) {

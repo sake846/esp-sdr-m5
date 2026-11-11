@@ -236,14 +236,24 @@ int main(void){
 #endif
  unsigned mhz=2412;controls.menu=M5_MENU_NONE;
 #ifdef ENCODER_A
- encoder_count=2*ENCODER_DIVIDER;mhz=standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);assert(mhz==2432);
- encoder_count=-4;mhz=standalone_device_lilygo_ats_mini_poll(&controls,mhz,true);assert(mhz==2432 && !encoder_count);
+ encoder_count=2*ENCODER_DIVIDER;mhz=standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);
+#if CONFIG_ESP_SDR_LILYGO_T_PAGER
+ assert(mhz==2392);
+#else
+ assert(mhz==2432);
+#endif
+ encoder_count=-4;mhz=standalone_device_lilygo_ats_mini_poll(&controls,mhz,true);
+#if CONFIG_ESP_SDR_LILYGO_T_PAGER
+ assert(mhz==2392 && !encoder_count);
+#else
+ assert(mhz==2432 && !encoder_count);
+#endif
 #endif
  if(keyboard){
 #if CONFIG_ESP_SDR_LILYGO_T_DECK
-   deck_key='a';
+   deck_key='h';
 #else
-   event_fifo[0]=0x80|20;event_count=1; /* A: row 1, physical column 9. */
+   event_fifo[0]=0x80|15;event_count=1; /* H: row 1, physical column 5. */
 #endif
    now+=20;unsigned previous=mhz;mhz=standalone_device_lilygo_ats_mini_poll(&controls,mhz,false);assert(mhz==previous-10);
 #if CONFIG_ESP_SDR_LILYGO_T_DECK

@@ -1,6 +1,7 @@
 /* Compact S3 display/control glue. Wiring: docs/lilygo.md and docs/ats-mini.md. */
 #include "standalone_device_lilygo_ats_mini.h"
 #include "standalone_device_lilygo_ats_mini_controls.h"
+#include "standalone_device_m5stack_input.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "driver/rtc_io.h"
@@ -23,6 +24,12 @@ static i2c_master_dev_handle_t keyboard;
 static i2c_master_dev_handle_t watch_pmu, watch_touch, watch_rtc;
 static unsigned watch_touch_events;
 static bool watch_display_awake;
+#endif
+#if CONFIG_ESP_SDR_LILYGO_T_DECK
+static i2c_master_dev_handle_t tdeck_touch_devices[2], tdeck_touch;
+static portMUX_TYPE tdeck_trackball_lock = portMUX_INITIALIZER_UNLOCKED;
+static volatile int tdeck_trackball_steps;
+static unsigned tdeck_touch_buttons;
 #endif
 
 static void output(unsigned pin, unsigned level) {
@@ -356,6 +363,19 @@ static void input_init(void) {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7, .device_address = 0x55, .scl_speed_hz = 100000,
     };
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &keyboard_config, &keyboard));
+    const i2c_device_config_t touch_config = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7, .device_address = 0x5d, .scl_speed_hz = 400000,
+    };
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &touch_config, &tdeck_touch_devices[0]));
+    const i2c_device_config_t touch_alt_config = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7, .device_address = 0x14, .scl_speed_hz = 400000,
+    };
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &touch_alt_config, &tdeck_touch_devices[1]));
+    const gpio_config_t touch_int = {
+        .pin_bit_mask = PIN(TDECK_TOUCH_INT), .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+    };
+    ESP_ERROR_CHECK(gpio_config(&touch_int));
 #endif
 #endif
 #ifdef MENU_BUTTON
@@ -369,6 +389,86 @@ static void input_init(void) {
     ESP_ERROR_CHECK(gpio_config(&button));
 #endif
 }
+
+#if CONFIG_ESP_SDR_LILYGO_T_DECK
+static void tdeck_trackball_interrupt(void *arg) {
+    unsigned pin = (unsigned)(uintptr_t)arg;
+    if (gpio_get_level((gpio_num_t)pin)) return;
+    portENTER_CRITICAL_ISR(&tdeck_trackball_lock);
+    int next = tdeck_trackball_steps + (pin == TDECK_TRACKBALL_LEFT ? -1 : 1);
+    if (next >= -128 && next <= 128) tdeck_trackball_steps = next;
+    portEXIT_CRITICAL_ISR(&tdeck_trackball_lock);
+}
+
+static void tdeck_trackball_init(void) {
+    const gpio_config_t inputs = {
+        .pin_bit_mask = PIN(TDECK_TRACKBALL_LEFT) | PIN(TDECK_TRACKBALL_RIGHT),
+        .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE, .intr_type = GPIO_INTR_ANYEDGE,
+    };
+    ESP_ERROR_CHECK(gpio_config(&inputs));
+    esp_err_t result = gpio_install_isr_service(0);
+    ESP_ERROR_CHECK(result == ESP_ERR_INVALID_STATE ? ESP_OK : result);
+    ESP_ERROR_CHECK(gpio_isr_handler_add(TDECK_TRACKBALL_LEFT, tdeck_trackball_interrupt,
+                                         (void *)(uintptr_t)TDECK_TRACKBALL_LEFT));
+    ESP_ERROR_CHECK(gpio_isr_handler_add(TDECK_TRACKBALL_RIGHT, tdeck_trackball_interrupt,
+                                         (void *)(uintptr_t)TDECK_TRACKBALL_RIGHT));
+}
+
+static bool tdeck_touch_probe(void) {
+    static const uint8_t reg[] = {0x40, 0x81};
+    for (unsigned i = 0; i < 2; i++) {
+        uint8_t id[4];
+        if (i2c_master_transmit_receive(tdeck_touch_devices[i], reg, sizeof(reg), id,
+                                        sizeof(id), 10) == ESP_OK &&
+            id[0] == '9' && id[1] == '1' && id[2] == '1') {
+            tdeck_touch = tdeck_touch_devices[i];
+            return true;
+        }
+    }
+    return false;
+}
+
+static unsigned tdeck_touch_poll(void) {
+    if (gpio_get_level(TDECK_TOUCH_INT)) return tdeck_touch_buttons;
+    if (!tdeck_touch && !tdeck_touch_probe()) return 0;
+
+    static const uint8_t status_reg[] = {0x4e, 0x81};
+    uint8_t status;
+    if (i2c_master_transmit_receive(tdeck_touch, status_reg, sizeof(status_reg),
+                                    &status, 1, 10) != ESP_OK || !(status & 0x80))
+        return tdeck_touch_buttons;
+
+    if (!(status & 0x0f)) {
+        tdeck_touch_buttons = 0;
+    } else {
+        static const uint8_t point_reg[] = {0x4f, 0x81};
+        uint8_t point[8];
+        if (i2c_master_transmit_receive(tdeck_touch, point_reg, sizeof(point_reg),
+                                        point, sizeof(point), 10) == ESP_OK) {
+            unsigned raw_x = point[1] | ((unsigned)point[2] << 8);
+            unsigned raw_y = point[3] | ((unsigned)point[4] << 8);
+            int x = raw_y;
+            int y = SCREEN_HEIGHT - 1 - (int)raw_x;
+            tdeck_touch_buttons = m5stack_device_input_touch_button(
+                x, y, SCREEN_WIDTH, SCREEN_HEIGHT);
+        } else {
+            tdeck_touch_buttons = 0;
+        }
+    }
+
+    const uint8_t clear_status[] = {0x4e, 0x81, 0};
+    (void)i2c_master_transmit(tdeck_touch, clear_status, sizeof(clear_status), 10);
+    return tdeck_touch_buttons;
+}
+
+static int tdeck_trackball_take(bool pc_control) {
+    portENTER_CRITICAL(&tdeck_trackball_lock);
+    int steps = tdeck_trackball_steps;
+    tdeck_trackball_steps = 0;
+    portEXIT_CRITICAL(&tdeck_trackball_lock);
+    return pc_control ? 0 : steps;
+}
+#endif
 
 #ifdef ENCODER_A
 static portMUX_TYPE encoder_lock = portMUX_INITIALIZER_UNLOCKED;
@@ -409,6 +509,9 @@ unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *s, unsigned 
     buttons |= (gpio_get_level(0) ? 0 : 1) | (gpio_get_level(16) ? 0 : 4);
 #endif
 #endif
+#if CONFIG_ESP_SDR_LILYGO_T_DECK
+    buttons |= pc_control ? 0 : tdeck_touch_poll();
+#endif
     mhz = m5stack_controls_update(s, mhz, buttons, now, pc_control);
     if (!pc_control && !was_long && s->b_long && (s->stable & 2)) s->menu = M5_MENU_NONE;
 #ifdef ENCODER_A
@@ -420,6 +523,9 @@ unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *s, unsigned 
     encoder_count = pc_control ? 0 : encoder_count % ENCODER_DIVIDER;
     portEXIT_CRITICAL(&encoder_lock);
     if (!pc_control && steps) {
+#if CONFIG_ESP_SDR_LILYGO_T_PAGER
+        steps = -steps;
+#endif
         s->last_input = now;
         while (steps) {
             mhz = m5stack_menu_adjust(s, mhz, steps < 0 ? -1 : 1);
@@ -427,13 +533,25 @@ unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *s, unsigned 
         }
     }
 #endif
+#if CONFIG_ESP_SDR_LILYGO_T_DECK
+    int trackball_steps = tdeck_trackball_take(pc_control);
+    if (trackball_steps) {
+        s->last_input = now;
+        while (trackball_steps) {
+            mhz = m5stack_menu_adjust(s, mhz, trackball_steps < 0 ? -1 : 1);
+            trackball_steps += trackball_steps < 0 ? 1 : -1;
+        }
+    }
+#endif
     static uint32_t next_keyboard;
+    if (pc_control) lilygo_keyboard_cancel(s);
+    else mhz = lilygo_key_expire(s, mhz, now);
     if (keyboard && (int32_t)(now - next_keyboard) >= 0) {
         next_keyboard = now + 10;
         uint8_t count = 0;
 #if CONFIG_ESP_SDR_LILYGO_T_DECK
         if (i2c_master_receive(keyboard, &count, 1, 10) == ESP_OK && count) {
-            mhz = lilygo_key(s, mhz, (char)count, pc_control);
+            mhz = lilygo_key_event(s, mhz, (char)count, pc_control, now);
             if (!pc_control) s->last_input = now;
         }
 #else
@@ -444,9 +562,13 @@ unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *s, unsigned 
                 uint8_t event;
                 reg = 0x04;
                 if (i2c_master_transmit_receive(keyboard, &reg, 1, &event, 1, 10) != ESP_OK) break;
-                char key = lilygo_tca_key(event);
-                if (key) {
-                    mhz = lilygo_key(s, mhz, key, pc_control);
+#if CONFIG_ESP_SDR_LILYGO_T_PAGER || CONFIG_ESP_SDR_LILYGO_T_DECK
+                bool keyboard_event = lilygo_tca_matrix_key(event) != 0;
+#else
+                bool keyboard_event = lilygo_tca_key(event) != 0;
+#endif
+                if (keyboard_event) {
+                    mhz = lilygo_tca_key_event(s, mhz, event, pc_control, now);
                     if (!pc_control) s->last_input = now;
                 }
             }
@@ -577,6 +699,9 @@ void standalone_device_lilygo_ats_mini_init(void) {
     input_init();
 #ifdef ENCODER_A
     encoder_init();
+#endif
+#if CONFIG_ESP_SDR_LILYGO_T_DECK
+    tdeck_trackball_init();
 #endif
 #if CONFIG_ESP_SDR_ATS_MINI
     ats_mini_lcd_init();

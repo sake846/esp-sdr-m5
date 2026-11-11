@@ -140,6 +140,9 @@
 #define BOARD_SDA 18
 #define BOARD_SCL 8
 #define MENU_BUTTON 0
+#define TDECK_TRACKBALL_LEFT 1
+#define TDECK_TRACKBALL_RIGHT 2
+#define TDECK_TOUCH_INT 16
 #define LILYGO_NAME "T DECK"
 #else /* T-Deck Pro: GDEQ031T10 / UC8253 e-paper, native portrait orientation. */
 #define LILYGO_EPAPER 1
