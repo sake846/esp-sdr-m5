@@ -31,6 +31,10 @@ static portMUX_TYPE tdeck_trackball_lock = portMUX_INITIALIZER_UNLOCKED;
 static volatile int tdeck_trackball_steps;
 static unsigned tdeck_touch_buttons;
 #endif
+#if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
+static i2c_master_dev_handle_t tdisplay_touch;
+static bool tdisplay_touch_ready;
+#endif
 
 static void output(unsigned pin, unsigned level) {
     ESP_ERROR_CHECK(gpio_set_level(pin, level));
@@ -70,6 +74,66 @@ static void watch_display_power(bool awake) {
 static inline void reg_write(i2c_master_dev_handle_t device, uint8_t reg, uint8_t value) {
     const uint8_t data[] = {reg, value};
     ESP_ERROR_CHECK(i2c_master_transmit(device, data, sizeof(data), 20));
+}
+#endif
+
+#if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
+static bool tdisplay_touch_write(uint8_t reg, uint8_t value) {
+    const uint8_t data[] = {reg, value};
+    return i2c_master_transmit(tdisplay_touch, data, sizeof(data), 20) == ESP_OK;
+}
+
+static bool tdisplay_touch_read(uint8_t reg_hi, uint8_t reg_lo, uint8_t *data, size_t size) {
+    const uint8_t reg[] = {reg_hi, reg_lo};
+    return i2c_master_transmit_receive(tdisplay_touch, reg, sizeof(reg), data, size, 20) == ESP_OK;
+}
+
+static bool tdisplay_touch_read_points(uint8_t reg, uint8_t *data, size_t size) {
+    return i2c_master_transmit_receive(tdisplay_touch, &reg, 1, data, size, 20) == ESP_OK;
+}
+
+static void tdisplay_touch_init(void) {
+    uint8_t data[8];
+    if (!tdisplay_touch_write(0xd1, 0x01)) return; /* CST226SE command mode. */
+    vTaskDelay(pdMS_TO_TICKS(10));
+    uint32_t checkcode;
+    if (!tdisplay_touch_read(0xd1, 0xfc, data, 4)) goto failed;
+    checkcode = (uint32_t)data[3] << 24 | (uint32_t)data[2] << 16 |
+                (uint32_t)data[1] << 8 | data[0];
+    if ((checkcode & 0xffff0000) != 0xcaca0000) goto failed;
+    vTaskDelay(pdMS_TO_TICKS(10));
+    if (!tdisplay_touch_read(0xd1, 0xf8, data, 4)) goto failed;
+    vTaskDelay(pdMS_TO_TICKS(10));
+    if (!tdisplay_touch_read(0xd2, 0x04, data, 4) ||
+        (((unsigned)data[3] << 8) | data[2]) != 0xa8) goto failed;
+    vTaskDelay(pdMS_TO_TICKS(10));
+    if (!tdisplay_touch_read(0xd2, 0x08, data, sizeof(data)) ||
+        (data[3] == 0xa5 && data[2] == 0xa5 && data[1] == 0xa5 && data[0] == 0xa5)) goto failed;
+    vTaskDelay(pdMS_TO_TICKS(10));
+    tdisplay_touch_ready = tdisplay_touch_write(0xd1, 0x09);
+    return;
+
+failed:
+    (void)tdisplay_touch_write(0xd1, 0x09);
+}
+
+static unsigned tdisplay_touch_poll(void) {
+    if (gpio_get_level(BOARD_TOUCH_INT)) return 0;
+    if (!tdisplay_touch_ready) tdisplay_touch_init();
+    if (!tdisplay_touch_ready) return 0;
+
+    uint8_t point[8];
+    if (!tdisplay_touch_read_points(0, point, sizeof(point))) return 0;
+    if (point[6] != 0xab || point[0] == 0xab || point[5] == 0x80) return 0;
+    unsigned count = point[5] & 0x7f;
+    if (!count || count > 5) return 0;
+
+    unsigned raw_x = ((unsigned)point[1] << 4) | (point[3] >> 4);
+    unsigned raw_y = ((unsigned)point[2] << 4) | (point[3] & 0x0f);
+    /* Match LilyGO's CST226SE orientation: swap axes and mirror the short axis. */
+    int x = raw_y >= SCREEN_WIDTH ? SCREEN_WIDTH - 1 : (int)raw_y;
+    int y = raw_x >= SCREEN_HEIGHT ? 0 : SCREEN_HEIGHT - 1 - (int)raw_x;
+    return m5stack_device_input_touch_button(x, y, SCREEN_WIDTH, SCREEN_HEIGHT);
 }
 #endif
 
@@ -331,6 +395,10 @@ static void input_init(void) {
     uint8_t adc_reg = 0x02, adc_config;
     ESP_ERROR_CHECK(i2c_master_transmit_receive(pmu, &adc_reg, 1, &adc_config, 1, 20));
     reg_write(pmu, adc_reg, adc_config | 0xc0); /* Continuous battery-voltage measurement. */
+    const i2c_device_config_t touch_config = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7, .device_address = 0x5a, .scl_speed_hz = 400000,
+    };
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &touch_config, &tdisplay_touch));
 #endif
 #if CONFIG_ESP_SDR_LILYGO_T_PAGER
     i2c_master_dev_handle_t expander;
@@ -382,11 +450,18 @@ static void input_init(void) {
     const gpio_config_t button = {
         .pin_bit_mask = PIN(MENU_BUTTON)
 #if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
-                      | PIN(0) | PIN(16)
+                      | PIN(0) | PIN(16) | PIN(BOARD_TOUCH_INT)
 #endif
         , .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE,
     };
     ESP_ERROR_CHECK(gpio_config(&button));
+#endif
+#if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
+    output(BOARD_TOUCH_RST, 0);
+    vTaskDelay(pdMS_TO_TICKS(10));
+    output(BOARD_TOUCH_RST, 1);
+    vTaskDelay(pdMS_TO_TICKS(10));
+    tdisplay_touch_init();
 #endif
 }
 
@@ -507,6 +582,7 @@ unsigned standalone_device_lilygo_ats_mini_poll(m5stack_controls_t *s, unsigned 
     unsigned buttons = gpio_get_level(MENU_BUTTON) ? 0 : 2;
 #if CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
     buttons |= (gpio_get_level(0) ? 0 : 1) | (gpio_get_level(16) ? 0 : 4);
+    buttons |= pc_control ? 0 : tdisplay_touch_poll();
 #endif
 #endif
 #if CONFIG_ESP_SDR_LILYGO_T_DECK
@@ -679,7 +755,7 @@ void standalone_device_lilygo_ats_mini_init(void) {
 #elif CONFIG_ESP_SDR_LILYGO_T_DISPLAY_S3_PRO
     output(14, 1); /* SD CS, shared SPI bus. */
     output(46, 1); /* Optional camera power down. */
-    output(13, 1); /* Release touch reset. */
+    output(BOARD_TOUCH_RST, 1); /* Release touch reset. */
 #elif defined(WATCH_PMU_ADDR)
     output(LCD_BL, 0); /* Keep the backlight dark while the PMU brings up the panel. */
 #if CONFIG_ESP_SDR_LILYGO_T_WATCH_2020_V2

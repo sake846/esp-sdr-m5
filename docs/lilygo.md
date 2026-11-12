@@ -85,9 +85,10 @@ these profiles to the existing CI build/export matrix automatically.
   `SAVE` to write the onboard RTC and remember the date format. Use the side power button to turn the
   watch back on after `POWER OFF`.
 - T-Display S3 Pro: BOOT (GPIO0) decreases, GPIO12 selects the next setting,
-  GPIO16 increases. Hold GPIO12 to return to tuning. SY6970 charging and its
-  watchdog are disabled for battery-free USB operation; SD is deselected and
-  the optional camera is held powered down. Touch is not used.
+  GPIO16 increases. Touch the bottom screen strip to decrease, advance the menu,
+  or increase. Hold GPIO12 to return to tuning. SY6970 charging and its watchdog
+  are disabled for battery-free USB operation; SD is deselected and the optional
+  camera is held powered down.
 - Pager and T-Embed: turn the encoder to tune or change the selected setting;
   click it to move through the settings, hold it to return to tuning. T-Pager's
   encoder direction is reversed.
@@ -113,8 +114,9 @@ T-Watch 2020とS3では、画面下部の `TUNE-`・`TUNE+` で周波数や選�
 `POWER OFF` の後は、側面の電源ボタンで起動します。
 
 T-Display S3 ProはBOOT（GPIO0）で値を減らし、GPIO12で次の設定、GPIO16で値を増やします。
+画面下端の左・中央・右ゾーンを値を下げる・メニューを進める・値を上げる操作に使えます。
 GPIO12の長押しで周波数操作へ戻ります。USB給電で電池がなくても使えるよう、SY6970の充電と
-ウォッチドッグを無効にします。SDを非選択にし、カメラは停止します。タッチ操作は使用しません。
+ウォッチドッグを無効にします。SDを非選択にし、カメラは停止します。
 
 PagerとT-Embedは、ダイヤルを回して周波数や選択中の設定値を変更します。
 ダイヤルの短押しで設定項目を送り、長押しで周波数操作へ戻ります。T-Pagerはダイヤルの方向を反転しています。
