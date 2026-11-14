@@ -4,7 +4,6 @@
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "esp_check.h"
-#include "esp_heap_caps.h"
 #include "esp_sleep.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -21,34 +20,31 @@ static unsigned touch_buttons;
 static uint32_t touch_next_poll;
 
 static void add_i2c_device(uint8_t address, i2c_master_dev_handle_t *device) {
-    const i2c_device_config_t config = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = address,
-        .scl_speed_hz = 400000,
-    };
+    i2c_device_config_t config = {};
+    config.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    config.device_address = address;
+    config.scl_speed_hz = 400000;
     ESP_ERROR_CHECK(i2c_master_bus_add_device(board_i2c, &config, device));
 }
 
 void waveshare_amoled_206_init(void) {
-    const i2c_master_bus_config_t i2c_config = {
-        .i2c_port = I2C_NUM_0,
-        .sda_io_num = GPIO_NUM_15,
-        .scl_io_num = GPIO_NUM_14,
-        .clk_source = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt = 7,
-        .flags.enable_internal_pullup = true,
-    };
+    i2c_master_bus_config_t i2c_config = {};
+    i2c_config.i2c_port = I2C_NUM_0;
+    i2c_config.sda_io_num = GPIO_NUM_15;
+    i2c_config.scl_io_num = GPIO_NUM_14;
+    i2c_config.clk_source = I2C_CLK_SRC_DEFAULT;
+    i2c_config.glitch_ignore_cnt = 7;
+    i2c_config.flags.enable_internal_pullup = true;
     ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_config, &board_i2c));
     ESP_ERROR_CHECK(i2c_master_probe(board_i2c, 0x34, 20)); /* AXP2101 */
     ESP_ERROR_CHECK(i2c_master_probe(board_i2c, 0x38, 20)); /* FT3168 */
     add_i2c_device(0x34, &pmu_device);
     add_i2c_device(0x38, &touch_device);
 
-    const gpio_config_t gpio_configure = {
-        .pin_bit_mask = PIN(18) | PIN(40),
-        .mode = GPIO_MODE_INPUT_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-    };
+    gpio_config_t gpio_configure = {};
+    gpio_configure.pin_bit_mask = PIN(18) | PIN(40);
+    gpio_configure.mode = GPIO_MODE_INPUT_OUTPUT;
+    gpio_configure.pull_up_en = GPIO_PULLUP_ENABLE;
     ESP_ERROR_CHECK(gpio_config(&gpio_configure));
     ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_40, 0));
     vTaskDelay(pdMS_TO_TICKS(10));
