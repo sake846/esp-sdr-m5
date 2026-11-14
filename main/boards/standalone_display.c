@@ -600,7 +600,11 @@ unsigned standalone_display_poll(unsigned mhz, bool pc_control) {
     if (controls.filter > 63) controls.filter = 63;
 #endif
 #elif (CONFIG_ESP_SDR_LILYGO || CONFIG_ESP_SDR_ATS_MINI)
-#if CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
+#if CONFIG_ESP_SDR_WAVESHARE_AMOLED_206
+    mhz = m5stack_controls_update(&controls, mhz, standalone_display_backend_buttons(),
+                                  (uint32_t)(esp_timer_get_time() / 1000), pc_control);
+    if (controls.filter > 63) controls.filter = 63;
+#elif CONFIG_ESP_SDR_LILYGO_T_WATCH_S3 || CONFIG_ESP_SDR_LILYGO_T_WATCH_2020
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
     if (!watch_date_format_loaded) watch_date_format_load();
     if (watch_clock_wake_pending) {

@@ -49,6 +49,7 @@ def main():
                 '-DSDKCONFIG_DEFAULTS=' + str(ROOT / profile.get('sdkconfig', 'sdkconfig.defaults.' + profile['target'])),
                 '-DESP_SDR_STREAMING=' + ('ON' if profile.get('streaming') else 'OFF')]
     command.append('-DESP_SDR_M5STACK=' + ('ON' if profile.get('m5stack') else 'OFF'))
+    command.append('-DESP_SDR_WAVESHARE_AMOLED_206=' + ('ON' if profile.get('waveshare') else 'OFF'))
     if not profile.get('streaming'):
         command += ['-DRING_PROBE=OFF', '-DSAMPLE_RATE_PROBE=OFF', '-DFILTER_REGISTER_PROBE=OFF',
                     '-DS3_RF_PROBE=OFF', '-DC5_TUNE_PROBE=OFF', '-DS2_RF_PROBE=OFF']

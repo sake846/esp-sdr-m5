@@ -21,6 +21,7 @@ in the guides below.
 | --- | --- |
 | All M5Stack, Cardputer and M5Stick models / M5Stack・Cardputer・M5Stick各機種 | [M5Stack device guide](m5stack.md) |
 | T-Watch 2020 V1/V2/V3, T-Watch S3, T-Display S3 Pro, Pager, T-Embed, T-Deck and T-Deck Pro | [LILYGO devices](lilygo.md) |
+| Waveshare ESP32-S3-Touch-AMOLED-2.06 | [Waveshare AMOLED watch](waveshare.md) |
 | ATS-mini | [ATS-mini](ats-mini.md) |
 
 ## Receiver and display / 受信・表示

@@ -11,6 +11,7 @@ This fork adapts [ESPARGOS/esp-sdr](https://github.com/ESPARGOS/esp-sdr) for the
 - Live spectrum trace and scrolling waterfall on the device display.
 - On-device tuning, display span, FFT size, averaging and gain controls.
 - Profiles for M5Stack, LILYGO and ATS-mini devices.
+- WaveShare ESP32-S3 Touch AMOLED 2.06 watch board.
 - Optional PC connection through the ESP-SDR USB/UART protocol for I/Q capture and spectrum viewing.
 - FFT sizes from 256 to 4096 points on ESP32 and ESP32-S3 profiles.
 
@@ -40,6 +41,7 @@ M5Stack BASIC, Core2, original Cardputer K132, Cardputer ADV, M5StickC Plus2, an
 | 320 × 170, landscape | [LILYGO T-Embed SI4732 / CC1101 / CC1101 Plus](docs/lilygo.md) (`lilygo-t-embed-si4732`, `lilygo-t-embed-cc1101`, `lilygo-t-embed-cc1101-plus`), [ATS-mini](docs/ats-mini.md) (`ats-mini`) | T-Embed SI4732 and CC1101 verified; CC1101 Plus and ATS-mini unverified |
 | 480 × 222, landscape | [LILYGO T-Display S3 Pro](docs/lilygo.md) (`lilygo-t-display-s3-pro`), [T-LoRa Pager](docs/lilygo.md) (`lilygo-t-pager`) | Unverified |
 | 240 × 240, touch | [LILYGO T-Watch S3](docs/lilygo.md) (`lilygo-t-watch-s3`) | Unverified |
+| 410 × 502, portrait AMOLED touch | [WaveShare ESP32-S3-Touch-AMOLED-2.06](docs/waveshare.md) (`waveshare-amoled-206`) | Unverified |
 | 240 × 240, touch | [LILYGO T-Watch 2020 V1 / V2 / V3](docs/lilygo.md) (`lilygo-t-watch-2020-v1`, `lilygo-t-watch-2020-v2`, `lilygo-t-watch-2020-v3`) | V3 verified; V1/V2 unverified |
 | 240 × 320, portrait e-paper | [LILYGO T-Deck Pro V1.0 / V1.1](docs/lilygo.md) (`lilygo-t-deck-pro`, `lilygo-t-deck-pro-v11`) | Unverified |
 | 600 × 400, landscape color e-paper | [M5Stack PaperColor](docs/m5stack.md#additional-m5stack-devices) (`m5stack-paper-color`); renders at 300 × 200 | Unverified |
@@ -49,6 +51,7 @@ M5Stack BASIC, Core2, original Cardputer K132, Cardputer ADV, M5StickC Plus2, an
 
 - [M5Stack device guide](docs/m5stack.md)
 - [LILYGO devices](docs/lilygo.md)
+- [WaveShare ESP32-S3 Touch AMOLED 2.06](docs/waveshare.md)
 - [ATS-mini](docs/ats-mini.md)
 
 T-Deck Pro uses a slower monochrome e-paper display. LILYGO profiles receive through the ESP32 or ESP32-S3 radio. See the [LILYGO guide](docs/lilygo.md) for details. Tab5 is not supported in this release because its ESP32-P4 has no RF backend; the onboard ESP32-C6 would need separate receiver firmware and a data path to the P4.

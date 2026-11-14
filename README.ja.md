@@ -11,6 +11,7 @@ M5Stack・LILYGO・ATS-miniの内蔵ESP32を使い、スペクトラムとウォ
 - 本体画面にスペクトラムとスクロール式ウォーターフォールを表示。
 - 周波数、表示スパン、FFTサイズ、平均化、ゲインを本体で操作。
 - M5Stack・LILYGO・ATS-mini向けのプロファイルを用意。
+- WaveShare ESP32-S3 Touch AMOLED 2.06インチにも対応。
 - ESP-SDRのUSB/UARTプロトコルを使ったPC接続にも対応し、I/Q取得やスペクトラム表示が可能。
 - ESP32・ESP32-S3プロファイルで256〜4096点のFFTに対応。
 
@@ -41,6 +42,7 @@ M5Stack BASIC・Core2・Cardputer通常版K132・Cardputer ADV・M5StickC Plus2�
 | 320 × 170、横 | [LILYGO T-Embed SI4732／CC1101／CC1101 Plus](docs/lilygo.md) (`lilygo-t-embed-si4732`, `lilygo-t-embed-cc1101`, `lilygo-t-embed-cc1101-plus`)、[ATS-mini](docs/ats-mini.md) (`ats-mini`) | T-Embed SI4732・CC1101は確認済み。CC1101 Plus・ATS-miniは未確認 |
 | 480 × 222、横 | [LILYGO T-Display S3 Pro](docs/lilygo.md) (`lilygo-t-display-s3-pro`)、[T-LoRa Pager](docs/lilygo.md) (`lilygo-t-pager`) | 未確認 |
 | 240 × 240、タッチ | [LILYGO T-Watch S3](docs/lilygo.md) (`lilygo-t-watch-s3`) | 未確認 |
+| 410 × 502、縦、AMOLEDタッチ | [WaveShare ESP32-S3-Touch-AMOLED-2.06](docs/waveshare.md) (`waveshare-amoled-206`) | 未確認 |
 | 240 × 240、タッチ | [LILYGO T-Watch 2020 V1／V2／V3](docs/lilygo.md) (`lilygo-t-watch-2020-v1`、`lilygo-t-watch-2020-v2`、`lilygo-t-watch-2020-v3`) | V3は確認済み、V1／V2は未確認 |
 | 240 × 320、縦、電子ペーパー | [LILYGO T-Deck Pro V1.0／V1.1](docs/lilygo.md) (`lilygo-t-deck-pro`, `lilygo-t-deck-pro-v11`) | 未確認 |
 | 600 × 400、横、カラー電子ペーパー | [M5Stack PaperColor](docs/m5stack.md#additional-m5stack-devices) (`m5stack-paper-color`)、描画座標は300 × 200 | 未確認 |
@@ -50,6 +52,7 @@ M5Stack BASIC・Core2・Cardputer通常版K132・Cardputer ADV・M5StickC Plus2�
 
 - [M5Stack機種別ガイド](docs/m5stack.md)
 - [LILYGO機種](docs/lilygo.md)
+- [WaveShare ESP32-S3 Touch AMOLED 2.06](docs/waveshare.md)
 - [ATS-mini](docs/ats-mini.md)
 
 T-Deck Proは白黒電子ペーパーのため、画面更新が低速です。LILYGO機種はESP32またはESP32-S3の内蔵無線回路で受信します。詳しくは[LILYGOガイド](docs/lilygo.md)を参照してください。Tab5は今回は未対応です。画面・アプリ側のESP32-P4用受信処理がなく、内蔵ESP32-C6には専用受信ファームウェアとP4へのデータ転送経路が必要です。

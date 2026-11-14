@@ -302,6 +302,16 @@
       "sdkconfig": "sdkconfig.defaults.lilygo-t-watch-s3"
     },
     {
+      "id": "waveshare-amoled-206",
+      "target": "esp32s3",
+      "label": "Waveshare ESP32-S3 AMOLED 2.06 (32 MB, touch, USB)",
+      "idf_ref": "25fe69f946311abdaf9ad56591f25fedbc20ac98",
+      "allow_larger_flash": true,
+      "preview": false,
+      "sdkconfig": "sdkconfig.defaults.waveshare-amoled-206",
+      "waveshare": true
+    },
+    {
       "id": "lilygo-t-watch-2020-v1",
       "target": "esp32",
       "label": "LILYGO T-Watch 2020 V1 (16 MB, LCD/touch, USB-UART)",

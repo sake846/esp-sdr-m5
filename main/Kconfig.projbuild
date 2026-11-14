@@ -10,7 +10,7 @@ menu "ESP-SDR board"
             audio amplifier powered off; their antenna/audio path is not used.
 
     choice ESP_SDR_LILYGO_BOARD
-        prompt "LILYGO standalone device"
+        prompt "ESP32/S3 standalone board"
         depends on IDF_TARGET_ESP32 || IDF_TARGET_ESP32S3
         default ESP_SDR_LILYGO_NONE
 
@@ -33,6 +33,9 @@ menu "ESP-SDR board"
             depends on IDF_TARGET_ESP32S3
         config ESP_SDR_LILYGO_T_WATCH_S3
             bool "T-Watch S3"
+            depends on IDF_TARGET_ESP32S3
+        config ESP_SDR_WAVESHARE_AMOLED_206
+            bool "Waveshare ESP32-S3-Touch-AMOLED-2.06"
             depends on IDF_TARGET_ESP32S3
         config ESP_SDR_LILYGO_T_EMBED_SI4732
             bool "T-Embed SI4732"
